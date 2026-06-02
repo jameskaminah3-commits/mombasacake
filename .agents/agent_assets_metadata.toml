@@ -1,0 +1,26 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "IdxVP2ckF3_XhnOML8eeh"
+uri = "file://artifacts/cakeshop/public/images/cake1.png"
+type = "image"
+title = "Chocolate truffle cake close up"
+
+[[generated]]
+id = "YgUW4sY1vWJ4pGS9eabjf"
+uri = "file://artifacts/cakeshop/public/images/cake2.png"
+type = "image"
+title = "Strawberry shortcake slice"
+
+[[generated]]
+id = "ZTU-L08wLTa5I2QG8Ehi6"
+uri = "file://artifacts/cakeshop/public/images/hero.png"
+type = "image"
+title = "Patisserie storefront interior"
+
+[[generated]]
+id = "9ZsciYP4agVl1nlSQNRVn"
+uri = "file://artifacts/cakeshop/public/images/cake3.png"
+type = "image"
+title = "Vanilla bean celebration cake"

@@ -3,20 +3,34 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Cake Shop API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: cakes
+    description: Cake catalog operations
+  - name: categories
+    description: Cake category operations
+  - name: orders
+    description: Order management
+  - name: payments
+    description: Payment processing
+  - name: customers
+    description: Customer management
+  - name: dashboard
+    description: Admin dashboard analytics
+  - name: promotions
+    description: Marketing promotions
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +38,565 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── CATEGORIES ─────────────────────────────────────────────────
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List all cake categories
+      responses:
+        "200":
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+    post:
+      operationId: createCategory
+      tags: [categories]
+      summary: Create a new category (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+
+  /categories/{id}:
+    get:
+      operationId: getCategory
+      tags: [categories]
+      summary: Get a category by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateCategory
+      tags: [categories]
+      summary: Update a category (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+    delete:
+      operationId: deleteCategory
+      tags: [categories]
+      summary: Delete a category (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── CAKES ──────────────────────────────────────────────────────
+  /cakes:
+    get:
+      operationId: listCakes
+      tags: [cakes]
+      summary: List cakes with optional filters
+      parameters:
+        - name: categoryId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: available
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of cakes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Cake"
+    post:
+      operationId: createCake
+      tags: [cakes]
+      summary: Create a new cake (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CakeInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cake"
+
+  /cakes/featured:
+    get:
+      operationId: getFeaturedCakes
+      tags: [cakes]
+      summary: Get featured cakes for homepage
+      responses:
+        "200":
+          description: Featured cakes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Cake"
+
+  /cakes/popular:
+    get:
+      operationId: getPopularCakes
+      tags: [cakes]
+      summary: Get most ordered cakes
+      responses:
+        "200":
+          description: Popular cakes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Cake"
+
+  /cakes/{id}:
+    get:
+      operationId: getCake
+      tags: [cakes]
+      summary: Get a cake by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Cake
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cake"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateCake
+      tags: [cakes]
+      summary: Update a cake (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CakeUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cake"
+    delete:
+      operationId: deleteCake
+      tags: [cakes]
+      summary: Delete a cake (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── CUSTOMERS ──────────────────────────────────────────────────
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List all customers (admin)
+      responses:
+        "200":
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+    post:
+      operationId: createCustomer
+      tags: [customers]
+      summary: Create or register a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get customer by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+
+  # ─── ORDERS ─────────────────────────────────────────────────────
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List orders (admin)
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: customerId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Place a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get order by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+        "404":
+          description: Not found
+
+  /orders/{id}/status:
+    patch:
+      operationId: updateOrderStatus
+      tags: [orders]
+      summary: Update order status (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderStatusUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  # ─── PAYMENTS ───────────────────────────────────────────────────
+  /payments:
+    get:
+      operationId: listPayments
+      tags: [payments]
+      summary: List all payments (admin)
+      responses:
+        "200":
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Payment"
+
+  /payments/mpesa/initiate:
+    post:
+      operationId: initiateMpesaPayment
+      tags: [payments]
+      summary: Initiate MPesa STK push payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MpesaInitiateInput"
+      responses:
+        "200":
+          description: STK push initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MpesaInitiateResponse"
+        "400":
+          description: Bad request
+
+  /payments/mpesa/callback:
+    post:
+      operationId: mpesaCallback
+      tags: [payments]
+      summary: MPesa payment callback (webhook)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MpesaCallbackInput"
+      responses:
+        "200":
+          description: Callback received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookAck"
+
+  /payments/{id}:
+    get:
+      operationId: getPayment
+      tags: [payments]
+      summary: Get payment details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+
+  # ─── DASHBOARD ──────────────────────────────────────────────────
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get admin dashboard summary stats
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/recent-orders:
+    get:
+      operationId: getDashboardRecentOrders
+      tags: [dashboard]
+      summary: Get recent orders for dashboard feed
+      responses:
+        "200":
+          description: Recent orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+
+  /dashboard/revenue-chart:
+    get:
+      operationId: getDashboardRevenueChart
+      tags: [dashboard]
+      summary: Get daily revenue for chart (last 30 days)
+      responses:
+        "200":
+          description: Revenue chart data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RevenuePoint"
+
+  # ─── PROMOTIONS ─────────────────────────────────────────────────
+  /promotions:
+    get:
+      operationId: listPromotions
+      tags: [promotions]
+      summary: List promotions
+      responses:
+        "200":
+          description: List of promotions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Promotion"
+    post:
+      operationId: createPromotion
+      tags: [promotions]
+      summary: Create a promotion (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromotionInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Promotion"
+
+  /promotions/{id}:
+    patch:
+      operationId: updatePromotion
+      tags: [promotions]
+      summary: Update a promotion (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromotionUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Promotion"
+    delete:
+      operationId: deletePromotion
+      tags: [promotions]
+      summary: Delete a promotion (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +607,407 @@ components:
       required:
         - status
 
+    # ─── CATEGORY ──────────────────────────────────────────
+    Category:
+      type: object
+      required: [id, name, slug, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+
+    CategoryInput:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        slug:
+          type: string
+          minLength: 1
+        imageUrl:
+          type: string
+
+    CategoryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        slug:
+          type: string
+          minLength: 1
+        imageUrl:
+          type: string
+
+    # ─── CAKE ──────────────────────────────────────────────
+    Cake:
+      type: object
+      required: [id, name, slug, price, available, featured, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        price:
+          type: number
+        imageUrl:
+          type: string
+          nullable: true
+        available:
+          type: boolean
+        featured:
+          type: boolean
+        categoryId:
+          type: integer
+          nullable: true
+        categoryName:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+
+    CakeInput:
+      type: object
+      required: [name, slug, price]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        slug:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        price:
+          type: number
+          minimum: 0
+        imageUrl:
+          type: string
+        available:
+          type: boolean
+        featured:
+          type: boolean
+        categoryId:
+          type: integer
+
+    CakeUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        slug:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        price:
+          type: number
+          minimum: 0
+        imageUrl:
+          type: string
+        available:
+          type: boolean
+        featured:
+          type: boolean
+        categoryId:
+          type: integer
+
+    # ─── CUSTOMER ──────────────────────────────────────────
+    Customer:
+      type: object
+      required: [id, name, phone, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+        createdAt:
+          type: string
+
+    CustomerInput:
+      type: object
+      required: [name, phone]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+        phone:
+          type: string
+          minLength: 1
+
+    # ─── ORDER ─────────────────────────────────────────────
+    OrderItem:
+      type: object
+      required: [id, cakeId, cakeName, quantity, unitPrice, subtotal]
+      properties:
+        id:
+          type: integer
+        cakeId:
+          type: integer
+        cakeName:
+          type: string
+        cakeImage:
+          type: string
+          nullable: true
+        quantity:
+          type: integer
+        unitPrice:
+          type: number
+        subtotal:
+          type: number
+
+    Order:
+      type: object
+      required: [id, status, paymentStatus, total, createdAt, items, customerName, customerPhone]
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+          nullable: true
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        customerEmail:
+          type: string
+          nullable: true
+        deliveryAddress:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+        paymentStatus:
+          type: string
+        total:
+          type: number
+        mpesaReceiptNo:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        createdAt:
+          type: string
+
+    OrderItemInput:
+      type: object
+      required: [cakeId, quantity]
+      properties:
+        cakeId:
+          type: integer
+        quantity:
+          type: integer
+          minimum: 1
+
+    OrderInput:
+      type: object
+      required: [customerName, customerPhone, items]
+      properties:
+        customerName:
+          type: string
+          minLength: 1
+        customerPhone:
+          type: string
+          minLength: 1
+        customerEmail:
+          type: string
+        deliveryAddress:
+          type: string
+        notes:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItemInput"
+
+    OrderStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+
+    # ─── PAYMENT ───────────────────────────────────────────
+    Payment:
+      type: object
+      required: [id, orderId, amount, method, status, createdAt]
+      properties:
+        id:
+          type: integer
+        orderId:
+          type: integer
+        amount:
+          type: number
+        method:
+          type: string
+        status:
+          type: string
+        mpesaReceiptNo:
+          type: string
+          nullable: true
+        checkoutRequestId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+
+    MpesaInitiateInput:
+      type: object
+      required: [orderId, phone, amount]
+      properties:
+        orderId:
+          type: integer
+        phone:
+          type: string
+        amount:
+          type: number
+
+    MpesaInitiateResponse:
+      type: object
+      required: [checkoutRequestId, responseDescription]
+      properties:
+        checkoutRequestId:
+          type: string
+        responseDescription:
+          type: string
+        merchantRequestId:
+          type: string
+          nullable: true
+
+    MpesaCallbackInput:
+      type: object
+      properties:
+        Body:
+          type: object
+
+    WebhookAck:
+      type: object
+      required: [received]
+      properties:
+        received:
+          type: boolean
+
+    # ─── DASHBOARD ─────────────────────────────────────────
+    DashboardStats:
+      type: object
+      required: [totalRevenue, totalOrders, totalCustomers, pendingOrders, todayRevenue, todayOrders]
+      properties:
+        totalRevenue:
+          type: number
+        totalOrders:
+          type: integer
+        totalCustomers:
+          type: integer
+        pendingOrders:
+          type: integer
+        todayRevenue:
+          type: number
+        todayOrders:
+          type: integer
+
+    RevenuePoint:
+      type: object
+      required: [date, revenue, orders]
+      properties:
+        date:
+          type: string
+        revenue:
+          type: number
+        orders:
+          type: integer
+
+    # ─── PROMOTIONS ────────────────────────────────────────
+    Promotion:
+      type: object
+      required: [id, title, active, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        bannerUrl:
+          type: string
+          nullable: true
+        discountPct:
+          type: number
+          nullable: true
+        active:
+          type: boolean
+        startsAt:
+          type: string
+          nullable: true
+        endsAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+
+    PromotionInput:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        bannerUrl:
+          type: string
+        discountPct:
+          type: number
+        active:
+          type: boolean
+        startsAt:
+          type: string
+        endsAt:
+          type: string
+
+    PromotionUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        bannerUrl:
+          type: string
+        discountPct:
+          type: number
+        active:
+          type: boolean
+        startsAt:
+          type: string
+        endsAt:
+          type: string

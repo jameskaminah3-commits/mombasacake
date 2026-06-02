@@ -1,0 +1,3 @@
+- [Orval nullable syntax](orval-nullable.md) — Orval v8.9.1 breaks on OpenAPI 3.1 array-syntax nullables; must use nullable:true (3.0 style).
+- [Orval schema naming](orval-schema-naming.md) — Body component names must NOT match OperationIdPascal+Body pattern; use entity-shaped names or codegen collides.
+- [DB lib build order](db-lib-build-order.md) — Run typecheck:libs before typechecking leaf packages or composite lib declarations aren't emitted.
