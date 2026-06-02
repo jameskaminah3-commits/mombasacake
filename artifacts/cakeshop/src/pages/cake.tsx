@@ -1,22 +1,125 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "wouter";
-import { useGetCake } from "@workspace/api-client-react";
+import { useGetCake, getGetCakeQueryKey } from "@workspace/api-client-react";
 import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Minus, Plus, ShoppingBag, ChevronLeft } from "lucide-react";
+import { Minus, Plus, ShoppingBag, ChevronLeft, Star } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+interface Review {
+  id: number;
+  cakeId: number;
+  authorName: string;
+  rating: number;
+  body: string;
+  createdAt: string;
+}
+
+function StarRating({ rating, onChange }: { rating: number; onChange?: (r: number) => void }) {
+  const [hovered, setHovered] = useState(0);
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: 5 }).map((_, i) => {
+        const filled = i < (onChange ? hovered || rating : rating);
+        return (
+          <Star
+            key={i}
+            className={`w-5 h-5 transition-colors ${filled ? "fill-[#c9a96e] text-[#c9a96e]" : "text-border"} ${onChange ? "cursor-pointer" : ""}`}
+            onMouseEnter={() => onChange && setHovered(i + 1)}
+            onMouseLeave={() => onChange && setHovered(0)}
+            onClick={() => onChange && onChange(i + 1)}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function ReviewCard({ review }: { review: Review }) {
+  return (
+    <div className="bg-white rounded-2xl p-6 border border-border/40 shadow-sm">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <p className="font-semibold text-foreground text-sm">{review.authorName}</p>
+          <p className="text-xs text-muted-foreground">{new Date(review.createdAt).toLocaleDateString("en-KE", { year: "numeric", month: "long", day: "numeric" })}</p>
+        </div>
+        <StarRating rating={review.rating} />
+      </div>
+      <p className="text-muted-foreground text-sm leading-relaxed">{review.body}</p>
+    </div>
+  );
+}
 
 export default function CakeDetail() {
   const { id } = useParams();
   const cakeId = Number(id);
   const { data: cake, isLoading } = useGetCake(cakeId, {
-    query: { enabled: !!cakeId, queryKey: ['cake', cakeId] }
+    query: { enabled: !!cakeId, queryKey: getGetCakeQueryKey(cakeId) }
   });
-  
+
   const { addItem } = useCart();
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
+
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewName, setReviewName] = useState("");
+  const [reviewBody, setReviewBody] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!cakeId) return;
+    const base = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+    fetch(`${base}/api/reviews/cake/${cakeId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setReviews(Array.isArray(data) ? data : []);
+        setReviewsLoading(false);
+      })
+      .catch(() => setReviewsLoading(false));
+  }, [cakeId]);
+
+  const handleAddToCart = () => {
+    if (!cake) return;
+    addItem(cake, quantity);
+    toast({ title: "Added to cart", description: `${quantity}x ${cake.name} added to your cart.` });
+  };
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewName.trim() || !reviewBody.trim() || reviewRating < 1) return;
+    setSubmitting(true);
+    try {
+      const base = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+      const res = await fetch(`${base}/api/reviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cakeId, authorName: reviewName, body: reviewBody, rating: reviewRating }),
+      });
+      if (!res.ok) throw new Error("Failed to submit review");
+      const newReview = await res.json();
+      setReviews((prev) => [newReview, ...prev]);
+      setReviewName("");
+      setReviewBody("");
+      setReviewRating(5);
+      setShowReviewForm(false);
+      toast({ title: "Review submitted", description: "Thank you for your feedback!" });
+    } catch {
+      toast({ title: "Could not submit review", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const avgRating = reviews.length > 0
+    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+    : null;
 
   if (isLoading) {
     return (
@@ -43,85 +146,179 @@ export default function CakeDetail() {
     );
   }
 
-  const handleAddToCart = () => {
-    addItem(cake, quantity);
-    toast({
-      title: "Added to cart",
-      description: `${quantity}x ${cake.name} has been added to your cart.`,
-    });
-  };
-
   return (
-    <div className="container mx-auto px-4 py-12">
-      <Link href="/menu" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground mb-8 transition-colors">
-        <ChevronLeft className="w-4 h-4 mr-1" /> Back to Menu
-      </Link>
-      
-      <div className="grid md:grid-cols-2 gap-12 items-start">
-        {/* Image */}
-        <div className="bg-card rounded-3xl overflow-hidden border border-border shadow-sm">
-          <div className="aspect-square relative">
-            <img 
-              src={cake.imageUrl || "/images/cake1.png"} 
-              alt={cake.name}
-              className="w-full h-full object-cover"
-            />
+    <div className="bg-background min-h-screen">
+      <div className="container mx-auto px-4 py-12">
+        <Link href="/menu" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground mb-8 transition-colors">
+          <ChevronLeft className="w-4 h-4 mr-1" /> Back to Menu
+        </Link>
+
+        <div className="grid md:grid-cols-2 gap-12 items-start">
+          {/* Image */}
+          <div className="bg-card rounded-3xl overflow-hidden border border-border shadow-sm">
+            <div className="aspect-square relative">
+              <img
+                src={cake.imageUrl || "/images/cake1.png"}
+                alt={cake.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className="flex flex-col">
+            {cake.categoryName && (
+              <p className="text-[#c9a96e] font-semibold uppercase tracking-wider text-sm mb-2">
+                {cake.categoryName}
+              </p>
+            )}
+            <h1 className="font-serif text-4xl md:text-5xl font-bold mb-3 text-foreground">{cake.name}</h1>
+
+            {avgRating !== null && (
+              <div className="flex items-center gap-2 mb-4">
+                <StarRating rating={Math.round(avgRating)} />
+                <span className="text-sm text-muted-foreground">
+                  {avgRating.toFixed(1)} ({reviews.length} {reviews.length === 1 ? "review" : "reviews"})
+                </span>
+              </div>
+            )}
+
+            <p className="text-2xl font-medium text-foreground mb-6">KES {cake.price.toLocaleString()}</p>
+
+            <div className="prose prose-sm md:prose-base text-muted-foreground mb-8">
+              <p>{cake.description || "A delicious creation from Crème & Co."}</p>
+            </div>
+
+            {cake.available ? (
+              <div className="space-y-6 mt-auto">
+                <div className="flex items-center gap-4">
+                  <span className="font-medium">Quantity:</span>
+                  <div className="flex items-center border border-border rounded-full bg-card p-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-full"
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      data-testid="button-qty-minus"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="w-12 text-center font-medium" data-testid="text-quantity">{quantity}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-full"
+                      onClick={() => setQuantity(quantity + 1)}
+                      data-testid="button-qty-plus"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <Button
+                  size="lg"
+                  className="w-full h-14 text-base font-semibold rounded-full bg-primary hover:bg-primary/90 text-white"
+                  onClick={handleAddToCart}
+                  data-testid="button-add-to-cart"
+                >
+                  <ShoppingBag className="w-5 h-5 mr-2" />
+                  Add to Cart — KES {(cake.price * quantity).toLocaleString()}
+                </Button>
+              </div>
+            ) : (
+              <div className="mt-auto">
+                <div className="bg-muted text-muted-foreground px-6 py-4 rounded-xl text-center font-medium">
+                  Currently Sold Out
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Details */}
-        <div className="flex flex-col">
-          {cake.categoryName && (
-            <p className="text-secondary font-semibold uppercase tracking-wider text-sm mb-2">
-              {cake.categoryName}
-            </p>
-          )}
-          <h1 className="font-serif text-4xl md:text-5xl font-bold mb-4 text-foreground">{cake.name}</h1>
-          <p className="text-2xl font-medium text-foreground mb-6">KES {cake.price.toLocaleString()}</p>
-          
-          <div className="prose prose-sm md:prose-base text-muted-foreground mb-8">
-            <p>{cake.description || "A delicious creation from Crème & Co."}</p>
+        {/* ── REVIEWS ─────────────────────────────────── */}
+        <div className="mt-20 pt-12 border-t border-border">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="font-serif text-3xl font-bold text-foreground">Customer Reviews</h2>
+              {avgRating !== null && (
+                <p className="text-muted-foreground text-sm mt-1">
+                  Average rating: {avgRating.toFixed(1)} / 5 from {reviews.length} {reviews.length === 1 ? "review" : "reviews"}
+                </p>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              className="rounded-full px-6"
+              onClick={() => setShowReviewForm(!showReviewForm)}
+              data-testid="button-write-review"
+            >
+              {showReviewForm ? "Cancel" : "Write a Review"}
+            </Button>
           </div>
 
-          {cake.available ? (
-            <div className="space-y-6 mt-auto">
-              <div className="flex items-center gap-4">
-                <span className="font-medium">Quantity:</span>
-                <div className="flex items-center border border-border rounded-full bg-card p-1">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 rounded-full"
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="w-12 text-center font-medium">{quantity}</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 rounded-full"
-                    onClick={() => setQuantity(quantity + 1)}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
+          {/* Review form */}
+          {showReviewForm && (
+            <form onSubmit={handleSubmitReview} className="bg-white rounded-2xl p-8 border border-border/40 shadow-sm mb-8">
+              <h3 className="font-serif text-xl font-bold mb-6 text-foreground">Share Your Experience</h3>
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label>Your Rating</Label>
+                  <StarRating rating={reviewRating} onChange={setReviewRating} />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="review-name">Your Name</Label>
+                  <Input
+                    id="review-name"
+                    value={reviewName}
+                    onChange={(e) => setReviewName(e.target.value)}
+                    placeholder="e.g. Amina S."
+                    required
+                    className="rounded-xl"
+                    data-testid="input-review-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="review-body">Your Review</Label>
+                  <Textarea
+                    id="review-body"
+                    value={reviewBody}
+                    onChange={(e) => setReviewBody(e.target.value)}
+                    placeholder="Tell us what you loved about this cake…"
+                    required
+                    rows={4}
+                    className="rounded-xl resize-none"
+                    data-testid="input-review-body"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={submitting || !reviewName.trim() || !reviewBody.trim()}
+                  className="rounded-full px-8 bg-primary hover:bg-primary/90 text-white"
+                  data-testid="button-submit-review"
+                >
+                  {submitting ? "Submitting…" : "Submit Review"}
+                </Button>
               </div>
-              
-              <Button 
-                size="lg" 
-                className="w-full h-14 text-base font-semibold rounded-full bg-primary hover:bg-primary/90 text-white"
-                onClick={handleAddToCart}
-              >
-                <ShoppingBag className="w-5 h-5 mr-2" />
-                Add to Cart — KES {(cake.price * quantity).toLocaleString()}
-              </Button>
+            </form>
+          )}
+
+          {/* Reviews list */}
+          {reviewsLoading ? (
+            <div className="space-y-4">
+              {[1, 2].map((i) => <Skeleton key={i} className="h-32 w-full rounded-2xl" />)}
+            </div>
+          ) : reviews.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Star className="w-10 h-10 mx-auto mb-3 text-border" />
+              <p className="font-medium">No reviews yet</p>
+              <p className="text-sm">Be the first to share your experience with {cake.name}.</p>
             </div>
           ) : (
-            <div className="mt-auto">
-              <div className="bg-muted text-muted-foreground px-6 py-4 rounded-xl text-center font-medium">
-                Currently Sold Out
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {reviews.map((review) => (
+                <ReviewCard key={review.id} review={review} />
+              ))}
             </div>
           )}
         </div>

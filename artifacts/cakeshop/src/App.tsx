@@ -3,6 +3,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "@/lib/cart-context";
+import { AuthProvider } from "@/lib/auth-context";
+import { AdminGuard } from "@/components/admin-guard";
 
 // Layouts
 import { StorefrontLayout } from "@/components/storefront-layout";
@@ -15,6 +17,9 @@ import CakeDetail from "@/pages/cake";
 import Cart from "@/pages/cart";
 import Checkout from "@/pages/checkout";
 import OrderSuccess from "@/pages/order";
+import Blog from "@/pages/blog";
+import BlogPost from "@/pages/blog-post";
+import Login from "@/pages/login";
 
 // Admin Pages
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -31,7 +36,7 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60 * 5,
     },
   },
 });
@@ -39,20 +44,25 @@ const queryClient = new QueryClient({
 function Router() {
   return (
     <Switch>
-      {/* Admin Routes */}
+      {/* Login — standalone, no layout */}
+      <Route path="/login" component={Login} />
+
+      {/* Admin Routes — protected */}
       <Route path="/admin" nest>
-        <AdminLayout>
-          <Switch>
-            <Route path="/" component={AdminDashboard} />
-            <Route path="/cakes" component={AdminCakes} />
-            <Route path="/categories" component={AdminCategories} />
-            <Route path="/orders" component={AdminOrders} />
-            <Route path="/customers" component={AdminCustomers} />
-            <Route path="/payments" component={AdminPayments} />
-            <Route path="/marketing" component={AdminMarketing} />
-            <Route component={NotFound} />
-          </Switch>
-        </AdminLayout>
+        <AdminGuard>
+          <AdminLayout>
+            <Switch>
+              <Route path="/" component={AdminDashboard} />
+              <Route path="/cakes" component={AdminCakes} />
+              <Route path="/categories" component={AdminCategories} />
+              <Route path="/orders" component={AdminOrders} />
+              <Route path="/customers" component={AdminCustomers} />
+              <Route path="/payments" component={AdminPayments} />
+              <Route path="/marketing" component={AdminMarketing} />
+              <Route component={NotFound} />
+            </Switch>
+          </AdminLayout>
+        </AdminGuard>
       </Route>
 
       {/* Storefront Routes */}
@@ -65,6 +75,8 @@ function Router() {
             <Route path="/cart" component={Cart} />
             <Route path="/checkout" component={Checkout} />
             <Route path="/order/:id" component={OrderSuccess} />
+            <Route path="/blog" component={Blog} />
+            <Route path="/blog/:slug" component={BlogPost} />
             <Route component={NotFound} />
           </Switch>
         </StorefrontLayout>
@@ -77,11 +89,13 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <CartProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-        </CartProvider>
+        <AuthProvider>
+          <CartProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <Router />
+            </WouterRouter>
+          </CartProvider>
+        </AuthProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

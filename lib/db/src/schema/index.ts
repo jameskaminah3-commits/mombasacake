@@ -4,3 +4,6 @@ export * from "./customers";
 export * from "./orders";
 export * from "./payments";
 export * from "./promotions";
+export * from "./reviews";
+export * from "./admins";
+export * from "./blog";

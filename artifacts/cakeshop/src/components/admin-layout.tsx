@@ -7,11 +7,14 @@ import {
   Users, 
   CreditCard, 
   Megaphone,
-  LogOut
+  LogOut,
+  ExternalLink
 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const { admin, logout } = useAuth();
 
   const navItems = [
     { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -50,20 +53,46 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="p-4 border-t border-sidebar-border space-y-1">
+          {admin && (
+            <div className="px-3 py-2 mb-2">
+              <p className="text-xs font-medium text-sidebar-foreground truncate">{admin.name}</p>
+              <p className="text-xs text-sidebar-foreground/50 truncate">{admin.email}</p>
+            </div>
+          )}
           <Link href="/" className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors">
-            <LogOut className="w-5 h-5" />
+            <ExternalLink className="w-5 h-5" />
             Storefront
           </Link>
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-sidebar-foreground/70 hover:bg-red-50 hover:text-red-600 transition-colors"
+            data-testid="button-logout"
+          >
+            <LogOut className="w-5 h-5" />
+            Sign Out
+          </button>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-16 bg-background border-b border-border flex items-center px-8 md:hidden">
-          <Link href="/admin" className="font-serif text-xl font-bold">Crème Admin</Link>
+        <header className="h-16 bg-background border-b border-border flex items-center justify-between px-6 md:px-8">
+          <Link href="/admin" className="font-serif text-xl font-bold md:hidden">Crème Admin</Link>
+          {admin && (
+            <p className="text-sm text-muted-foreground hidden md:block">
+              Signed in as <span className="font-medium text-foreground">{admin.name}</span>
+            </p>
+          )}
+          <button
+            onClick={logout}
+            className="md:hidden flex items-center gap-2 text-sm text-muted-foreground hover:text-red-600 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign out
+          </button>
         </header>
-        <div className="flex-1 overflow-auto p-8">
+        <div className="flex-1 overflow-auto p-6 md:p-8">
           <div className="max-w-7xl mx-auto">
             {children}
           </div>

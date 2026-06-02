@@ -3,6 +3,15 @@ import { useCart } from "@/lib/cart-context";
 import { ShoppingBag, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { SiFacebook, SiInstagram, SiTiktok, SiYoutube, SiWhatsapp } from "react-icons/si";
+
+const SOCIALS = [
+  { icon: SiFacebook, href: "https://facebook.com/cremeandco", label: "Facebook" },
+  { icon: SiInstagram, href: "https://instagram.com/cremeandco", label: "Instagram" },
+  { icon: SiTiktok, href: "https://tiktok.com/@cremeandco", label: "TikTok" },
+  { icon: SiYoutube, href: "https://youtube.com/@cremeandco", label: "YouTube" },
+  { icon: SiWhatsapp, href: "https://wa.me/254700000000", label: "WhatsApp" },
+];
 
 export function StorefrontLayout({ children }: { children: React.ReactNode }) {
   const { itemCount } = useCart();
@@ -10,6 +19,16 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
 
   const closeMenu = () => setIsMobileMenuOpen(false);
+
+  const navLink = (href: string, label: string) => (
+    <Link
+      href={href}
+      onClick={closeMenu}
+      className={`transition-colors hover:text-primary ${location === href ? "text-primary" : "text-foreground/80"}`}
+    >
+      {label}
+    </Link>
+  );
 
   return (
     <div className="min-h-[100dvh] flex flex-col font-sans">
@@ -19,20 +38,10 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
             <span className="font-serif text-2xl font-bold text-primary tracking-tight">Crème & Co.</span>
           </Link>
 
-          {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
-            <Link
-              href="/"
-              className={`transition-colors hover:text-primary ${location === "/" ? "text-primary" : "text-foreground/80"}`}
-            >
-              Home
-            </Link>
-            <Link
-              href="/menu"
-              className={`transition-colors hover:text-primary ${location === "/menu" ? "text-primary" : "text-foreground/80"}`}
-            >
-              Menu
-            </Link>
+            {navLink("/", "Home")}
+            {navLink("/menu", "Menu")}
+            {navLink("/blog", "Blog")}
             <Link href="/cart" className="relative group">
               <ShoppingBag className="w-5 h-5 text-foreground/80 group-hover:text-primary transition-colors" />
               {itemCount > 0 && (
@@ -43,7 +52,6 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
             </Link>
           </nav>
 
-          {/* Mobile Menu Toggle */}
           <div className="md:hidden flex items-center gap-4">
             <Link href="/cart" className="relative group" onClick={closeMenu}>
               <ShoppingBag className="w-6 h-6 text-foreground/80" />
@@ -65,54 +73,92 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      {/* Mobile Navigation */}
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-background pt-20">
           <nav className="flex flex-col items-center gap-8 p-8 text-lg font-serif">
-            <Link
-              href="/"
-              onClick={closeMenu}
-              className={`${location === "/" ? "text-primary font-bold" : "text-foreground/80"}`}
-            >
-              Home
-            </Link>
-            <Link
-              href="/menu"
-              onClick={closeMenu}
-              className={`${location === "/menu" ? "text-primary font-bold" : "text-foreground/80"}`}
-            >
-              Menu
-            </Link>
+            <Link href="/" onClick={closeMenu} className={`${location === "/" ? "text-primary font-bold" : "text-foreground/80"}`}>Home</Link>
+            <Link href="/menu" onClick={closeMenu} className={`${location === "/menu" ? "text-primary font-bold" : "text-foreground/80"}`}>Menu</Link>
+            <Link href="/blog" onClick={closeMenu} className={`${location === "/blog" ? "text-primary font-bold" : "text-foreground/80"}`}>Blog</Link>
           </nav>
         </div>
       )}
 
       <main className="flex-1 flex flex-col">{children}</main>
 
-      <footer className="bg-foreground text-background py-12">
-        <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left">
-          <div>
-            <h3 className="font-serif text-2xl font-bold mb-4 text-secondary">Crème & Co.</h3>
-            <p className="text-muted/80 text-sm max-w-xs mx-auto md:mx-0">
-              Premium artisan celebration cakes, custom creations, and everyday indulgences based in Nairobi, Kenya.
-            </p>
+      <footer className="bg-[#1a0f0a] text-white">
+        <div className="container mx-auto px-4 pt-16 pb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+            {/* Brand */}
+            <div className="md:col-span-1">
+              <h3 className="font-serif text-2xl font-bold mb-4 text-[#c9a96e]">Crème & Co.</h3>
+              <p className="text-white/60 text-sm leading-relaxed max-w-xs">
+                Premium artisan celebration cakes, custom creations, and everyday indulgences — handcrafted in Mombasa, Kenya.
+              </p>
+              {/* Socials */}
+              <div className="flex items-center gap-3 mt-6">
+                {SOCIALS.map(({ icon: Icon, href, label }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    className="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 hover:bg-[#c9a96e] transition-colors"
+                  >
+                    <Icon className="w-4 h-4" />
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* Explore */}
+            <div>
+              <h4 className="font-semibold mb-5 uppercase tracking-widest text-xs text-[#c9a96e]">Explore</h4>
+              <ul className="space-y-3 text-sm text-white/60">
+                <li><Link href="/" className="hover:text-white transition-colors">Home</Link></li>
+                <li><Link href="/menu" className="hover:text-white transition-colors">Our Menu</Link></li>
+                <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
+                <li><Link href="/cart" className="hover:text-white transition-colors">Cart</Link></li>
+              </ul>
+            </div>
+
+            {/* Visit */}
+            <div>
+              <h4 className="font-semibold mb-5 uppercase tracking-widest text-xs text-[#c9a96e]">Visit Us</h4>
+              <ul className="space-y-3 text-sm text-white/60">
+                <li>Mombasa, Kenya</li>
+                <li>Mon – Sat: 8am – 7pm</li>
+                <li>Sun: 9am – 5pm</li>
+              </ul>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <h4 className="font-semibold mb-5 uppercase tracking-widest text-xs text-[#c9a96e]">Contact</h4>
+              <ul className="space-y-3 text-sm text-white/60">
+                <li>
+                  <a href="mailto:hello@cremeandco.ke" className="hover:text-white transition-colors">
+                    hello@cremeandco.ke
+                  </a>
+                </li>
+                <li>
+                  <a href="tel:+254700000000" className="hover:text-white transition-colors">
+                    +254 700 000 000
+                  </a>
+                </li>
+                <li>
+                  <a href="https://wa.me/254700000000" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                    WhatsApp us
+                  </a>
+                </li>
+              </ul>
+            </div>
           </div>
-          <div>
-            <h4 className="font-bold mb-4 uppercase tracking-wider text-sm text-secondary">Explore</h4>
-            <ul className="space-y-2 text-sm text-muted/80">
-              <li><Link href="/" className="hover:text-primary-foreground transition-colors">Home</Link></li>
-              <li><Link href="/menu" className="hover:text-primary-foreground transition-colors">Menu</Link></li>
-            </ul>
+
+          <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-white/40">
+            <span>&copy; {new Date().getFullYear()} Crème & Co. All rights reserved.</span>
+            <Link href="/login" className="hover:text-white/60 transition-colors">Staff login</Link>
           </div>
-          <div>
-            <h4 className="font-bold mb-4 uppercase tracking-wider text-sm text-secondary">Connect</h4>
-            <p className="text-muted/80 text-sm mb-2">Nairobi, Kenya</p>
-            <p className="text-muted/80 text-sm">hello@cremeandco.ke</p>
-            <p className="text-muted/80 text-sm">+254 700 000 000</p>
-          </div>
-        </div>
-        <div className="container mx-auto px-4 mt-12 pt-8 border-t border-muted/20 text-center text-sm text-muted/50">
-          &copy; {new Date().getFullYear()} Crème & Co. All rights reserved.
         </div>
       </footer>
     </div>
