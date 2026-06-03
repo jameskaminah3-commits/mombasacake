@@ -34,6 +34,7 @@ async function seed() {
         description:
           "Layers of moist red velvet sponge with cream cheese frosting, finished with a dusting of cocoa.",
         price: "3800",
+        imageUrl: "/gallery/cake-red-butterfly.jpeg",
         available: true,
         featured: true,
         categoryId: categoryId(celebrationCat),
@@ -44,6 +45,7 @@ async function seed() {
         description:
           "Butterscotch sponge, salted caramel ganache, and a crown of hand-pulled sugar shards.",
         price: "4500",
+        imageUrl: "/gallery/cake-gold-butterfly.jpeg",
         available: true,
         featured: true,
         categoryId: categoryId(celebrationCat),
@@ -54,6 +56,7 @@ async function seed() {
         description:
           "Three tiers of vanilla bean sponge draped in ivory fondant with hand-piped lace detail.",
         price: "18500",
+        imageUrl: "/gallery/cake-white-gold.jpeg",
         available: true,
         featured: false,
         categoryId: categoryId(weddingCat),
@@ -64,6 +67,7 @@ async function seed() {
         description:
           "Elderflower and lemon sponge topped with cascading sugar roses in blush and white.",
         price: "22000",
+        imageUrl: "/gallery/cake-princess-wave.jpeg",
         available: true,
         featured: true,
         categoryId: categoryId(weddingCat),
@@ -74,6 +78,7 @@ async function seed() {
         description:
           "Intense 70% dark chocolate sponge with whipped ganache and a cocoa-dusted truffle crown.",
         price: "2800",
+        imageUrl: "/gallery/cake-tuxedo.jpeg",
         available: true,
         featured: false,
         categoryId: categoryId(everydayCat),
@@ -84,6 +89,7 @@ async function seed() {
         description:
           "Sunshine lemon sponge soaked in zesty sugar syrup, glazed and topped with candied peel.",
         price: "1800",
+        imageUrl: "/gallery/cake-heart.jpeg",
         available: true,
         featured: false,
         categoryId: categoryId(everydayCat),
@@ -94,6 +100,7 @@ async function seed() {
         description:
           "Delicate matcha sponge layered with white chocolate mousse and a mirror glaze finish.",
         price: "3200",
+        imageUrl: "/gallery/cake-blue-gold.jpeg",
         available: true,
         featured: true,
         categoryId: categoryId(everydayCat),
@@ -104,6 +111,7 @@ async function seed() {
         description:
           "Fully custom creation — your vision, our craft. Minimum order 72 hours in advance.",
         price: "9500",
+        imageUrl: "/gallery/cake-lady-dress.jpeg",
         available: true,
         featured: false,
         categoryId: categoryId(customCat),
