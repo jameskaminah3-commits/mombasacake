@@ -1,6 +1,6 @@
-# Crème & Co.
+# Channah Cakes
 
-A premium artisan cake-selling web app for Nairobi-based patisserie Crème & Co. — customers browse, order, and pay via MPesa; admins manage everything from a dashboard.
+A premium artisan cake-selling web app for Mombasa-based cake studio Channah Cakes — customers browse, order, and pay via MPesa; admins manage everything from a dashboard.
 
 ## Run & Operate
 

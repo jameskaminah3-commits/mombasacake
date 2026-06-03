@@ -4,12 +4,13 @@ import { ShoppingBag, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SiFacebook, SiInstagram, SiTiktok, SiYoutube, SiWhatsapp } from "react-icons/si";
+import logoUrl from "/logo.jpeg";
 
 const SOCIALS = [
-  { icon: SiFacebook, href: "https://facebook.com/cremeandco", label: "Facebook" },
-  { icon: SiInstagram, href: "https://instagram.com/cremeandco", label: "Instagram" },
-  { icon: SiTiktok, href: "https://tiktok.com/@cremeandco", label: "TikTok" },
-  { icon: SiYoutube, href: "https://youtube.com/@cremeandco", label: "YouTube" },
+  { icon: SiFacebook, href: "https://facebook.com/channahcakes", label: "Facebook" },
+  { icon: SiInstagram, href: "https://instagram.com/channahcakes", label: "Instagram" },
+  { icon: SiTiktok, href: "https://tiktok.com/@channahcakes", label: "TikTok" },
+  { icon: SiYoutube, href: "https://youtube.com/@channahcakes", label: "YouTube" },
   { icon: SiWhatsapp, href: "https://wa.me/254700000000", label: "WhatsApp" },
 ];
 
@@ -24,7 +25,7 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
     <Link
       href={href}
       onClick={closeMenu}
-      className={`transition-colors hover:text-primary ${location === href ? "text-primary" : "text-foreground/80"}`}
+      className={`transition-colors hover:text-primary ${location === href ? "text-primary font-semibold" : "text-foreground/80"}`}
     >
       {label}
     </Link>
@@ -34,8 +35,11 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-[100dvh] flex flex-col font-sans">
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
-          <Link href="/" className="flex items-center space-x-2" onClick={closeMenu}>
-            <span className="font-serif text-2xl font-bold text-primary tracking-tight">Crème & Co.</span>
+          <Link href="/" className="flex items-center gap-3" onClick={closeMenu}>
+            <img src={logoUrl} alt="Channah Cakes" className="h-12 w-12 object-contain rounded-lg" />
+            <span className="font-serif text-xl font-bold text-secondary tracking-tight leading-tight">
+              Channah<br /><span className="text-primary text-sm tracking-[0.18em] font-extrabold uppercase">Cakes</span>
+            </span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
@@ -85,12 +89,15 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
 
       <main className="flex-1 flex flex-col">{children}</main>
 
-      <footer className="bg-[#1a0f0a] text-white">
+      <footer className="bg-[#1a0d12] text-white">
         <div className="container mx-auto px-4 pt-16 pb-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
             {/* Brand */}
             <div className="md:col-span-1">
-              <h3 className="font-serif text-2xl font-bold mb-4 text-[#c9a96e]">Crème & Co.</h3>
+              <div className="flex items-center gap-3 mb-4">
+                <img src={logoUrl} alt="Channah Cakes" className="h-12 w-12 object-contain rounded-lg bg-white/10 p-1" />
+                <h3 className="font-serif text-xl font-bold text-[#E0187A]">Channah Cakes</h3>
+              </div>
               <p className="text-white/60 text-sm leading-relaxed max-w-xs">
                 Premium artisan celebration cakes, custom creations, and everyday indulgences — handcrafted in Mombasa, Kenya.
               </p>
@@ -103,7 +110,7 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={label}
-                    className="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 hover:bg-[#c9a96e] transition-colors"
+                    className="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 hover:bg-[#E0187A] transition-colors"
                   >
                     <Icon className="w-4 h-4" />
                   </a>
@@ -113,7 +120,7 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
 
             {/* Explore */}
             <div>
-              <h4 className="font-semibold mb-5 uppercase tracking-widest text-xs text-[#c9a96e]">Explore</h4>
+              <h4 className="font-semibold mb-5 uppercase tracking-widest text-xs text-[#E0187A]">Explore</h4>
               <ul className="space-y-3 text-sm text-white/60">
                 <li><Link href="/" className="hover:text-white transition-colors">Home</Link></li>
                 <li><Link href="/menu" className="hover:text-white transition-colors">Our Menu</Link></li>
@@ -124,7 +131,7 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
 
             {/* Visit */}
             <div>
-              <h4 className="font-semibold mb-5 uppercase tracking-widest text-xs text-[#c9a96e]">Visit Us</h4>
+              <h4 className="font-semibold mb-5 uppercase tracking-widest text-xs text-[#E0187A]">Visit Us</h4>
               <ul className="space-y-3 text-sm text-white/60">
                 <li>Mombasa, Kenya</li>
                 <li>Mon – Sat: 8am – 7pm</li>
@@ -134,11 +141,11 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
 
             {/* Contact */}
             <div>
-              <h4 className="font-semibold mb-5 uppercase tracking-widest text-xs text-[#c9a96e]">Contact</h4>
+              <h4 className="font-semibold mb-5 uppercase tracking-widest text-xs text-[#E0187A]">Contact</h4>
               <ul className="space-y-3 text-sm text-white/60">
                 <li>
-                  <a href="mailto:hello@cremeandco.ke" className="hover:text-white transition-colors">
-                    hello@cremeandco.ke
+                  <a href="mailto:hello@channahcakes.ke" className="hover:text-white transition-colors">
+                    hello@channahcakes.ke
                   </a>
                 </li>
                 <li>
@@ -156,7 +163,7 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-white/40">
-            <span>&copy; {new Date().getFullYear()} Crème & Co. All rights reserved.</span>
+            <span>&copy; {new Date().getFullYear()} Channah Cakes. All rights reserved.</span>
             <Link href="/login" className="hover:text-white/60 transition-colors">Staff login</Link>
           </div>
         </div>

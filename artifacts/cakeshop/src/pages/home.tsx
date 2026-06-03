@@ -18,7 +18,7 @@ function CakeCardSkeleton() {
 }
 
 const WHY_US = [
-  { icon: Star, title: "Artisan Quality", desc: "Every cake is handcrafted from scratch using premium Belgian chocolate, farm-fresh eggs, and real Kenyan butter." },
+  { icon: Star, title: "Artisan Quality", desc: "Every cake is handcrafted from scratch using premium chocolate, farm-fresh eggs, and the finest Kenyan ingredients." },
   { icon: Truck, title: "Mombasa Delivery", desc: "We deliver across Mombasa County. Order by noon for same-day delivery on selected items." },
   { icon: Clock, title: "Made to Order", desc: "Fresh-baked daily. Custom orders accepted 48 hours in advance for weddings and events." },
   { icon: ShieldCheck, title: "Secure MPesa Checkout", desc: "Pay safely and instantly with your Safaricom MPesa — no cards, no hassle." },
@@ -51,7 +51,7 @@ function StarRating({ rating }: { rating: number }) {
       {Array.from({ length: 5 }).map((_, i) => (
         <Star
           key={i}
-          className={`w-4 h-4 ${i < rating ? "fill-[#c9a96e] text-[#c9a96e]" : "text-border"}`}
+          className={`w-4 h-4 ${i < rating ? "fill-primary text-primary" : "text-border"}`}
         />
       ))}
     </div>
@@ -72,13 +72,13 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60 z-10" />
         <img
           src="/images/hero.png"
-          alt="Crème & Co. Patisserie"
+          alt="Channah Cakes — Mombasa's favourite cake studio"
           className="absolute inset-0 w-full h-full object-cover scale-105"
           style={{ animation: "slowZoom 20s ease-in-out infinite alternate" }}
         />
         <div className="relative z-20 container mx-auto px-4 text-center text-white">
           <p className="uppercase tracking-[0.3em] text-white/70 text-xs md:text-sm font-medium mb-6">
-            Mombasa's Premier Patisserie
+            Mombasa's Favourite Cake Studio
           </p>
           <h1 className="font-serif text-6xl md:text-8xl font-bold mb-6 drop-shadow-md leading-tight">
             Decadence<br className="hidden md:block" /> in Every Bite
@@ -89,7 +89,7 @@ export default function Home() {
           <div className="flex items-center justify-center gap-4 flex-wrap">
             <Button
               size="lg"
-              className="bg-[#c9a96e] hover:bg-[#b8944f] text-white font-semibold rounded-full px-10 text-base h-14 shadow-lg shadow-black/30"
+              className="bg-primary hover:bg-primary/90 text-white font-semibold rounded-full px-10 text-base h-14 shadow-lg shadow-black/30"
               asChild
             >
               <Link href="/menu">Order Now</Link>
@@ -134,10 +134,10 @@ export default function Home() {
       )}
 
       {/* ── WHY US ──────────────────────────────────────── */}
-      <section className="py-20 bg-[#faf7f4]">
+      <section className="py-20 bg-accent/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <p className="uppercase tracking-widest text-xs text-[#c9a96e] font-semibold mb-3">Why Crème & Co.</p>
+            <p className="uppercase tracking-widest text-xs text-primary font-semibold mb-3">Why Channah Cakes</p>
             <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground">Baked Different</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -158,7 +158,7 @@ export default function Home() {
       <section className="py-24 container mx-auto px-4">
         <div className="flex flex-col md:flex-row justify-between items-end mb-14 gap-4">
           <div>
-            <p className="uppercase tracking-widest text-xs text-[#c9a96e] font-semibold mb-3">Handpicked for You</p>
+            <p className="uppercase tracking-widest text-xs text-primary font-semibold mb-3">Handpicked for You</p>
             <h2 className="font-serif text-4xl font-bold text-foreground">Featured Creations</h2>
           </div>
           <Link href="/menu" className="flex items-center gap-1 text-primary font-medium text-sm hover:underline whitespace-nowrap">
@@ -187,14 +187,14 @@ export default function Home() {
                       </div>
                     )}
                     {cake.featured && (
-                      <div className="absolute top-4 right-4 bg-[#c9a96e] text-white px-3 py-1 text-xs font-bold rounded-full shadow-sm">
+                      <div className="absolute top-4 right-4 bg-primary text-white px-3 py-1 text-xs font-bold rounded-full shadow-sm">
                         Featured
                       </div>
                     )}
                   </div>
                   <CardContent className="p-6 text-center">
                     <h3 className="font-serif text-xl font-bold mb-1 group-hover:text-primary transition-colors">{cake.name}</h3>
-                    <p className="text-[#c9a96e] font-semibold tracking-wide">KES {cake.price.toLocaleString()}</p>
+                    <p className="text-secondary font-semibold tracking-wide">KES {cake.price.toLocaleString()}</p>
                   </CardContent>
                 </Card>
               </Link>
@@ -209,7 +209,7 @@ export default function Home() {
           <div className="relative min-h-[500px]">
             <img
               src="/images/cake2.png"
-              alt="Inside our patisserie"
+              alt="Inside Channah Cakes kitchen"
               className="absolute inset-0 w-full h-full object-cover"
             />
           </div>
@@ -219,15 +219,15 @@ export default function Home() {
               <h2 className="font-serif text-4xl font-bold mb-6 text-white leading-snug">
                 Crafted with Love<br />in Mombasa
               </h2>
-              <p className="text-white/75 leading-relaxed mb-6">
-                Crème & Co. was born from a simple belief: that a great cake can make any moment unforgettable. Nestled on the Kenyan coast, we blend French patisserie technique with locally sourced ingredients — farm-fresh dairy, ripe tropical flavors, and the warmth of Mombasa hospitality.
+              <p className="text-white/80 leading-relaxed mb-6">
+                Channah Cakes was born from a simple belief: that a truly great cake can make any moment unforgettable. Nestled on the Kenyan coast, we pour our hearts into every creation — using fresh local ingredients, bold flavours, and the warmth of Mombasa hospitality.
               </p>
-              <p className="text-white/75 leading-relaxed mb-8">
-                Every creation leaves our kitchen wrapped in care and designed to delight. From intimate birthdays to grand weddings, we pour the same devotion into every tier, every layer, every bite.
+              <p className="text-white/80 leading-relaxed mb-8">
+                From intimate birthday cakes to grand multi-tier wedding centrepieces, every order gets the same love and attention. We bake fresh, we deliver fast, and we never compromise on taste.
               </p>
               <Button
                 asChild
-                className="bg-[#c9a96e] hover:bg-[#b8944f] text-white font-semibold rounded-full px-8 h-12"
+                className="bg-primary hover:bg-primary/90 text-white font-semibold rounded-full px-8 h-12"
               >
                 <Link href="/menu">Explore Our Menu</Link>
               </Button>
@@ -237,11 +237,11 @@ export default function Home() {
       </section>
 
       {/* ── POPULAR CAKES ───────────────────────────────── */}
-      <section className="py-24 bg-[#faf7f4]">
+      <section className="py-24 bg-accent/30">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-4">
             <div>
-              <p className="uppercase tracking-widest text-xs text-[#c9a96e] font-semibold mb-3">Bestsellers</p>
+              <p className="uppercase tracking-widest text-xs text-primary font-semibold mb-3">Bestsellers</p>
               <h2 className="font-serif text-4xl font-bold text-foreground">Crowd Favorites</h2>
             </div>
             <Link href="/menu" className="flex items-center gap-1 text-primary font-medium text-sm hover:underline whitespace-nowrap">
@@ -267,7 +267,7 @@ export default function Home() {
                     </div>
                     <CardContent className="p-4">
                       <h3 className="font-bold text-base mb-1 truncate">{cake.name}</h3>
-                      <p className="text-[#c9a96e] text-sm font-semibold">KES {cake.price.toLocaleString()}</p>
+                      <p className="text-secondary text-sm font-semibold">KES {cake.price.toLocaleString()}</p>
                     </CardContent>
                   </Card>
                 </Link>
@@ -280,7 +280,7 @@ export default function Home() {
       {/* ── TESTIMONIALS ────────────────────────────────── */}
       <section className="py-24 container mx-auto px-4">
         <div className="text-center mb-14">
-          <p className="uppercase tracking-widest text-xs text-[#c9a96e] font-semibold mb-3">Happy Customers</p>
+          <p className="uppercase tracking-widest text-xs text-primary font-semibold mb-3">Happy Customers</p>
           <h2 className="font-serif text-4xl font-bold text-foreground">What Mombasa is Saying</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -312,7 +312,7 @@ export default function Home() {
           </p>
           <Button
             size="lg"
-            className="bg-[#c9a96e] hover:bg-[#b8944f] text-white font-semibold rounded-full px-10 h-14 text-base shadow-lg"
+            className="bg-white text-primary hover:bg-white/90 font-semibold rounded-full px-10 h-14 text-base shadow-lg"
             asChild
           >
             <Link href="/menu">Shop All Cakes</Link>

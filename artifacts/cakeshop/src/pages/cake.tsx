@@ -186,7 +186,7 @@ export default function CakeDetail() {
             <p className="text-2xl font-medium text-foreground mb-6">KES {cake.price.toLocaleString()}</p>
 
             <div className="prose prose-sm md:prose-base text-muted-foreground mb-8">
-              <p>{cake.description || "A delicious creation from Crème & Co."}</p>
+              <p>{cake.description || "A delicious creation from Channah Cakes."}</p>
             </div>
 
             {cake.available ? (

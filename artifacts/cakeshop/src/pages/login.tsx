@@ -35,8 +35,11 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-[#faf7f4] px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
-          <Link href="/" className="inline-block">
-            <span className="font-serif text-4xl font-bold text-primary tracking-tight">Crème & Co.</span>
+          <Link href="/" className="inline-flex flex-col items-center gap-2">
+            <img src="/logo.jpeg" alt="Channah Cakes" className="h-20 w-20 object-contain rounded-2xl shadow-md" />
+            <span className="font-serif text-3xl font-bold text-secondary tracking-tight">
+              Channah <span className="text-primary">Cakes</span>
+            </span>
           </Link>
           <p className="text-muted-foreground mt-3 text-sm">Staff & admin access only</p>
         </div>
@@ -55,7 +58,7 @@ export default function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@cremeandco.ke"
+                  placeholder="admin@channahcakes.ke"
                   required
                   className="h-12 rounded-xl border-border"
                   data-testid="input-email"
@@ -105,7 +108,7 @@ export default function Login() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-8">
-          Crème & Co. &mdash; Mombasa, Kenya
+          Channah Cakes &mdash; Mombasa, Kenya
         </p>
       </div>
     </div>
