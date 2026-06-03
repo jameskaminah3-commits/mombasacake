@@ -29,7 +29,7 @@ const TESTIMONIALS = [
     name: "Amina S.",
     location: "Mombasa",
     rating: 5,
-    text: "The Red Velvet Bliss was absolutely extraordinary. Our guests could not stop talking about it at my daughter's birthday party.",
+    text: "The custom birthday cake was absolutely extraordinary. Our guests could not stop talking about it — the detail was incredible!",
   },
   {
     name: "Brian K.",
@@ -41,8 +41,27 @@ const TESTIMONIALS = [
     name: "Fatuma A.",
     location: "Bamburi",
     rating: 5,
-    text: "The Salted Caramel Dream is the best thing I have ever eaten. Delivery was prompt and the packaging was beautiful.",
+    text: "The butterfly cake is the best thing I have ever seen and tasted. Delivery was prompt and the packaging was beautiful.",
   },
+];
+
+const GALLERY = [
+  { src: "/gallery/cake-lady-dress.jpeg",     label: "Lady in Blue"         },
+  { src: "/gallery/cake-gold-butterfly.jpeg",  label: "Gold Butterfly"       },
+  { src: "/gallery/cake-purple-butterfly.jpeg",label: "Purple Butterfly"     },
+  { src: "/gallery/cake-blue-gold.jpeg",       label: "Blue & Gold"          },
+  { src: "/gallery/cake-heels.jpeg",           label: "Glam Heels"           },
+  { src: "/gallery/cake-princess-wave.jpeg",   label: "Princess"             },
+  { src: "/gallery/cake-red-butterfly.jpeg",   label: "Red Butterfly"        },
+  { src: "/gallery/cake-white-gold.jpeg",      label: "White & Gold"         },
+  { src: "/gallery/cake-kenya-flag.jpeg",      label: "Kenya Flag"           },
+  { src: "/gallery/cake-tuxedo.jpeg",          label: "Tuxedo"               },
+  { src: "/gallery/cake-stitch.jpeg",          label: "Stitch Birthday"      },
+  { src: "/gallery/cake-butterfly-birthday.jpeg", label: "Butterfly Birthday"},
+  { src: "/gallery/cake-teenager.jpeg",        label: "Teenager Special"     },
+  { src: "/gallery/cake-spiderman.jpeg",       label: "Spiderman Party"      },
+  { src: "/gallery/cake-girl-jeans.jpeg",      label: "Girls Vibes"          },
+  { src: "/gallery/cake-heart.jpeg",           label: "Heart Anniversary"    },
 ];
 
 function StarRating({ rating }: { rating: number }) {
@@ -69,9 +88,9 @@ export default function Home() {
     <div className="flex flex-col w-full">
       {/* ── HERO ─────────────────────────────────────────── */}
       <section className="relative w-full h-[90vh] min-h-[640px] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-black/60 z-10" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/35 to-black/65 z-10" />
         <img
-          src="/images/hero.png"
+          src="/gallery/cake-lady-dress.jpeg"
           alt="Channah Cakes — Mombasa's favourite cake studio"
           className="absolute inset-0 w-full h-full object-cover scale-105"
           style={{ animation: "slowZoom 20s ease-in-out infinite alternate" }}
@@ -84,7 +103,7 @@ export default function Home() {
             Decadence<br className="hidden md:block" /> in Every Bite
           </h1>
           <p className="text-lg md:text-xl max-w-2xl mx-auto mb-10 text-white/85 drop-shadow leading-relaxed">
-            Artisan celebration cakes, custom wedding creations, and everyday indulgences — crafted with passion and the finest ingredients.
+            Custom birthday cakes, wedding creations, themed specials, and everyday indulgences — crafted with love in Mombasa.
           </p>
           <div className="flex items-center justify-center gap-4 flex-wrap">
             <Button
@@ -177,7 +196,7 @@ export default function Home() {
                 <Card className="group overflow-hidden border-none shadow-md hover:shadow-xl transition-all duration-300 rounded-2xl cursor-pointer bg-white">
                   <div className="aspect-[4/5] overflow-hidden relative">
                     <img
-                      src={cake.imageUrl || "/images/cake1.png"}
+                      src={cake.imageUrl || "/gallery/cake-gold-butterfly.jpeg"}
                       alt={cake.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
@@ -203,13 +222,44 @@ export default function Home() {
         )}
       </section>
 
+      {/* ── GALLERY — REAL WORK ──────────────────────────── */}
+      <section className="py-20 bg-[#1a0d12]">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <p className="uppercase tracking-widest text-xs text-primary font-semibold mb-3">Real Creations</p>
+            <h2 className="font-serif text-4xl font-bold text-white">Our Work Speaks</h2>
+            <p className="text-white/50 mt-3 text-sm max-w-md mx-auto">Every cake in this gallery was made right here in our Mombasa studio — no stock photos, just real joy.</p>
+          </div>
+          <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 space-y-3">
+            {GALLERY.map(({ src, label }) => (
+              <div key={src} className="break-inside-avoid rounded-xl overflow-hidden group relative">
+                <img
+                  src={src}
+                  alt={label}
+                  className="w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 flex items-end p-3 opacity-0 group-hover:opacity-100">
+                  <span className="text-white text-xs font-semibold bg-primary/80 px-2 py-1 rounded-full">{label}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="text-center mt-12">
+            <Button asChild className="bg-primary hover:bg-primary/90 text-white rounded-full px-10 h-12 font-semibold">
+              <Link href="/menu">Order Your Custom Cake</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* ── BRAND STORY / ABOUT ─────────────────────────── */}
       <section className="py-0 overflow-hidden">
         <div className="grid md:grid-cols-2">
           <div className="relative min-h-[500px]">
             <img
-              src="/images/cake2.png"
-              alt="Inside Channah Cakes kitchen"
+              src="/gallery/cake-heels.jpeg"
+              alt="Custom cake by Channah Cakes"
               className="absolute inset-0 w-full h-full object-cover"
             />
           </div>
@@ -260,7 +310,7 @@ export default function Home() {
                   <Card className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 rounded-xl cursor-pointer bg-white">
                     <div className="aspect-square overflow-hidden bg-muted">
                       <img
-                        src={cake.imageUrl || "/images/cake3.png"}
+                        src={cake.imageUrl || "/gallery/cake-purple-butterfly.jpeg"}
                         alt={cake.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
@@ -302,8 +352,8 @@ export default function Home() {
 
       {/* ── CTA BANNER ──────────────────────────────────── */}
       <section className="relative overflow-hidden bg-primary py-20">
-        <div className="absolute inset-0 opacity-10">
-          <img src="/images/cake4.png" alt="" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 opacity-15">
+          <img src="/gallery/cake-heart.jpeg" alt="" className="w-full h-full object-cover" />
         </div>
         <div className="relative z-10 container mx-auto px-4 text-center text-white">
           <h2 className="font-serif text-4xl md:text-5xl font-bold mb-4">Ready to Celebrate?</h2>
