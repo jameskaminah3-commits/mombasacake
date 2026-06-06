@@ -51,14 +51,16 @@ export async function initiateStkPush(params: StkPushParams): Promise<StkPushRes
 
   const password = Buffer.from(`${shortcode}${passkey}${timestamp}`).toString("base64");
 
-  // Normalize phone: strip leading + or 0 → 254XXXXXXXXX
+  // Normalize phone: strip leading + or 0 to 254XXXXXXXXX.
   let phone = params.phone.replace(/\s+/g, "");
   if (phone.startsWith("+")) phone = phone.slice(1);
   if (phone.startsWith("0")) phone = `254${phone.slice(1)}`;
 
   const callbackUrl =
     process.env.MPESA_CALLBACK_URL ||
-    `${process.env.REPLIT_DOMAINS?.split(",")[0] ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}` : "https://example.com"}/api/payments/mpesa/callback`;
+    `${
+      process.env.PUBLIC_APP_URL?.replace(/\/+$/, "") || "https://example.com"
+    }/api/payments/mpesa/callback`;
 
   try {
     const token = await getAccessToken();
@@ -99,7 +101,7 @@ export async function initiateStkPush(params: StkPushParams): Promise<StkPushRes
       return {
         checkoutRequestId: `mock-cid-${Date.now()}`,
         merchantRequestId: `mock-mid-${Date.now()}`,
-        responseDescription: "Success (mock — MPesa not configured)",
+        responseDescription: "Success (mock - MPesa not configured)",
         responseCode: "0",
       };
     }

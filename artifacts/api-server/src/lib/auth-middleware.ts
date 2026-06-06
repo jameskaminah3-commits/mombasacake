@@ -1,12 +1,7 @@
 import { type Request, type Response, type NextFunction } from "express";
-import jwt from "jsonwebtoken";
-import { JWT_SECRET } from "../routes/auth";
+import { resolveAdminFromBearerToken, type AdminAuthPayload } from "./admin-auth";
 
-export interface AuthPayload {
-  id: number;
-  email: string;
-  name: string;
-}
+export type AuthPayload = AdminAuthPayload;
 
 declare global {
   namespace Express {
@@ -22,11 +17,18 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
     res.status(401).json({ error: "Authentication required" });
     return;
   }
-  try {
-    const payload = jwt.verify(authHeader.slice(7), JWT_SECRET) as AuthPayload;
-    req.admin = payload;
-    next();
-  } catch {
-    res.status(401).json({ error: "Invalid or expired token" });
-  }
+
+  resolveAdminFromBearerToken(authHeader.slice(7))
+    .then((admin) => {
+      if (!admin) {
+        res.status(401).json({ error: "Invalid or expired token" });
+        return;
+      }
+
+      req.admin = admin;
+      next();
+    })
+    .catch(() => {
+      res.status(401).json({ error: "Invalid or expired token" });
+    });
 }

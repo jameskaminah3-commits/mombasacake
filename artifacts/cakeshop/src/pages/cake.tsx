@@ -9,6 +9,8 @@ import { Minus, Plus, ShoppingBag, ChevronLeft, Star } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getApiBaseUrl } from "@/lib/api-base";
+import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 
 interface Review {
   id: number;
@@ -71,12 +73,13 @@ export default function CakeDetail() {
   const [reviewName, setReviewName] = useState("");
   const [reviewBody, setReviewBody] = useState("");
   const [reviewRating, setReviewRating] = useState(5);
+  const [reviewOrderId, setReviewOrderId] = useState("");
+  const [reviewPhone, setReviewPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (!cakeId) return;
-    const base = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-    fetch(`${base}/api/reviews/cake/${cakeId}`)
+    fetch(`${getApiBaseUrl()}/api/reviews/cake/${cakeId}`)
       .then((r) => r.json())
       .then((data) => {
         setReviews(Array.isArray(data) ? data : []);
@@ -93,14 +96,20 @@ export default function CakeDetail() {
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reviewName.trim() || !reviewBody.trim() || reviewRating < 1) return;
+    if (!reviewName.trim() || !reviewBody.trim() || reviewRating < 1 || !reviewOrderId.trim() || !reviewPhone.trim()) return;
     setSubmitting(true);
     try {
-      const base = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-      const res = await fetch(`${base}/api/reviews`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/reviews`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cakeId, authorName: reviewName, body: reviewBody, rating: reviewRating }),
+        body: JSON.stringify({
+          cakeId,
+          authorName: reviewName,
+          body: reviewBody,
+          rating: reviewRating,
+          orderId: Number(reviewOrderId),
+          customerPhone: reviewPhone,
+        }),
       });
       if (!res.ok) throw new Error("Failed to submit review");
       const newReview = await res.json();
@@ -108,6 +117,8 @@ export default function CakeDetail() {
       setReviewName("");
       setReviewBody("");
       setReviewRating(5);
+      setReviewOrderId("");
+      setReviewPhone("");
       setShowReviewForm(false);
       toast({ title: "Review submitted", description: "Thank you for your feedback!" });
     } catch {
@@ -158,7 +169,7 @@ export default function CakeDetail() {
           <div className="bg-card rounded-3xl overflow-hidden border border-border shadow-sm">
             <div className="aspect-square relative">
               <img
-                src={cake.imageUrl || "/images/cake1.png"}
+                src={cake.imageUrl || DEFAULT_CAKE_IMAGE_URL}
                 alt={cake.name}
                 className="w-full h-full object-cover"
               />
@@ -261,10 +272,38 @@ export default function CakeDetail() {
           {showReviewForm && (
             <form onSubmit={handleSubmitReview} className="bg-white rounded-2xl p-8 border border-border/40 shadow-sm mb-8">
               <h3 className="font-serif text-xl font-bold mb-6 text-foreground">Share Your Experience</h3>
+              <p className="mb-6 text-sm leading-6 text-muted-foreground">
+                Reviews are only accepted after a paid purchase. Enter your order number and the phone number used at checkout to verify your order.
+              </p>
               <div className="space-y-5">
                 <div className="space-y-2">
                   <Label>Your Rating</Label>
                   <StarRating rating={reviewRating} onChange={setReviewRating} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="review-order-id">Order Number</Label>
+                  <Input
+                    id="review-order-id"
+                    value={reviewOrderId}
+                    onChange={(e) => setReviewOrderId(e.target.value)}
+                    placeholder="e.g. 123"
+                    inputMode="numeric"
+                    required
+                    className="rounded-xl"
+                    data-testid="input-review-order-id"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="review-phone">Phone Used at Checkout</Label>
+                  <Input
+                    id="review-phone"
+                    value={reviewPhone}
+                    onChange={(e) => setReviewPhone(e.target.value)}
+                    placeholder="e.g. 07xx xxx xxx"
+                    required
+                    className="rounded-xl"
+                    data-testid="input-review-phone"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="review-name">Your Name</Label>
@@ -293,7 +332,7 @@ export default function CakeDetail() {
                 </div>
                 <Button
                   type="submit"
-                  disabled={submitting || !reviewName.trim() || !reviewBody.trim()}
+                  disabled={submitting || !reviewName.trim() || !reviewBody.trim() || !reviewOrderId.trim() || !reviewPhone.trim()}
                   className="rounded-full px-8 bg-primary hover:bg-primary/90 text-white"
                   data-testid="button-submit-review"
                 >

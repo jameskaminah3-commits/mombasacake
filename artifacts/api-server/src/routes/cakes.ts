@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, sql, and, ilike } from "drizzle-orm";
 import { db, cakesTable, categoriesTable, orderItemsTable } from "@workspace/db";
+import { requireAdmin } from "../lib/auth-middleware";
+import { normalizeSupabaseMediaUrl } from "../lib/media-urls";
 import {
   CreateCakeBody,
   UpdateCakeBody,
@@ -71,7 +73,7 @@ router.get("/cakes/popular", async (_req, res): Promise<void> => {
   res.json(popular.map(({ cake, categoryName }) => formatCake(cake, categoryName)));
 });
 
-router.post("/cakes", async (req, res): Promise<void> => {
+router.post("/cakes", requireAdmin, async (req, res): Promise<void> => {
   const parsed = CreateCakeBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -79,6 +81,7 @@ router.post("/cakes", async (req, res): Promise<void> => {
   }
   const [cake] = await db.insert(cakesTable).values({
     ...parsed.data,
+    imageUrl: normalizeSupabaseMediaUrl(parsed.data.imageUrl) || undefined,
     price: String(parsed.data.price),
   }).returning();
   res.status(201).json(formatCake(cake, null));
@@ -102,7 +105,7 @@ router.get("/cakes/:id", async (req, res): Promise<void> => {
   res.json(formatCake(row.cake, row.categoryName));
 });
 
-router.patch("/cakes/:id", async (req, res): Promise<void> => {
+router.patch("/cakes/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = UpdateCakeParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -114,6 +117,9 @@ router.patch("/cakes/:id", async (req, res): Promise<void> => {
     return;
   }
   const updateData: Record<string, unknown> = { ...parsed.data };
+  if (typeof updateData.imageUrl === "string") {
+    updateData.imageUrl = normalizeSupabaseMediaUrl(updateData.imageUrl) || undefined;
+  }
   if (parsed.data.price != null) updateData.price = String(parsed.data.price);
 
   const [cake] = await db
@@ -128,7 +134,7 @@ router.patch("/cakes/:id", async (req, res): Promise<void> => {
   res.json(formatCake(cake, null));
 });
 
-router.delete("/cakes/:id", async (req, res): Promise<void> => {
+router.delete("/cakes/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = DeleteCakeParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -148,7 +154,7 @@ function formatCake(
     slug: cake.slug,
     description: cake.description ?? null,
     price: parseFloat(cake.price),
-    imageUrl: cake.imageUrl ?? null,
+    imageUrl: normalizeSupabaseMediaUrl(cake.imageUrl) ?? null,
     available: cake.available,
     featured: cake.featured,
     categoryId: cake.categoryId ?? null,

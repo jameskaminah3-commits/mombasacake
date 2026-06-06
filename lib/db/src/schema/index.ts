@@ -6,4 +6,5 @@ export * from "./payments";
 export * from "./promotions";
 export * from "./reviews";
 export * from "./admins";
+export * from "./admin-password-resets";
 export * from "./blog";

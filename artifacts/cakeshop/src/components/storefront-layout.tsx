@@ -4,14 +4,14 @@ import { ShoppingBag, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SiFacebook, SiInstagram, SiTiktok, SiYoutube, SiWhatsapp } from "react-icons/si";
-import logoUrl from "/logo.jpeg";
+import { DEFAULT_LOGO_IMAGE_URL } from "@/lib/site-images";
 
 const SOCIALS = [
-  { icon: SiFacebook, href: "https://facebook.com/channahcakes", label: "Facebook" },
-  { icon: SiInstagram, href: "https://instagram.com/channahcakes", label: "Instagram" },
+  { icon: SiFacebook, href: "https://www.facebook.com/Channah-cakes-1412705188869989/", label: "Facebook" },
+  { icon: SiInstagram, href: "https://instagram.com/channahcakes001?igshid=1783kk7yjr97i", label: "Instagram" },
   { icon: SiTiktok, href: "https://tiktok.com/@channahcakes", label: "TikTok" },
-  { icon: SiYoutube, href: "https://youtube.com/@channahcakes", label: "YouTube" },
-  { icon: SiWhatsapp, href: "https://wa.me/254700000000", label: "WhatsApp" },
+  { icon: SiYoutube, href: "https://www.youtube.com/channel/UCDW0CaXYw7CuE-8Y13PIcOQ", label: "YouTube" },
+  { icon: SiWhatsapp, href: "https://wa.me/254721868212", label: "WhatsApp" },
 ];
 
 export function StorefrontLayout({ children }: { children: React.ReactNode }) {
@@ -34,12 +34,9 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] flex flex-col font-sans">
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 h-20 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3" onClick={closeMenu}>
-            <img src={logoUrl} alt="Channah Cakes" className="h-12 w-12 object-contain rounded-lg" />
-            <span className="font-serif text-xl font-bold text-secondary tracking-tight leading-tight">
-              Channah<br /><span className="text-primary text-sm tracking-[0.18em] font-extrabold uppercase">Cakes</span>
-            </span>
+        <div className="container mx-auto px-4 h-20 flex items-center justify-between gap-4">
+          <Link href="/" className="flex items-center" onClick={closeMenu} aria-label="Channah Cakes home">
+            <img src={DEFAULT_LOGO_IMAGE_URL} alt="Channah Cakes" className="h-14 w-auto object-contain sm:h-16" />
           </Link>
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
@@ -79,10 +76,11 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
 
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-background pt-20">
-          <nav className="flex flex-col items-center gap-8 p-8 text-lg font-serif">
+          <nav className="flex flex-col items-center gap-6 p-8 text-base font-medium text-center">
             <Link href="/" onClick={closeMenu} className={`${location === "/" ? "text-primary font-bold" : "text-foreground/80"}`}>Home</Link>
             <Link href="/menu" onClick={closeMenu} className={`${location === "/menu" ? "text-primary font-bold" : "text-foreground/80"}`}>Menu</Link>
             <Link href="/blog" onClick={closeMenu} className={`${location === "/blog" ? "text-primary font-bold" : "text-foreground/80"}`}>Blog</Link>
+            <Link href="/cart" onClick={closeMenu} className={`${location === "/cart" ? "text-primary font-bold" : "text-foreground/80"}`}>Cart</Link>
           </nav>
         </div>
       )}
@@ -91,37 +89,39 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
 
       <footer className="bg-[#1a0d12] text-white">
         <div className="container mx-auto px-4 pt-16 pb-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
             {/* Brand */}
             <div className="md:col-span-1">
-              <div className="flex items-center gap-3 mb-4">
-                <img src={logoUrl} alt="Channah Cakes" className="h-12 w-12 object-contain rounded-lg bg-white/10 p-1" />
-                <h3 className="font-serif text-xl font-bold text-[#E0187A]">Channah Cakes</h3>
+              <div className="flex items-center mb-4">
+                <img src={DEFAULT_LOGO_IMAGE_URL} alt="Channah Cakes" className="h-[4.5rem] w-auto object-contain" />
               </div>
-              <p className="text-white/60 text-sm leading-relaxed max-w-xs">
+              <p className="text-white/60 text-sm leading-7 max-w-xs">
                 Premium artisan celebration cakes, custom creations, and everyday indulgences — handcrafted in Mombasa, Kenya.
               </p>
               {/* Socials */}
-              <div className="flex items-center gap-3 mt-6">
-                {SOCIALS.map(({ icon: Icon, href, label }) => (
-                  <a
-                    key={label}
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={label}
-                    className="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 hover:bg-[#E0187A] transition-colors"
-                  >
-                    <Icon className="w-4 h-4" />
-                  </a>
-                ))}
+              <div className="mt-6">
+                <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/40">Follow us</p>
+                <div className="flex items-center gap-3">
+                  {SOCIALS.map(({ icon: Icon, href, label }) => (
+                    <a
+                      key={label}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={label}
+                      className="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 hover:bg-[#E0187A] transition-colors"
+                    >
+                      <Icon className="w-4 h-4" />
+                    </a>
+                  ))}
+                </div>
               </div>
             </div>
 
             {/* Explore */}
             <div>
-              <h4 className="font-semibold mb-5 uppercase tracking-widest text-xs text-[#E0187A]">Explore</h4>
-              <ul className="space-y-3 text-sm text-white/60">
+              <h4 className="font-semibold mb-5 uppercase tracking-widest text-[11px] text-[#E0187A]">Explore</h4>
+              <ul className="space-y-3 text-sm leading-7 text-white/60">
                 <li><Link href="/" className="hover:text-white transition-colors">Home</Link></li>
                 <li><Link href="/menu" className="hover:text-white transition-colors">Our Menu</Link></li>
                 <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
@@ -131,8 +131,8 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
 
             {/* Visit */}
             <div>
-              <h4 className="font-semibold mb-5 uppercase tracking-widest text-xs text-[#E0187A]">Visit Us</h4>
-              <ul className="space-y-3 text-sm text-white/60">
+              <h4 className="font-semibold mb-5 uppercase tracking-widest text-[11px] text-[#E0187A]">Visit Us</h4>
+              <ul className="space-y-3 text-sm leading-7 text-white/60">
                 <li>Mombasa, Kenya</li>
                 <li>Mon – Sat: 8am – 7pm</li>
                 <li>Sun: 9am – 5pm</li>
@@ -141,20 +141,20 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
 
             {/* Contact */}
             <div>
-              <h4 className="font-semibold mb-5 uppercase tracking-widest text-xs text-[#E0187A]">Contact</h4>
-              <ul className="space-y-3 text-sm text-white/60">
+              <h4 className="font-semibold mb-5 uppercase tracking-widest text-[11px] text-[#E0187A]">Contact</h4>
+              <ul className="space-y-3 text-sm leading-7 text-white/60">
                 <li>
-                  <a href="mailto:hello@channahcakes.ke" className="hover:text-white transition-colors">
-                    hello@channahcakes.ke
+                  <a href="mailto:channahcakes@gmail.com" className="hover:text-white transition-colors">
+                    channahcakes@gmail.com
                   </a>
                 </li>
                 <li>
-                  <a href="tel:+254700000000" className="hover:text-white transition-colors">
-                    +254 700 000 000
+                  <a href="tel:+254721868212" className="hover:text-white transition-colors">
+                    +254 721 868 212
                   </a>
                 </li>
                 <li>
-                  <a href="https://wa.me/254700000000" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                  <a href="https://wa.me/254721868212" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
                     WhatsApp us
                   </a>
                 </li>

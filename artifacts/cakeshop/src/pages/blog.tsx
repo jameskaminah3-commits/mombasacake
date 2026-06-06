@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookOpen, Calendar } from "lucide-react";
+import { getApiBaseUrl } from "@/lib/api-base";
 
 interface BlogPost {
   id: number;
@@ -27,8 +28,7 @@ export default function Blog() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const base = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-    fetch(`${base}/api/blog`)
+    fetch(`${getApiBaseUrl()}/api/blog`)
       .then((r) => r.json())
       .then((data) => {
         setPosts(Array.isArray(data) ? data : []);

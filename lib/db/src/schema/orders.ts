@@ -10,6 +10,8 @@ export const ordersTable = pgTable("orders", {
   customerEmail: text("customer_email"),
   deliveryAddress: text("delivery_address"),
   notes: text("notes"),
+  promoCode: text("promo_code"),
+  discountAmount: numeric("discount_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   status: text("status").notNull().default("pending"),
   paymentStatus: text("payment_status").notNull().default("pending"),
   total: numeric("total", { precision: 10, scale: 2 }).notNull(),

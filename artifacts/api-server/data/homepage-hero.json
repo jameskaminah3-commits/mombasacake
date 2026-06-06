@@ -1,0 +1,31 @@
+{
+  "brandLine": "Channah Cake House",
+  "headline": "Decadence in Every Bite",
+  "description": "Choose from our signature creations or custom designs, all crafted to make your celebration feel unforgettable.",
+  "slides": [
+    {
+      "title": "Couture celebration cakes",
+      "label": "Signature artistry",
+      "accent": "Hand-sculpted finishes for milestone moments",
+      "imageUrl": "/storage/v1/object/public/cake-media/gallery/landing/hero-cake-lady-dress.jpeg"
+    },
+    {
+      "title": "Butterfly birthday cakes",
+      "label": "Birthday favorites",
+      "accent": "Delicate wings, metallic details, and soft buttercream",
+      "imageUrl": "/storage/v1/object/public/cake-media/gallery/landing/hero-cake-gold-butterfly.jpeg"
+    },
+    {
+      "title": "Luxury occasion cakes",
+      "label": "Blue and gold",
+      "accent": "Polished statement cakes for elegant gatherings",
+      "imageUrl": "/storage/v1/object/public/cake-media/gallery/landing/hero-cake-blue-gold.jpeg"
+    },
+    {
+      "title": "Themed party cakes",
+      "label": "Kids celebrations",
+      "accent": "Character cakes with color, detail, and plenty of joy",
+      "imageUrl": "/storage/v1/object/public/cake-media/gallery/landing/hero-cake-spiderman.jpeg"
+    }
+  ]
+}

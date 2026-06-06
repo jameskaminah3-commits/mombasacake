@@ -1,10 +1,11 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, sql, and, gte } from "drizzle-orm";
-import { db, ordersTable, customersTable, orderItemsTable } from "@workspace/db";
+import { db, ordersTable, customersTable, orderItemsTable, cakesTable } from "@workspace/db";
+import { requireAdmin } from "../lib/auth-middleware";
 
 const router: IRouter = Router();
 
-router.get("/dashboard/stats", async (_req, res): Promise<void> => {
+router.get("/dashboard/stats", requireAdmin, async (_req, res): Promise<void> => {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
@@ -22,6 +23,22 @@ router.get("/dashboard/stats", async (_req, res): Promise<void> => {
     .select({ count: sql<number>`count(*)::int` })
     .from(customersTable);
 
+  const [cakeActivity] = await db
+    .select({
+      paidOrders: sql<number>`count(distinct case when ${ordersTable.paymentStatus} = 'paid' then ${ordersTable.id} end)::int`,
+      bookedCakes: sql<number>`coalesce(sum(case when ${ordersTable.status} <> 'cancelled' then ${orderItemsTable.quantity} else 0 end), 0)::int`,
+      paidCakes: sql<number>`coalesce(sum(case when ${ordersTable.paymentStatus} = 'paid' then ${orderItemsTable.quantity} else 0 end), 0)::int`,
+    })
+    .from(ordersTable)
+    .leftJoin(orderItemsTable, eq(orderItemsTable.orderId, ordersTable.id));
+
+  const [listingStats] = await db
+    .select({
+      activeListings: sql<number>`count(case when ${cakesTable.available} = true then 1 end)::int`,
+      featuredListings: sql<number>`count(case when ${cakesTable.featured} = true then 1 end)::int`,
+    })
+    .from(cakesTable);
+
   res.json({
     totalRevenue: parseFloat(String(stats.totalRevenue)),
     totalOrders: stats.totalOrders,
@@ -29,10 +46,15 @@ router.get("/dashboard/stats", async (_req, res): Promise<void> => {
     pendingOrders: stats.pendingOrders,
     todayRevenue: parseFloat(String(stats.todayRevenue)),
     todayOrders: stats.todayOrders,
+    paidOrders: cakeActivity.paidOrders,
+    bookedCakes: cakeActivity.bookedCakes,
+    paidCakes: cakeActivity.paidCakes,
+    activeListings: listingStats.activeListings,
+    featuredListings: listingStats.featuredListings,
   });
 });
 
-router.get("/dashboard/recent-orders", async (_req, res): Promise<void> => {
+router.get("/dashboard/recent-orders", requireAdmin, async (_req, res): Promise<void> => {
   const orders = await db
     .select()
     .from(ordersTable)
@@ -74,7 +96,7 @@ router.get("/dashboard/recent-orders", async (_req, res): Promise<void> => {
   res.json(result);
 });
 
-router.get("/dashboard/revenue-chart", async (_req, res): Promise<void> => {
+router.get("/dashboard/revenue-chart", requireAdmin, async (_req, res): Promise<void> => {
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 

@@ -2,10 +2,11 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, customersTable } from "@workspace/db";
 import { CreateCustomerBody, GetCustomerParams } from "@workspace/api-zod";
+import { requireAdmin } from "../lib/auth-middleware";
 
 const router: IRouter = Router();
 
-router.get("/customers", async (_req, res): Promise<void> => {
+router.get("/customers", requireAdmin, async (_req, res): Promise<void> => {
   const customers = await db
     .select()
     .from(customersTable)
@@ -23,7 +24,7 @@ router.post("/customers", async (req, res): Promise<void> => {
   res.status(201).json(formatCustomer(customer));
 });
 
-router.get("/customers/:id", async (req, res): Promise<void> => {
+router.get("/customers/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = GetCustomerParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

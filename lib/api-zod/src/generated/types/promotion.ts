@@ -9,11 +9,16 @@
 export interface Promotion {
   id: number;
   title: string;
+  code?: string | null;
   description?: string | null;
   bannerUrl?: string | null;
   discountPct?: number | null;
+  discountAmount?: number | null;
   active: boolean;
   startsAt?: string | null;
   endsAt?: string | null;
+  minimumOrderAmount?: number | null;
+  applicableCakeSlugs?: string[] | null;
+  showInStrip: boolean;
   createdAt: string;
 }

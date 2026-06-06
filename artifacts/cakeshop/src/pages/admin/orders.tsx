@@ -16,13 +16,17 @@ import {
 } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { Link } from "wouter";
+import { Search } from "lucide-react";
 
 const STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
 
 export default function AdminOrders() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [paymentFilter, setPaymentFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
   
   const { data: orders, isLoading } = useListOrders({
     status: filterStatus !== "all" ? filterStatus : undefined
@@ -31,6 +35,28 @@ export default function AdminOrders() {
   const updateStatus = useUpdateOrderStatus();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const filteredOrders = orders?.filter((order) => {
+    const matchesPayment = paymentFilter === "all" || order.paymentStatus === paymentFilter;
+    const haystack = [
+      String(order.id),
+      order.customerName,
+      order.customerPhone,
+      order.customerEmail || "",
+      order.items.map((item) => item.cakeName).join(" "),
+    ].join(" ").toLowerCase();
+    return matchesPayment && haystack.includes(search.trim().toLowerCase());
+  });
+  const summaryOrders = filteredOrders ?? [];
+  const summary = {
+    orders: summaryOrders.length,
+    paid: summaryOrders.filter((order) => order.paymentStatus === "paid").length,
+    pending: summaryOrders.filter((order) => order.status === "pending").length,
+    cakes: summaryOrders.reduce(
+      (sum, order) => sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
+      0,
+    ),
+  };
 
   const handleStatusChange = async (orderId: number, status: string) => {
     try {
@@ -59,21 +85,64 @@ export default function AdminOrders() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Orders</h1>
         
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Orders</SelectItem>
-            {STATUSES.map(s => (
-              <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+          <div className="relative sm:w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search orders or cakes..."
+              className="pl-9"
+            />
+          </div>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="sm:w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Orders</SelectItem>
+              {STATUSES.map(s => (
+                <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={paymentFilter} onValueChange={setPaymentFilter}>
+            <SelectTrigger className="sm:w-[170px]">
+              <SelectValue placeholder="Payment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Payments</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
+
+      {!isLoading && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="rounded-md border bg-card p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Orders shown</p>
+            <p className="mt-2 text-2xl font-bold">{summary.orders}</p>
+          </div>
+          <div className="rounded-md border bg-card p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Paid orders</p>
+            <p className="mt-2 text-2xl font-bold text-[#52B44B]">{summary.paid}</p>
+          </div>
+          <div className="rounded-md border bg-card p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Pending orders</p>
+            <p className="mt-2 text-2xl font-bold text-primary">{summary.pending}</p>
+          </div>
+          <div className="rounded-md border bg-card p-4">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Cakes booked</p>
+            <p className="mt-2 text-2xl font-bold">{summary.cakes}</p>
+          </div>
+        </div>
+      )}
 
       <div className="border rounded-md bg-card">
         <Table>
@@ -82,6 +151,7 @@ export default function AdminOrders() {
               <TableHead>Order ID</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Customer</TableHead>
+              <TableHead>Cakes</TableHead>
               <TableHead>Payment</TableHead>
               <TableHead>Total</TableHead>
               <TableHead>Status</TableHead>
@@ -94,19 +164,20 @@ export default function AdminOrders() {
                   <TableCell><Skeleton className="h-4 w-[60px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+                  <TableCell><Skeleton className="h-10 w-[220px]" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-[80px] rounded-full" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
                   <TableCell><Skeleton className="h-10 w-[140px]" /></TableCell>
                 </TableRow>
               ))
-            ) : orders?.length === 0 ? (
+            ) : filteredOrders?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No orders found.
                 </TableCell>
               </TableRow>
             ) : (
-              orders?.map((order) => (
+              filteredOrders?.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">
                     <Link href={`/order/${order.id}`} className="hover:underline text-primary">
@@ -120,6 +191,29 @@ export default function AdminOrders() {
                     <div className="flex flex-col">
                       <span className="font-medium">{order.customerName}</span>
                       <span className="text-xs text-muted-foreground">{order.customerPhone}</span>
+                      {order.customerEmail && (
+                        <span className="text-xs text-muted-foreground">{order.customerEmail}</span>
+                      )}
+                      {order.deliveryAddress && (
+                        <span className="mt-1 max-w-[220px] truncate text-xs text-muted-foreground">
+                          {order.deliveryAddress}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="max-w-[280px] space-y-1">
+                      {order.items.slice(0, 3).map((item) => (
+                        <div key={item.id} className="flex items-center gap-2 text-sm">
+                          {item.cakeImage && (
+                            <img src={item.cakeImage} alt="" className="h-8 w-8 rounded-md object-cover" />
+                          )}
+                          <span className="truncate">{item.quantity}x {item.cakeName}</span>
+                        </div>
+                      ))}
+                      {order.items.length > 3 && (
+                        <p className="text-xs text-muted-foreground">+{order.items.length - 3} more</p>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>

@@ -12,6 +12,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
+import { AdminImageUpload } from "@/components/admin-image-upload";
 import {
   Table,
   TableBody,
@@ -48,7 +49,7 @@ import { format } from "date-fns";
 const categorySchema = z.object({
   name: z.string().min(2, "Name is required"),
   slug: z.string().min(2, "Slug is required"),
-  imageUrl: z.string().url().optional().or(z.literal("")),
+  imageUrl: z.string().optional(),
 });
 
 type CategoryFormValues = z.infer<typeof categorySchema>;
@@ -85,7 +86,7 @@ export default function AdminCategories() {
           id: editingCategory.id,
           data: {
             ...values,
-            imageUrl: values.imageUrl || undefined,
+            imageUrl: values.imageUrl?.trim() || undefined,
           }
         });
         toast({ title: "Category updated successfully" });
@@ -93,7 +94,7 @@ export default function AdminCategories() {
         await createCategory.mutateAsync({
           data: {
             ...values,
-            imageUrl: values.imageUrl || undefined,
+            imageUrl: values.imageUrl?.trim() || undefined,
           }
         });
         toast({ title: "Category created successfully" });
@@ -179,10 +180,15 @@ export default function AdminCategories() {
                   name="imageUrl"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Image URL (Optional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://..." {...field} />
-                      </FormControl>
+                      <FormLabel>Image</FormLabel>
+                      <AdminImageUpload
+                        label="Category image"
+                        folder="categories"
+                        value={field.value || ""}
+                        onChange={(url) => field.onChange(url)}
+                        onClear={() => field.onChange("")}
+                        helperText="Use one clean image for the category tile."
+                      />
                       <FormMessage />
                     </FormItem>
                   )}

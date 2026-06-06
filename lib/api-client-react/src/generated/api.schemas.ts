@@ -109,6 +109,8 @@ export interface Order {
   customerEmail?: string | null;
   deliveryAddress?: string | null;
   notes?: string | null;
+  promoCode?: string | null;
+  discountAmount: number;
   status: string;
   paymentStatus: string;
   total: number;
@@ -131,6 +133,7 @@ export interface OrderInput {
   customerEmail?: string;
   deliveryAddress?: string;
   notes?: string;
+  promoCode?: string;
   items: OrderItemInput[];
 }
 
@@ -189,35 +192,50 @@ export interface RevenuePoint {
 export interface Promotion {
   id: number;
   title: string;
+  code?: string | null;
   description?: string | null;
   bannerUrl?: string | null;
   discountPct?: number | null;
+  discountAmount?: number | null;
   active: boolean;
   startsAt?: string | null;
   endsAt?: string | null;
+  minimumOrderAmount?: number | null;
+  applicableCakeSlugs?: string[] | null;
+  showInStrip: boolean;
   createdAt: string;
 }
 
 export interface PromotionInput {
   /** @minLength 1 */
   title: string;
+  code?: string | null;
   description?: string;
   bannerUrl?: string;
   discountPct?: number;
+  discountAmount?: number;
   active?: boolean;
   startsAt?: string;
   endsAt?: string;
+  minimumOrderAmount?: number | null;
+  applicableCakeSlugs?: string[] | null;
+  showInStrip?: boolean;
 }
 
 export interface PromotionUpdate {
   /** @minLength 1 */
   title?: string;
+  code?: string | null;
   description?: string;
   bannerUrl?: string;
   discountPct?: number;
+  discountAmount?: number;
   active?: boolean;
   startsAt?: string;
   endsAt?: string;
+  minimumOrderAmount?: number | null;
+  applicableCakeSlugs?: string[] | null;
+  showInStrip?: boolean;
 }
 
 export type ListCakesParams = {

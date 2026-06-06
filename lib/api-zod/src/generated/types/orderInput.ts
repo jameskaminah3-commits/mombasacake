@@ -15,5 +15,6 @@ export interface OrderInput {
   customerEmail?: string;
   deliveryAddress?: string;
   notes?: string;
+  promoCode?: string;
   items: OrderItemInput[];
 }

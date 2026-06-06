@@ -2,11 +2,21 @@
   "name": "workspace",
   "version": "0.0.0",
   "license": "MIT",
+  "packageManager": "pnpm@11.5.1",
   "scripts": {
-    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "preinstall": "node ./scripts/enforce-pnpm.mjs",
+    "dev": "node ./scripts/dev-local.mjs",
+    "start": "corepack pnpm --filter @workspace/api-server run start",
+    "dev:api": "corepack pnpm --filter @workspace/api-server run dev",
+    "dev:web": "corepack pnpm --filter @workspace/cakeshop run dev",
+    "db:push": "corepack pnpm --filter @workspace/db run push",
+    "db:seed": "corepack pnpm --filter @workspace/scripts run seed",
+    "db:seed:admin": "corepack pnpm --filter @workspace/scripts run seed:admin",
+    "media:sync": "corepack pnpm --filter @workspace/scripts run media:sync",
+    "media:sync:dry": "corepack pnpm --filter @workspace/scripts run media:sync -- --dry-run",
+    "build": "corepack pnpm run typecheck && corepack pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "corepack pnpm run typecheck:libs && corepack pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
   "private": true,
   "devDependencies": {

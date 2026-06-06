@@ -15,6 +15,8 @@ export interface Order {
   customerEmail?: string | null;
   deliveryAddress?: string | null;
   notes?: string | null;
+  promoCode?: string | null;
+  discountAmount: number;
   status: string;
   paymentStatus: string;
   total: number;

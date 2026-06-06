@@ -4,10 +4,11 @@ import { db, paymentsTable, ordersTable } from "@workspace/db";
 import { InitiateMpesaPaymentBody, GetPaymentParams } from "@workspace/api-zod";
 import { initiateStkPush } from "../lib/mpesa";
 import { logger } from "../lib/logger";
+import { requireAdmin } from "../lib/auth-middleware";
 
 const router: IRouter = Router();
 
-router.get("/payments", async (_req, res): Promise<void> => {
+router.get("/payments", requireAdmin, async (_req, res): Promise<void> => {
   const payments = await db
     .select()
     .from(paymentsTable)
@@ -112,7 +113,7 @@ router.post("/payments/mpesa/callback", async (req, res): Promise<void> => {
   }
 });
 
-router.get("/payments/:id", async (req, res): Promise<void> => {
+router.get("/payments/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = GetPaymentParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

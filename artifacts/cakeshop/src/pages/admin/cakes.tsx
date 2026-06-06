@@ -16,6 +16,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
+import { AdminImageUpload } from "@/components/admin-image-upload";
 import {
   Table,
   TableBody,
@@ -51,19 +52,39 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 
 const cakeSchema = z.object({
   name: z.string().min(2, "Name is required"),
   slug: z.string().min(2, "Slug is required"),
   description: z.string().optional(),
   price: z.coerce.number().min(0, "Price must be positive"),
-  imageUrl: z.string().url().optional().or(z.literal("")),
+  imageUrl: z.string().optional(),
   categoryId: z.coerce.number().optional().nullable(),
   available: z.boolean().default(true),
   featured: z.boolean().default(false),
 });
 
 type CakeFormValues = z.infer<typeof cakeSchema>;
+
+const defaultCakeFormValues: CakeFormValues = {
+  name: "",
+  slug: "",
+  description: "",
+  price: 0,
+  imageUrl: "",
+  categoryId: null,
+  available: true,
+  featured: false,
+};
+
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
 
 export default function AdminCakes() {
   const [search, setSearch] = useState("");
@@ -81,17 +102,10 @@ export default function AdminCakes() {
 
   const form = useForm<CakeFormValues>({
     resolver: zodResolver(cakeSchema),
-    defaultValues: {
-      name: "",
-      slug: "",
-      description: "",
-      price: 0,
-      imageUrl: "",
-      categoryId: null,
-      available: true,
-      featured: false,
-    },
+    defaultValues: defaultCakeFormValues,
   });
+
+  const selectedImage = form.watch("imageUrl");
 
   const invalidateQueries = () => {
     queryClient.invalidateQueries({ queryKey: getListCakesQueryKey() });
@@ -104,19 +118,19 @@ export default function AdminCakes() {
       if (editingCake) {
         await updateCake.mutateAsync({
           id: editingCake.id,
-          data: {
-            ...values,
-            categoryId: values.categoryId || undefined,
-            imageUrl: values.imageUrl || undefined,
-          }
+            data: {
+              ...values,
+              categoryId: values.categoryId ?? undefined,
+              imageUrl: values.imageUrl?.trim() || undefined,
+            }
         });
         toast({ title: "Cake updated successfully" });
       } else {
         await createCake.mutateAsync({
           data: {
             ...values,
-            categoryId: values.categoryId || undefined,
-            imageUrl: values.imageUrl || undefined,
+            categoryId: values.categoryId ?? undefined,
+            imageUrl: values.imageUrl?.trim() || undefined,
           }
         });
         toast({ title: "Cake created successfully" });
@@ -186,7 +200,7 @@ export default function AdminCakes() {
           setIsDialogOpen(open);
           if (!open) {
             setEditingCake(null);
-            form.reset();
+            form.reset(defaultCakeFormValues);
           }
         }}>
           <DialogTrigger asChild>
@@ -208,7 +222,16 @@ export default function AdminCakes() {
                       <FormItem>
                         <FormLabel>Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="Chocolate Truffle..." {...field} />
+                          <Input
+                            placeholder="Chocolate Truffle..."
+                            {...field}
+                            onBlur={(event) => {
+                              field.onBlur();
+                              if (!form.getValues("slug")) {
+                                form.setValue("slug", slugify(event.target.value), { shouldValidate: true });
+                              }
+                            }}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -291,10 +314,15 @@ export default function AdminCakes() {
                   name="imageUrl"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Image URL</FormLabel>
-                      <FormControl>
-                        <Input placeholder="https://..." {...field} />
-                      </FormControl>
+                      <FormLabel>Image</FormLabel>
+                      <AdminImageUpload
+                        label="Cake image"
+                        folder="cakes"
+                        value={selectedImage || ""}
+                        onChange={(url) => form.setValue("imageUrl", url, { shouldValidate: true, shouldDirty: true })}
+                        onClear={() => form.setValue("imageUrl", "", { shouldValidate: true, shouldDirty: true })}
+                        helperText="Upload a single image for the cake listing and detail page."
+                      />
                       <FormMessage />
                     </FormItem>
                   )}
@@ -366,7 +394,8 @@ export default function AdminCakes() {
               <TableHead>Name</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Price</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Availability</TableHead>
+              <TableHead>Featured</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -379,12 +408,13 @@ export default function AdminCakes() {
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
                   <TableCell><Skeleton className="h-8 w-[100px] ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : cakes?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No cakes found.
                 </TableCell>
               </TableRow>
@@ -393,7 +423,7 @@ export default function AdminCakes() {
                 <TableRow key={cake.id}>
                   <TableCell>
                     <img 
-                      src={cake.imageUrl || "/images/cake1.png"} 
+                      src={cake.imageUrl || DEFAULT_CAKE_IMAGE_URL} 
                       alt={cake.name} 
                       className="w-12 h-12 rounded-md object-cover bg-muted"
                     />
@@ -417,18 +447,22 @@ export default function AdminCakes() {
                         checked={cake.available} 
                         onCheckedChange={() => toggleAvailability(cake)}
                       />
-                      <span className="text-sm text-muted-foreground mr-4">
-                        {cake.available ? "Avail" : "Out"}
+                      <span className="text-sm text-muted-foreground">
+                        {cake.available ? "Available" : "Sold out"}
                       </span>
-                      
-                      <button 
-                        onClick={() => toggleFeatured(cake)}
-                        className={`p-1 rounded-full transition-colors ${cake.featured ? 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/30' : 'text-muted-foreground hover:bg-muted'}`}
-                        title={cake.featured ? "Unfeature" : "Feature"}
-                      >
-                        {cake.featured ? <Star className="w-4 h-4 fill-current" /> : <StarOff className="w-4 h-4" />}
-                      </button>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <button
+                      onClick={() => toggleFeatured(cake)}
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                        cake.featured ? "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                      title={cake.featured ? "Remove from featured" : "Add to featured"}
+                    >
+                      {cake.featured ? <Star className="w-3.5 h-3.5 fill-current" /> : <StarOff className="w-3.5 h-3.5" />}
+                      {cake.featured ? "Featured" : "Not featured"}
+                    </button>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">

@@ -1,101 +1,188 @@
 import { Link, useLocation } from "wouter";
-import { 
-  LayoutDashboard, 
-  CakeSlice, 
-  Tags, 
-  ShoppingBag, 
-  Users, 
-  CreditCard, 
-  Megaphone,
+import {
+  CakeSlice,
+  CreditCard,
+  ExternalLink,
+  LayoutDashboard,
   LogOut,
-  ExternalLink
+  Megaphone,
+  Menu,
+  Image as ImageIcon,
+  ShoppingBag,
+  Tags,
+  Users,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+
+const navItems = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/orders", label: "Orders", icon: ShoppingBag },
+  { href: "/cakes", label: "Cakes", icon: CakeSlice },
+  { href: "/categories", label: "Categories", icon: Tags },
+  { href: "/customers", label: "Customers", icon: Users },
+  { href: "/payments", label: "Payments", icon: CreditCard },
+  { href: "/homepage", label: "Homepage", icon: ImageIcon },
+  { href: "/marketing", label: "Marketing", icon: Megaphone },
+];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { admin, logout } = useAuth();
 
-  const navItems = [
-    { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
-    { href: "/admin/cakes", label: "Cakes", icon: CakeSlice },
-    { href: "/admin/categories", label: "Categories", icon: Tags },
-    { href: "/admin/customers", label: "Customers", icon: Users },
-    { href: "/admin/payments", label: "Payments", icon: CreditCard },
-    { href: "/admin/marketing", label: "Marketing", icon: Megaphone },
-  ];
+  const renderNavLink = (item: (typeof navItems)[number], closeOnClick = false) => {
+    const Icon = item.icon;
+    const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+    const link = (
+      <Link
+        href={item.href}
+        className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+          isActive
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+        }`}
+      >
+        <Icon className="h-5 w-5 shrink-0" />
+        {item.label}
+      </Link>
+    );
+
+    return closeOnClick ? (
+      <SheetClose asChild key={item.href}>
+        {link}
+      </SheetClose>
+    ) : (
+      <div key={item.href}>{link}</div>
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-muted/30 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-sidebar border-r border-sidebar-border hidden md:flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-sidebar-border">
-          <Link href="/admin" className="font-serif text-xl font-bold text-sidebar-foreground">Crème Admin</Link>
+    <div className="flex min-h-screen bg-muted/30">
+      <aside className="hidden w-64 flex-col border-r border-sidebar-border bg-sidebar md:flex">
+        <div className="flex h-16 items-center border-b border-sidebar-border px-6">
+          <Link href="/" className="font-serif text-xl font-bold text-sidebar-foreground">
+            Channah Admin
+          </Link>
         </div>
-        <nav className="flex-1 px-4 py-6 space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location === item.href || (item.href !== "/admin" && location.startsWith(item.href));
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
-                  isActive 
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground" 
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 space-y-1 px-4 py-6">
+          {navItems.map((item) => renderNavLink(item))}
         </nav>
-        <div className="p-4 border-t border-sidebar-border space-y-1">
+        <div className="space-y-1 border-t border-sidebar-border p-4">
           {admin && (
-            <div className="px-3 py-2 mb-2">
-              <p className="text-xs font-medium text-sidebar-foreground truncate">{admin.name}</p>
-              <p className="text-xs text-sidebar-foreground/50 truncate">{admin.email}</p>
+            <div className="mb-2 px-3 py-2">
+              <p className="truncate text-xs font-medium text-sidebar-foreground">{admin.name}</p>
+              <p className="truncate text-xs text-sidebar-foreground/50">{admin.email}</p>
             </div>
           )}
-          <Link href="/" className="flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-colors">
-            <ExternalLink className="w-5 h-5" />
+          <Link href="~/" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground">
+            <ExternalLink className="h-5 w-5" />
             Storefront
           </Link>
           <button
             onClick={logout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium text-sidebar-foreground/70 hover:bg-red-50 hover:text-red-600 transition-colors"
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-red-50 hover:text-red-600"
             data-testid="button-logout"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="h-5 w-5" />
             Sign Out
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-16 bg-background border-b border-border flex items-center justify-between px-6 md:px-8">
-          <Link href="/admin" className="font-serif text-xl font-bold md:hidden">Crème Admin</Link>
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between gap-3 border-b border-border bg-background px-4 md:px-8">
+          <div className="flex min-w-0 items-center gap-3">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open admin navigation">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent
+                side="left"
+                className="flex h-[100dvh] w-[min(22rem,88vw)] flex-col bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+              >
+                <SheetHeader className="border-b border-sidebar-border px-5 py-5 text-left">
+                  <SheetTitle className="font-serif text-xl text-sidebar-foreground">Channah Admin</SheetTitle>
+                </SheetHeader>
+                <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4 pb-24">
+                  {navItems.map((item) => renderNavLink(item, true))}
+                </nav>
+                <div className="border-t border-sidebar-border p-3">
+                  {admin && (
+                    <div className="mb-2 rounded-md px-3 py-2">
+                      <p className="truncate text-xs font-medium text-sidebar-foreground">{admin.name}</p>
+                      <p className="truncate text-xs text-sidebar-foreground/50">{admin.email}</p>
+                    </div>
+                  )}
+                  <SheetClose asChild>
+                    <Link href="~/" className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground">
+                      <ExternalLink className="h-5 w-5" />
+                      Storefront
+                    </Link>
+                  </SheetClose>
+                  <button
+                    onClick={logout}
+                    className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-red-50 hover:text-red-600"
+                    data-testid="button-mobile-logout"
+                  >
+                    <LogOut className="h-5 w-5" />
+                    Sign Out
+                  </button>
+                </div>
+              </SheetContent>
+            </Sheet>
+            <Link href="/" className="truncate font-serif text-lg font-bold md:hidden">
+              Channah Admin
+            </Link>
+          </div>
           {admin && (
-            <p className="text-sm text-muted-foreground hidden md:block">
+            <p className="hidden text-sm text-muted-foreground md:block">
               Signed in as <span className="font-medium text-foreground">{admin.name}</span>
             </p>
           )}
           <button
             onClick={logout}
-            className="md:hidden flex items-center gap-2 text-sm text-muted-foreground hover:text-red-600 transition-colors"
+            className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-red-600 md:hidden"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="h-4 w-4" />
             Sign out
           </button>
         </header>
-        <div className="flex-1 overflow-auto p-6 md:p-8">
-          <div className="max-w-7xl mx-auto">
-            {children}
-          </div>
+
+        <div className="overflow-x-auto border-b border-border bg-background px-4 py-2 md:hidden">
+          <nav className="flex min-w-max gap-2">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium ${
+                    isActive
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-muted-foreground"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4 md:p-8">
+          <div className="mx-auto max-w-7xl">{children}</div>
         </div>
       </main>
     </div>

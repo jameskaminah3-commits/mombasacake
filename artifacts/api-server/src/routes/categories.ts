@@ -1,6 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, categoriesTable } from "@workspace/db";
+import { requireAdmin } from "../lib/auth-middleware";
+import { normalizeSupabaseMediaUrl } from "../lib/media-urls";
 import {
   CreateCategoryBody,
   UpdateCategoryBody,
@@ -19,13 +21,16 @@ router.get("/categories", async (_req, res): Promise<void> => {
   res.json(categories.map(formatCategory));
 });
 
-router.post("/categories", async (req, res): Promise<void> => {
+router.post("/categories", requireAdmin, async (req, res): Promise<void> => {
   const parsed = CreateCategoryBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [cat] = await db.insert(categoriesTable).values(parsed.data).returning();
+  const [cat] = await db.insert(categoriesTable).values({
+    ...parsed.data,
+    imageUrl: normalizeSupabaseMediaUrl(parsed.data.imageUrl) || undefined,
+  }).returning();
   res.status(201).json(formatCategory(cat));
 });
 
@@ -46,7 +51,7 @@ router.get("/categories/:id", async (req, res): Promise<void> => {
   res.json(formatCategory(cat));
 });
 
-router.patch("/categories/:id", async (req, res): Promise<void> => {
+router.patch("/categories/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = UpdateCategoryParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -59,7 +64,10 @@ router.patch("/categories/:id", async (req, res): Promise<void> => {
   }
   const [cat] = await db
     .update(categoriesTable)
-    .set(parsed.data)
+    .set({
+      ...parsed.data,
+      imageUrl: normalizeSupabaseMediaUrl(parsed.data.imageUrl) || undefined,
+    })
     .where(eq(categoriesTable.id, params.data.id))
     .returning();
   if (!cat) {
@@ -69,7 +77,7 @@ router.patch("/categories/:id", async (req, res): Promise<void> => {
   res.json(formatCategory(cat));
 });
 
-router.delete("/categories/:id", async (req, res): Promise<void> => {
+router.delete("/categories/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = DeleteCategoryParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -84,7 +92,7 @@ function formatCategory(cat: typeof categoriesTable.$inferSelect) {
     id: cat.id,
     name: cat.name,
     slug: cat.slug,
-    imageUrl: cat.imageUrl ?? null,
+    imageUrl: normalizeSupabaseMediaUrl(cat.imageUrl) ?? null,
     createdAt: cat.createdAt.toISOString(),
   };
 }

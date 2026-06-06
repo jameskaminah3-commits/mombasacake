@@ -1,6 +1,10 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, cakesTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, cakesTable, promotionsTable } from "@workspace/db";
+import { requireAdmin } from "../lib/auth-middleware";
+import { logger } from "../lib/logger";
+import { sendNewOrderNotification } from "../lib/order-notifications";
+import { normalizeSupabaseMediaUrl } from "../lib/media-urls";
 import {
   CreateOrderBody,
   GetOrderParams,
@@ -8,10 +12,11 @@ import {
   UpdateOrderStatusBody,
   ListOrdersQueryParams,
 } from "@workspace/api-zod";
+import { ensurePromotionsSchema } from "../lib/ensure-promotions-schema";
 
 const router: IRouter = Router();
 
-router.get("/orders", async (req, res): Promise<void> => {
+router.get("/orders", requireAdmin, async (req, res): Promise<void> => {
   const query = ListOrdersQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
@@ -47,24 +52,47 @@ router.post("/orders", async (req, res): Promise<void> => {
   }
 
   // Fetch cake prices
-  let total = 0;
+  let orderSubtotal = 0;
   const enrichedItems = await Promise.all(
     parsed.data.items.map(async (item) => {
       const [cake] = await db.select().from(cakesTable).where(eq(cakesTable.id, item.cakeId));
       if (!cake) throw new Error(`Cake ${item.cakeId} not found`);
       const unitPrice = parseFloat(cake.price);
-      const subtotal = unitPrice * item.quantity;
-      total += subtotal;
+      const lineSubtotal = unitPrice * item.quantity;
+      orderSubtotal += lineSubtotal;
       return {
         cakeId: item.cakeId,
+        cakeSlug: cake.slug,
         cakeName: cake.name,
-        cakeImage: cake.imageUrl,
+        cakeImage: normalizeSupabaseMediaUrl(cake.imageUrl),
         quantity: item.quantity,
         unitPrice: String(unitPrice),
-        subtotal: String(subtotal),
+        subtotal: String(lineSubtotal),
       };
     })
   );
+
+  await ensurePromotionsSchema();
+  const promotions = await db.select().from(promotionsTable).orderBy(desc(promotionsTable.createdAt));
+  const eligiblePromotions = promotions
+    .map(formatPromotion)
+    .filter((promo) => isPromotionActive(promo))
+    .filter((promo) => isPromotionEligible(promo, enrichedItems, orderSubtotal));
+
+  const requestedCode = parsed.data.promoCode?.trim() || null;
+  const appliedPromotion = requestedCode
+    ? eligiblePromotions.find((promo) => promo.code?.toLowerCase() === requestedCode.toLowerCase())
+    : eligiblePromotions
+        .filter((promo) => !promo.code)
+        .sort((a, b) => calculateDiscount(b, orderSubtotal, enrichedItems) - calculateDiscount(a, orderSubtotal, enrichedItems))[0] ?? null;
+
+  if (requestedCode && !appliedPromotion) {
+    res.status(400).json({ error: "That promo code is invalid or not eligible for this order" });
+    return;
+  }
+
+  const discountAmount = appliedPromotion ? calculateDiscount(appliedPromotion, orderSubtotal, enrichedItems) : 0;
+  const total = Math.max(orderSubtotal - discountAmount, 0);
 
   const [order] = await db
     .insert(ordersTable)
@@ -74,6 +102,8 @@ router.post("/orders", async (req, res): Promise<void> => {
       customerEmail: parsed.data.customerEmail,
       deliveryAddress: parsed.data.deliveryAddress,
       notes: parsed.data.notes,
+      promoCode: appliedPromotion?.code ?? requestedCode,
+      discountAmount: String(discountAmount),
       total: String(total),
       status: "pending",
       paymentStatus: "pending",
@@ -84,6 +114,12 @@ router.post("/orders", async (req, res): Promise<void> => {
     .insert(orderItemsTable)
     .values(enrichedItems.map((i) => ({ ...i, orderId: order.id })))
     .returning();
+
+  try {
+    await sendNewOrderNotification(order, items);
+  } catch (err) {
+    logger.error({ err, orderId: order.id }, "Failed to send new order email");
+  }
 
   res.status(201).json(formatOrder(order, items));
 });
@@ -103,7 +139,7 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
   res.json(formatOrder(order, items));
 });
 
-router.patch("/orders/:id/status", async (req, res): Promise<void> => {
+router.patch("/orders/:id/status", requireAdmin, async (req, res): Promise<void> => {
   const params = UpdateOrderStatusParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -139,6 +175,8 @@ function formatOrder(
     customerEmail: order.customerEmail ?? null,
     deliveryAddress: order.deliveryAddress ?? null,
     notes: order.notes ?? null,
+    promoCode: order.promoCode ?? null,
+    discountAmount: parseFloat(order.discountAmount),
     status: order.status,
     paymentStatus: order.paymentStatus,
     total: parseFloat(order.total),
@@ -147,13 +185,86 @@ function formatOrder(
       id: i.id,
       cakeId: i.cakeId,
       cakeName: i.cakeName,
-      cakeImage: i.cakeImage ?? null,
+      cakeImage: normalizeSupabaseMediaUrl(i.cakeImage) ?? null,
       quantity: i.quantity,
       unitPrice: parseFloat(i.unitPrice),
       subtotal: parseFloat(i.subtotal),
     })),
     createdAt: order.createdAt.toISOString(),
   };
+}
+
+type PromotionView = {
+  id: number;
+  title: string;
+  code: string | null;
+  discountPct: number | null;
+  discountAmount: number | null;
+  minimumOrderAmount: number | null;
+  applicableCakeSlugs: string[] | null;
+  active: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  showInStrip: boolean;
+};
+
+type OrderPreviewItem = {
+  cakeId: number;
+  cakeSlug: string;
+  quantity: number;
+  unitPrice: string;
+  subtotal: string;
+};
+
+function formatPromotion(promo: typeof promotionsTable.$inferSelect): PromotionView {
+  return {
+    id: promo.id,
+    title: promo.title,
+    code: promo.code ?? null,
+    discountPct: promo.discountPct != null ? parseFloat(promo.discountPct) : null,
+    discountAmount: promo.discountAmount != null ? parseFloat(promo.discountAmount) : null,
+    minimumOrderAmount: promo.minimumOrderAmount != null ? parseFloat(promo.minimumOrderAmount) : null,
+    applicableCakeSlugs: parseApplicableCakeSlugs(promo.applicableCakeSlugs),
+    active: promo.active,
+    startsAt: promo.startsAt?.toISOString() ?? null,
+    endsAt: promo.endsAt?.toISOString() ?? null,
+    showInStrip: promo.showInStrip,
+  };
+}
+
+function isPromotionActive(promo: PromotionView) {
+  const now = Date.now();
+  if (!promo.active) return false;
+  if (promo.startsAt && new Date(promo.startsAt).getTime() > now) return false;
+  if (promo.endsAt && new Date(promo.endsAt).getTime() < now) return false;
+  return true;
+}
+
+function isPromotionEligible(promo: PromotionView, items: OrderPreviewItem[], subtotal: number) {
+  if (promo.minimumOrderAmount != null && subtotal < promo.minimumOrderAmount) return false;
+  if (promo.applicableCakeSlugs && promo.applicableCakeSlugs.length > 0) {
+    return items.some((item) => promo.applicableCakeSlugs?.includes(item.cakeSlug));
+  }
+  return true;
+}
+
+function calculateDiscount(promo: PromotionView, subtotal: number, items: OrderPreviewItem[]) {
+  if (!isPromotionEligible(promo, items, subtotal)) return 0;
+  const amount = promo.discountAmount ?? (promo.discountPct != null ? (subtotal * promo.discountPct) / 100 : 0);
+  return Math.min(amount, subtotal);
+}
+
+function parseApplicableCakeSlugs(value: string | null) {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((slug): slug is string => typeof slug === "string") : null;
+  } catch {
+    return value
+      .split(",")
+      .map((slug) => slug.trim())
+      .filter(Boolean);
+  }
 }
 
 export default router;

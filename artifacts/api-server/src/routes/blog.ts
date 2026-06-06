@@ -2,6 +2,8 @@ import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
 import { db, blogPostsTable } from "@workspace/db";
 import { z } from "zod";
+import { requireAdmin } from "../lib/auth-middleware";
+import { normalizeSupabaseMediaUrl } from "../lib/media-urls";
 
 const router: IRouter = Router();
 
@@ -27,7 +29,7 @@ router.get("/blog", async (_req, res): Promise<void> => {
   res.json(posts.map(formatPost));
 });
 
-router.get("/blog/all", async (_req, res): Promise<void> => {
+router.get("/blog/all", requireAdmin, async (_req, res): Promise<void> => {
   const posts = await db
     .select()
     .from(blogPostsTable)
@@ -35,13 +37,16 @@ router.get("/blog/all", async (_req, res): Promise<void> => {
   res.json(posts.map(formatPost));
 });
 
-router.post("/blog", async (req, res): Promise<void> => {
+router.post("/blog", requireAdmin, async (req, res): Promise<void> => {
   const parsed = CreateBlogBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
   const data: Record<string, unknown> = { ...parsed.data };
+  if (typeof data.coverImageUrl === "string") {
+    data.coverImageUrl = normalizeSupabaseMediaUrl(data.coverImageUrl) || undefined;
+  }
   if (parsed.data.publishedAt) data.publishedAt = new Date(parsed.data.publishedAt);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [post] = await db.insert(blogPostsTable).values(data as any).returning();
@@ -65,7 +70,7 @@ router.get("/blog/:slug", async (req, res): Promise<void> => {
   res.json(formatPost(post));
 });
 
-router.patch("/blog/:id", async (req, res): Promise<void> => {
+router.patch("/blog/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = BlogParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -77,6 +82,9 @@ router.patch("/blog/:id", async (req, res): Promise<void> => {
     return;
   }
   const data: Record<string, unknown> = { ...parsed.data };
+  if (typeof data.coverImageUrl === "string") {
+    data.coverImageUrl = normalizeSupabaseMediaUrl(data.coverImageUrl) || undefined;
+  }
   if (parsed.data?.publishedAt) data.publishedAt = new Date(parsed.data.publishedAt);
   const [post] = await db
     .update(blogPostsTable)
@@ -90,7 +98,7 @@ router.patch("/blog/:id", async (req, res): Promise<void> => {
   res.json(formatPost(post));
 });
 
-router.delete("/blog/:id", async (req, res): Promise<void> => {
+router.delete("/blog/:id", requireAdmin, async (req, res): Promise<void> => {
   const params = BlogParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -107,7 +115,7 @@ function formatPost(p: typeof blogPostsTable.$inferSelect) {
     slug: p.slug,
     excerpt: p.excerpt ?? null,
     content: p.content,
-    coverImageUrl: p.coverImageUrl ?? null,
+    coverImageUrl: normalizeSupabaseMediaUrl(p.coverImageUrl) ?? null,
     published: p.published,
     publishedAt: p.publishedAt?.toISOString() ?? null,
     createdAt: p.createdAt.toISOString(),

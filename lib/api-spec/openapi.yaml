@@ -621,6 +621,7 @@ components:
         imageUrl:
           type: string
           nullable: true
+          nullable: true
         createdAt:
           type: string
 
@@ -675,6 +676,7 @@ components:
         categoryId:
           type: integer
           nullable: true
+          nullable: true
         categoryName:
           type: string
           nullable: true
@@ -698,12 +700,14 @@ components:
           minimum: 0
         imageUrl:
           type: string
+          nullable: true
         available:
           type: boolean
         featured:
           type: boolean
         categoryId:
           type: integer
+          nullable: true
 
     CakeUpdate:
       type: object
@@ -721,12 +725,14 @@ components:
           minimum: 0
         imageUrl:
           type: string
+          nullable: true
         available:
           type: boolean
         featured:
           type: boolean
         categoryId:
           type: integer
+          nullable: true
 
     # ─── CUSTOMER ──────────────────────────────────────────
     Customer:
@@ -781,7 +787,7 @@ components:
 
     Order:
       type: object
-      required: [id, status, paymentStatus, total, createdAt, items, customerName, customerPhone]
+      required: [id, status, paymentStatus, total, createdAt, items, customerName, customerPhone, discountAmount]
       properties:
         id:
           type: integer
@@ -801,6 +807,11 @@ components:
         notes:
           type: string
           nullable: true
+        promoCode:
+          type: string
+          nullable: true
+        discountAmount:
+          type: number
         status:
           type: string
         paymentStatus:
@@ -842,6 +853,8 @@ components:
         deliveryAddress:
           type: string
         notes:
+          type: string
+        promoCode:
           type: string
         items:
           type: array
@@ -918,7 +931,7 @@ components:
     # ─── DASHBOARD ─────────────────────────────────────────
     DashboardStats:
       type: object
-      required: [totalRevenue, totalOrders, totalCustomers, pendingOrders, todayRevenue, todayOrders]
+      required: [totalRevenue, totalOrders, totalCustomers, pendingOrders, todayRevenue, todayOrders, paidOrders, bookedCakes, paidCakes, activeListings, featuredListings]
       properties:
         totalRevenue:
           type: number
@@ -931,6 +944,16 @@ components:
         todayRevenue:
           type: number
         todayOrders:
+          type: integer
+        paidOrders:
+          type: integer
+        bookedCakes:
+          type: integer
+        paidCakes:
+          type: integer
+        activeListings:
+          type: integer
+        featuredListings:
           type: integer
 
     RevenuePoint:
@@ -953,6 +976,9 @@ components:
           type: integer
         title:
           type: string
+        code:
+          type: string
+          nullable: true
         description:
           type: string
           nullable: true
@@ -960,6 +986,9 @@ components:
           type: string
           nullable: true
         discountPct:
+          type: number
+          nullable: true
+        discountAmount:
           type: number
           nullable: true
         active:
@@ -970,6 +999,16 @@ components:
         endsAt:
           type: string
           nullable: true
+        minimumOrderAmount:
+          type: number
+          nullable: true
+        applicableCakeSlugs:
+          type: array
+          items:
+            type: string
+          nullable: true
+        showInStrip:
+          type: boolean
         createdAt:
           type: string
 
@@ -980,18 +1019,38 @@ components:
         title:
           type: string
           minLength: 1
+        code:
+          type: string
+          nullable: true
         description:
           type: string
         bannerUrl:
           type: string
+          nullable: true
         discountPct:
           type: number
+          nullable: true
+        discountAmount:
+          type: number
+          nullable: true
         active:
           type: boolean
         startsAt:
           type: string
+          nullable: true
         endsAt:
           type: string
+          nullable: true
+        minimumOrderAmount:
+          type: number
+          nullable: true
+        applicableCakeSlugs:
+          type: array
+          items:
+            type: string
+          nullable: true
+        showInStrip:
+          type: boolean
 
     PromotionUpdate:
       type: object
@@ -999,15 +1058,35 @@ components:
         title:
           type: string
           minLength: 1
+        code:
+          type: string
+          nullable: true
         description:
           type: string
         bannerUrl:
           type: string
+          nullable: true
         discountPct:
           type: number
+          nullable: true
+        discountAmount:
+          type: number
+          nullable: true
         active:
           type: boolean
         startsAt:
           type: string
+          nullable: true
         endsAt:
           type: string
+          nullable: true
+        minimumOrderAmount:
+          type: number
+          nullable: true
+        applicableCakeSlugs:
+          type: array
+          items:
+            type: string
+          nullable: true
+        showInStrip:
+          type: boolean

@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
+import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 
 export default function Menu() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -109,7 +110,7 @@ export default function Menu() {
                   <Card className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 rounded-xl cursor-pointer bg-white h-full flex flex-col">
                     <div className="aspect-[4/3] overflow-hidden bg-muted relative">
                       <img
-                        src={cake.imageUrl || "/images/cake1.png"}
+                        src={cake.imageUrl || DEFAULT_CAKE_IMAGE_URL}
                         alt={cake.name}
                         className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${!cake.available ? 'opacity-50 grayscale' : ''}`}
                       />

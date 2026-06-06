@@ -305,6 +305,8 @@ export const ListOrdersResponseItem = zod.object({
   "customerEmail": zod.string().nullish(),
   "deliveryAddress": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "promoCode": zod.string().nullish(),
+  "discountAmount": zod.number(),
   "status": zod.string(),
   "paymentStatus": zod.string(),
   "total": zod.number(),
@@ -337,6 +339,7 @@ export const CreateOrderBody = zod.object({
   "customerEmail": zod.string().optional(),
   "deliveryAddress": zod.string().optional(),
   "notes": zod.string().optional(),
+  "promoCode": zod.string().optional(),
   "items": zod.array(zod.object({
   "cakeId": zod.number(),
   "quantity": zod.number().min(1)
@@ -359,6 +362,8 @@ export const GetOrderResponse = zod.object({
   "customerEmail": zod.string().nullish(),
   "deliveryAddress": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "promoCode": zod.string().nullish(),
+  "discountAmount": zod.number(),
   "status": zod.string(),
   "paymentStatus": zod.string(),
   "total": zod.number(),
@@ -395,6 +400,8 @@ export const UpdateOrderStatusResponse = zod.object({
   "customerEmail": zod.string().nullish(),
   "deliveryAddress": zod.string().nullish(),
   "notes": zod.string().nullish(),
+  "promoCode": zod.string().nullish(),
+  "discountAmount": zod.number(),
   "status": zod.string(),
   "paymentStatus": zod.string(),
   "total": zod.number(),
@@ -536,12 +543,17 @@ export const GetDashboardRevenueChartResponse = zod.array(GetDashboardRevenueCha
 export const ListPromotionsResponseItem = zod.object({
   "id": zod.number(),
   "title": zod.string(),
+  "code": zod.string().nullish(),
   "description": zod.string().nullish(),
   "bannerUrl": zod.string().nullish(),
   "discountPct": zod.number().nullish(),
+  "discountAmount": zod.number().nullish(),
   "active": zod.boolean(),
   "startsAt": zod.string().nullish(),
   "endsAt": zod.string().nullish(),
+  "minimumOrderAmount": zod.number().nullish(),
+  "applicableCakeSlugs": zod.array(zod.string()).nullish(),
+  "showInStrip": zod.boolean(),
   "createdAt": zod.string()
 })
 export const ListPromotionsResponse = zod.array(ListPromotionsResponseItem)
@@ -555,12 +567,17 @@ export const ListPromotionsResponse = zod.array(ListPromotionsResponseItem)
 
 export const CreatePromotionBody = zod.object({
   "title": zod.string().min(1),
+  "code": zod.string().nullish(),
   "description": zod.string().optional(),
   "bannerUrl": zod.string().optional(),
   "discountPct": zod.number().optional(),
+  "discountAmount": zod.number().optional(),
   "active": zod.boolean().optional(),
   "startsAt": zod.string().optional(),
-  "endsAt": zod.string().optional()
+  "endsAt": zod.string().optional(),
+  "minimumOrderAmount": zod.number().optional(),
+  "applicableCakeSlugs": zod.array(zod.string()).optional(),
+  "showInStrip": zod.boolean().optional()
 })
 
 
@@ -576,23 +593,33 @@ export const UpdatePromotionParams = zod.object({
 
 export const UpdatePromotionBody = zod.object({
   "title": zod.string().min(1).optional(),
+  "code": zod.string().nullish(),
   "description": zod.string().optional(),
   "bannerUrl": zod.string().optional(),
   "discountPct": zod.number().optional(),
+  "discountAmount": zod.number().optional(),
   "active": zod.boolean().optional(),
   "startsAt": zod.string().optional(),
-  "endsAt": zod.string().optional()
+  "endsAt": zod.string().optional(),
+  "minimumOrderAmount": zod.number().optional(),
+  "applicableCakeSlugs": zod.array(zod.string()).optional(),
+  "showInStrip": zod.boolean().optional()
 })
 
 export const UpdatePromotionResponse = zod.object({
   "id": zod.number(),
   "title": zod.string(),
+  "code": zod.string().nullish(),
   "description": zod.string().nullish(),
   "bannerUrl": zod.string().nullish(),
   "discountPct": zod.number().nullish(),
+  "discountAmount": zod.number().nullish(),
   "active": zod.boolean(),
   "startsAt": zod.string().nullish(),
   "endsAt": zod.string().nullish(),
+  "minimumOrderAmount": zod.number().nullish(),
+  "applicableCakeSlugs": zod.array(zod.string()).nullish(),
+  "showInStrip": zod.boolean(),
   "createdAt": zod.string()
 })
 

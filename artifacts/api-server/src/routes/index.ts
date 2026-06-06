@@ -7,9 +7,11 @@ import ordersRouter from "./orders";
 import paymentsRouter from "./payments";
 import dashboardRouter from "./dashboard";
 import promotionsRouter from "./promotions";
+import homepageHeroRouter from "./homepage-hero";
 import reviewsRouter from "./reviews";
 import blogRouter from "./blog";
 import authRouter from "./auth";
+import uploadsRouter from "./uploads";
 
 const router: IRouter = Router();
 
@@ -22,7 +24,9 @@ router.use(ordersRouter);
 router.use(paymentsRouter);
 router.use(dashboardRouter);
 router.use(promotionsRouter);
+router.use(homepageHeroRouter);
 router.use(reviewsRouter);
 router.use(blogRouter);
+router.use(uploadsRouter);
 
 export default router;

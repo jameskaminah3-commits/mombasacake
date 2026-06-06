@@ -3,6 +3,7 @@ import { useParams, Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Calendar, ChevronLeft } from "lucide-react";
+import { getApiBaseUrl } from "@/lib/api-base";
 
 interface BlogPost {
   id: number;
@@ -31,8 +32,7 @@ export default function BlogPost() {
 
   useEffect(() => {
     if (!slug) return;
-    const base = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
-    fetch(`${base}/api/blog/${slug}`)
+    fetch(`${getApiBaseUrl()}/api/blog/${slug}`)
       .then((r) => {
         if (r.status === 404) { setNotFound(true); setIsLoading(false); return null; }
         return r.json();

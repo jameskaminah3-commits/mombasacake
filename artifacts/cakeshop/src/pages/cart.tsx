@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useCart } from "@/lib/cart-context";
 import { Button } from "@/components/ui/button";
 import { Trash2, Minus, Plus, ArrowRight } from "lucide-react";
+import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 
 export default function Cart() {
   const { items, updateQty, removeItem, total } = useCart();
@@ -35,7 +36,7 @@ export default function Cart() {
           {items.map((item) => (
             <div key={item.cake.id} className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-card rounded-2xl border border-border shadow-sm">
               <img 
-                src={item.cake.imageUrl || "/images/cake1.png"} 
+                src={item.cake.imageUrl || DEFAULT_CAKE_IMAGE_URL} 
                 alt={item.cake.name}
                 className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-xl bg-muted"
               />

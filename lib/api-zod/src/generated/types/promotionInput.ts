@@ -9,10 +9,15 @@
 export interface PromotionInput {
   /** @minLength 1 */
   title: string;
+  code?: string | null;
   description?: string;
   bannerUrl?: string;
   discountPct?: number;
+  discountAmount?: number;
   active?: boolean;
   startsAt?: string;
   endsAt?: string;
+  minimumOrderAmount?: number | null;
+  applicableCakeSlugs?: string[] | null;
+  showInStrip?: boolean;
 }
