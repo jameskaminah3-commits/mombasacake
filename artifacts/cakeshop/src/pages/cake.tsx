@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getApiBaseUrl } from "@/lib/api-base";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
+import { RevealImage } from "@/components/reveal-image";
 
 interface Review {
   id: number;
@@ -168,10 +169,13 @@ export default function CakeDetail() {
           {/* Image */}
           <div className="bg-card rounded-3xl overflow-hidden border border-border shadow-sm">
             <div className="aspect-square relative">
-              <img
+              <RevealImage
                 src={cake.imageUrl || DEFAULT_CAKE_IMAGE_URL}
                 alt={cake.name}
-                className="w-full h-full object-cover"
+                className="object-cover"
+                fallbackSrc={DEFAULT_CAKE_IMAGE_URL}
+                eager
+                timeoutMs={3000}
               />
             </div>
           </div>

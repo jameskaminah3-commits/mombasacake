@@ -3,6 +3,7 @@ import { useCart } from "@/lib/cart-context";
 import { Button } from "@/components/ui/button";
 import { Trash2, Minus, Plus, ArrowRight } from "lucide-react";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
+import { RevealImage } from "@/components/reveal-image";
 
 export default function Cart() {
   const { items, updateQty, removeItem, total } = useCart();
@@ -35,11 +36,15 @@ export default function Cart() {
         <div className="lg:col-span-2 space-y-6">
           {items.map((item) => (
             <div key={item.cake.id} className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-card rounded-2xl border border-border shadow-sm">
-              <img 
+              <div className="w-24 h-24 sm:w-32 sm:h-32 shrink-0">
+                <RevealImage
                 src={item.cake.imageUrl || DEFAULT_CAKE_IMAGE_URL} 
                 alt={item.cake.name}
-                className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-xl bg-muted"
+                className="object-cover rounded-xl bg-muted"
+                fallbackSrc={DEFAULT_CAKE_IMAGE_URL}
+                timeoutMs={2500}
               />
+              </div>
               <div className="flex-1 text-center sm:text-left">
                 <h3 className="font-bold text-lg">{item.cake.name}</h3>
                 <p className="text-muted-foreground text-sm mb-4">KES {item.cake.price.toLocaleString()}</p>

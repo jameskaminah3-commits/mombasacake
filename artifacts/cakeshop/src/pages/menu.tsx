@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
+import { RevealImage } from "@/components/reveal-image";
 
 export default function Menu() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -109,10 +110,12 @@ export default function Menu() {
                 <Link key={cake.id} href={`/cake/${cake.id}`}>
                   <Card className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 rounded-xl cursor-pointer bg-white h-full flex flex-col">
                     <div className="aspect-[4/3] overflow-hidden bg-muted relative">
-                      <img
+                      <RevealImage
                         src={cake.imageUrl || DEFAULT_CAKE_IMAGE_URL}
                         alt={cake.name}
-                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${!cake.available ? 'opacity-50 grayscale' : ''}`}
+                        className={`object-cover group-hover:scale-105 transition-transform duration-500 ${!cake.available ? "opacity-50 grayscale" : ""}`}
+                        fallbackSrc={DEFAULT_CAKE_IMAGE_URL}
+                        timeoutMs={2500}
                       />
                       {!cake.available && (
                         <div className="absolute inset-0 flex items-center justify-center">

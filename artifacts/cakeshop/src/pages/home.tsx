@@ -3,12 +3,12 @@ import { Button } from "@/components/ui/button";
 import { useGetFeaturedCakes, useGetPopularCakes, useListCakes, useListPromotions } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DEFAULT_GALLERY_IMAGE_URL, SITE_IMAGE_OPTIONS } from "@/lib/site-images";
+import { DEFAULT_GALLERY_IMAGE_URL, DEFAULT_LOGO_IMAGE_URL, SITE_IMAGE_OPTIONS } from "@/lib/site-images";
 import { Star, Truck, Clock, ShieldCheck, ChevronRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { getApiBaseUrl } from "@/lib/api-base";
-import { buildSupabaseMediaUrl } from "@/lib/supabase-media";
+import { RevealImage } from "@/components/reveal-image";
 
 function CakeCardSkeleton() {
   return (
@@ -79,7 +79,7 @@ const TESTIMONIALS = [
 ];
 
 const landingImage = (variant: "hero" | "work", file: string) =>
-  buildSupabaseMediaUrl(`gallery/landing/${variant}-${file}`);
+  `/gallery/landing/${variant}-${file}`;
 
 const GALLERY = SITE_IMAGE_OPTIONS.slice(0, 16);
 const HERO_CAKES = [
@@ -113,6 +113,23 @@ const HERO_CAKES = [
   },
 ];
 
+const HOME_CRITICAL_SOURCES = [
+  DEFAULT_LOGO_IMAGE_URL,
+  HERO_CAKES[0].src,
+  HERO_CAKES[0].previewSrc,
+  DEFAULT_GALLERY_IMAGE_URL,
+];
+
+function preloadImage(src: string) {
+  return new Promise<void>((resolve) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.onload = () => resolve();
+    image.onerror = () => resolve();
+    image.src = src;
+  });
+}
+
 function StarRating({ rating }: { rating: number }) {
   return (
     <div className="flex items-center gap-0.5">
@@ -135,6 +152,7 @@ export default function Home() {
   const [activeReviewIndex, setActiveReviewIndex] = useState(0);
   const [liveReviews, setLiveReviews] = useState<CakeReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [heroReady, setHeroReady] = useState(false);
   const cakeNameBySlug = new Map((listedCakes ?? []).map((cake) => [cake.slug, cake.name]));
 
   const now = Date.now();
@@ -146,18 +164,7 @@ export default function Home() {
     return true;
   }) || [];
 
-  const heroSource = featuredCakes?.length ? featuredCakes : listedCakes;
-  const dataHeroCakes = heroSource
-    ?.filter((cake) => cake.imageUrl)
-    .slice(0, 4)
-    .map((cake, index) => ({
-      src: cake.imageUrl || HERO_CAKES[index % HERO_CAKES.length].src,
-      previewSrc: cake.imageUrl || HERO_CAKES[index % HERO_CAKES.length].previewSrc,
-      title: cake.name,
-      label: cake.categoryName || "Featured cake",
-      accent: cake.description || `Fresh from KES ${cake.price.toLocaleString()}`,
-    })) || [];
-  const heroCakes = dataHeroCakes.length > 0 ? dataHeroCakes : HERO_CAKES;
+  const heroCakes = HERO_CAKES;
   const activeHero = heroCakes[activeHeroIndex % heroCakes.length];
   const featuredCards: DisplayCakeCard[] =
     featuredCakes?.slice(0, 3)?.length
@@ -191,6 +198,44 @@ export default function Home() {
   const galleryItems = dataGallery.length >= 4 ? dataGallery : GALLERY;
   const gallerySplit = Math.ceil(galleryItems.length / 2);
   const galleryRows = [galleryItems.slice(0, gallerySplit), galleryItems.slice(gallerySplit)];
+
+  useEffect(() => {
+    let cancelled = false;
+    setHeroReady(false);
+
+    const sources = HOME_CRITICAL_SOURCES;
+
+    const fallbackTimer = window.setTimeout(() => {
+      if (!cancelled) setHeroReady(true);
+    }, 3500);
+
+    Promise.all(sources.map((src) => preloadImage(src))).then(() => {
+      if (!cancelled) setHeroReady(true);
+    }).finally(() => {
+      window.clearTimeout(fallbackTimer);
+    });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(fallbackTimer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!heroReady) return;
+
+    const warmSources = HERO_CAKES.flatMap((hero) => [hero.src, hero.previewSrc]).filter(
+      (src) => !HOME_CRITICAL_SOURCES.includes(src),
+    );
+
+    const timer = window.setTimeout(() => {
+      warmSources.forEach((src) => {
+        void preloadImage(src);
+      });
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [heroReady]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -267,23 +312,77 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, [liveReviews.length]);
 
+  if (!heroReady) {
+    return (
+      <div className="flex min-h-[100svh] flex-col w-full bg-[#12080c] text-white">
+        <section className="relative flex min-h-[100svh] items-center overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(231,83,154,0.18),_transparent_42%),linear-gradient(135deg,_#12080c_0%,_#1b0d13_55%,_#241016_100%)]" />
+          <div className="absolute inset-x-0 top-0 h-px bg-white/10" />
+          <div className="relative z-10 container mx-auto px-4 py-12 sm:py-16">
+            <div className="mx-auto max-w-3xl">
+              <div className="mb-6 flex items-center gap-4">
+                <div className="h-14 w-14 rounded-2xl bg-white/10 p-2 shadow-lg">
+                  <RevealImage
+                    src={DEFAULT_LOGO_IMAGE_URL}
+                    alt="Channah Cakes"
+                    className="object-contain"
+                    eager
+                    placeholderClassName="bg-transparent"
+                    timeoutMs={2000}
+                  />
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/60">Channah Cake House</p>
+                  <h1 className="font-serif text-3xl font-bold sm:text-5xl">Loading the experience</h1>
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-[1.05fr_0.95fr]">
+                <div className="rounded-[2rem] border border-white/10 bg-white/5 p-4 shadow-2xl shadow-black/20 backdrop-blur-sm sm:p-5">
+                  <Skeleton className="h-[42vh] min-h-[320px] w-full rounded-[1.5rem] bg-white/10" />
+                </div>
+                <div className="space-y-4">
+                  <Skeleton className="h-8 w-2/3 bg-white/10" />
+                  <Skeleton className="h-5 w-full bg-white/10" />
+                  <Skeleton className="h-5 w-5/6 bg-white/10" />
+                  <Skeleton className="h-12 w-44 rounded-full bg-white/10" />
+                  <div className="grid grid-cols-2 gap-3 pt-6">
+                    <Skeleton className="h-24 rounded-2xl bg-white/10" />
+                    <Skeleton className="h-24 rounded-2xl bg-white/10" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col w-full">
       {/* ── HERO ─────────────────────────────────────────── */}
       <section className="relative h-[calc(100svh-112px)] min-h-[480px] max-h-[780px] w-full overflow-hidden bg-[#170c10] text-white sm:min-h-[620px]">
         <AnimatePresence mode="sync">
-          <motion.img
+          <motion.div
             key={activeHero.src}
-            src={activeHero.src}
-            srcSet={`${activeHero.previewSrc} 560w, ${activeHero.src} 1200w`}
-            sizes="100vw"
-            alt={activeHero.title}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full"
             initial={{ opacity: 0, scale: 1.06 }}
             animate={{ opacity: 1, scale: 1.12 }}
             exit={{ opacity: 0 }}
             transition={{ opacity: { duration: 1.2, ease: "easeOut" }, scale: { duration: 6.4, ease: "easeOut" } }}
-          />
+          >
+            <RevealImage
+              src={activeHero.src}
+              srcSet={`${activeHero.previewSrc} 560w, ${activeHero.src} 1200w`}
+              sizes="100vw"
+              alt={activeHero.title}
+              className="object-cover"
+              eager
+              fallbackSrc={DEFAULT_GALLERY_IMAGE_URL}
+              placeholderClassName="bg-[#170c10]"
+            />
+          </motion.div>
         </AnimatePresence>
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(23,12,16,0.88)_0%,rgba(23,12,16,0.58)_46%,rgba(23,12,16,0.2)_100%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(23,12,16,0.72)_0%,rgba(23,12,16,0.1)_42%,rgba(23,12,16,0.34)_100%)]" />
@@ -368,7 +467,12 @@ export default function Home() {
               }`}
               aria-label={`Preview ${cake.label}`}
             >
-              <img src={cake.previewSrc} alt="" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+              <RevealImage
+                src={cake.previewSrc}
+                alt=""
+                className="object-cover transition-transform duration-500 group-hover:scale-110"
+                eager
+              />
             </button>
           ))}
         </div>
@@ -384,11 +488,12 @@ export default function Home() {
               {[...activePromotions, ...activePromotions].map((promo, index) => (
                 <div key={`${promo.id}-${index}`} className="flex shrink-0 items-center gap-3 whitespace-nowrap">
                   {promo.bannerUrl && (
-                    <img
+                    <RevealImage
                       src={promo.bannerUrl}
                       alt=""
                       className="h-10 w-14 rounded-md border border-white/20 object-cover"
-                      loading="lazy"
+                      fallbackSrc={DEFAULT_GALLERY_IMAGE_URL}
+                      timeoutMs={2500}
                     />
                   )}
                   <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-white/90">
@@ -450,10 +555,12 @@ export default function Home() {
               <Link key={cake.id} href={href}>
                 <Card className="group overflow-hidden border-none shadow-md hover:shadow-xl transition-all duration-300 rounded-2xl cursor-pointer bg-white">
                   <div className="aspect-[4/5] overflow-hidden relative">
-                    <img
+                    <RevealImage
                       src={cake.imageUrl || DEFAULT_GALLERY_IMAGE_URL}
                       alt={cake.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                      className="object-cover group-hover:scale-105 transition-transform duration-700"
+                      eager
+                      fallbackSrc={DEFAULT_GALLERY_IMAGE_URL}
                     />
                     {cake.categoryName && (
                       <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 text-xs font-medium rounded-full text-foreground shadow-sm">
@@ -504,11 +611,12 @@ export default function Home() {
                       key={`${src}-${index}`}
                       className="group relative h-52 w-[62vw] max-w-[260px] shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/5 shadow-2xl shadow-black/30 sm:h-64 sm:w-[240px] lg:h-72 lg:w-[260px]"
                     >
-                      <img
+                      <RevealImage
                         src={src}
                         alt={label}
                         className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-                        loading="lazy"
+                        fallbackSrc={DEFAULT_GALLERY_IMAGE_URL}
+                        timeoutMs={2500}
                       />
                       <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_38%,rgba(0,0,0,0.72)_100%)]" />
                       <figcaption className="absolute bottom-0 left-0 right-0 p-3 text-xs font-semibold uppercase tracking-[0.16em] text-white/90 sm:p-4">
@@ -533,11 +641,16 @@ export default function Home() {
       <section className="py-0 overflow-hidden">
         <div className="grid md:grid-cols-2">
           <div className="relative min-h-[500px]">
-            <img
-              src={buildSupabaseMediaUrl("gallery/cake-heels.jpeg")}
-              alt="Custom cake by Channah Cakes"
-              className="absolute inset-0 w-full h-full object-cover"
-            />
+            <div className="absolute inset-0">
+              <RevealImage
+                src="/gallery/cake-heels.jpeg"
+                alt="Custom cake by Channah Cakes"
+                className="object-cover"
+                eager
+                fallbackSrc={DEFAULT_GALLERY_IMAGE_URL}
+                placeholderClassName="bg-secondary/40"
+              />
+            </div>
           </div>
           <div className="bg-secondary flex items-center px-10 py-16 md:px-16">
             <div className="max-w-md">
@@ -588,10 +701,12 @@ export default function Home() {
                 <Link key={cake.id} href={href}>
                   <Card className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 rounded-xl cursor-pointer bg-white">
                     <div className="aspect-square overflow-hidden bg-muted">
-                      <img
-                        src={cake.imageUrl || buildSupabaseMediaUrl("gallery/cake-purple-butterfly.jpeg")}
+                      <RevealImage
+                        src={cake.imageUrl || DEFAULT_GALLERY_IMAGE_URL}
                         alt={cake.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        eager
+                        fallbackSrc={DEFAULT_GALLERY_IMAGE_URL}
                       />
                     </div>
                     <CardContent className="p-4">
@@ -615,12 +730,15 @@ export default function Home() {
           <div className="overflow-hidden rounded-lg bg-[#170c10] text-white shadow-2xl shadow-secondary/10">
             <div className="grid lg:grid-cols-[1.2fr_0.8fr]">
               <div className="relative min-h-[380px] p-8 sm:p-12 lg:p-14">
-                  <img
+                <div className="absolute inset-0">
+                  <RevealImage
                     src={landingImage("hero", "cake-heart.jpeg")}
                     alt=""
-                    className="absolute inset-0 h-full w-full object-cover opacity-25"
-                    loading="lazy"
+                    className="object-cover opacity-25"
+                    fallbackSrc={DEFAULT_GALLERY_IMAGE_URL}
+                    timeoutMs={2500}
                   />
+                </div>
                 <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(23,12,16,0.96),rgba(23,12,16,0.68))]" />
                 <div className="relative z-10 flex h-full flex-col justify-between gap-12">
                   <div>
@@ -731,7 +849,17 @@ export default function Home() {
       {/* ── CTA BANNER ──────────────────────────────────── */}
       <section className="relative overflow-hidden bg-primary py-14 sm:py-16 md:py-20">
         <div className="absolute inset-0 opacity-15">
-          <img src={buildSupabaseMediaUrl("gallery/cake-heart.jpeg")} alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0">
+            <RevealImage
+              src="/gallery/cake-heart.jpeg"
+              alt=""
+              className="object-cover"
+              eager
+              fallbackSrc={DEFAULT_GALLERY_IMAGE_URL}
+              placeholderClassName="bg-primary/30"
+              timeoutMs={2500}
+            />
+          </div>
         </div>
         <div className="relative z-10 container mx-auto px-4 text-center text-white">
           <h2 className="font-serif text-4xl md:text-5xl font-bold mb-4">Ready to Celebrate?</h2>

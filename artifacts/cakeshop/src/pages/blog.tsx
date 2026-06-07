@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookOpen, Calendar } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api-base";
+import { RevealImage } from "@/components/reveal-image";
 
 interface BlogPost {
   id: number;
@@ -77,10 +78,11 @@ export default function Blog() {
                 <article className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer border border-border/40">
                   <div className="aspect-[16/9] overflow-hidden bg-muted">
                     {post.coverImageUrl ? (
-                      <img
+                      <RevealImage
                         src={post.coverImageUrl}
                         alt={post.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        timeoutMs={2500}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-secondary/10">

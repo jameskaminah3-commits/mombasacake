@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
+import { RevealImage } from "@/components/reveal-image";
 
 const checkoutSchema = z.object({
   customerName: z.string().min(2, "Name is required"),
@@ -279,7 +280,15 @@ export default function Checkout() {
               {items.map((item) => (
                 <div key={item.cake.id} className="flex items-center gap-4">
                   <div className="relative">
-                    <img src={item.cake.imageUrl || DEFAULT_CAKE_IMAGE_URL} alt={item.cake.name} className="w-16 h-16 rounded-lg object-cover bg-muted" />
+                    <div className="w-16 h-16">
+                      <RevealImage
+                        src={item.cake.imageUrl || DEFAULT_CAKE_IMAGE_URL}
+                        alt={item.cake.name}
+                        className="object-cover rounded-lg bg-muted"
+                        fallbackSrc={DEFAULT_CAKE_IMAGE_URL}
+                        timeoutMs={2500}
+                      />
+                    </div>
                     <span className="absolute -top-2 -right-2 bg-secondary text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
                       {item.quantity}
                     </span>

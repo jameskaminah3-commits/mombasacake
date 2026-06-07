@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Calendar, ChevronLeft } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api-base";
+import { RevealImage } from "@/components/reveal-image";
 
 interface BlogPost {
   id: number;
@@ -75,7 +76,12 @@ export default function BlogPost() {
 
         {post.coverImageUrl && (
           <div className="aspect-[16/9] rounded-2xl overflow-hidden mb-8 shadow-md">
-            <img src={post.coverImageUrl} alt={post.title} className="w-full h-full object-cover" />
+            <RevealImage
+              src={post.coverImageUrl}
+              alt={post.title}
+              className="object-cover"
+              timeoutMs={2500}
+            />
           </div>
         )}
 

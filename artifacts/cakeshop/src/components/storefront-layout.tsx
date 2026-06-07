@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SiFacebook, SiInstagram, SiTiktok, SiYoutube, SiWhatsapp } from "react-icons/si";
 import { DEFAULT_LOGO_IMAGE_URL } from "@/lib/site-images";
+import { RevealImage } from "@/components/reveal-image";
 
 const SOCIALS = [
   { icon: SiFacebook, href: "https://www.facebook.com/Channah-cakes-1412705188869989/", label: "Facebook" },
@@ -36,7 +37,16 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center" onClick={closeMenu} aria-label="Channah Cakes home">
-            <img src={DEFAULT_LOGO_IMAGE_URL} alt="Channah Cakes" className="h-14 w-auto object-contain sm:h-16" />
+            <div className="h-14 w-28 sm:h-16 sm:w-32">
+              <RevealImage
+                src={DEFAULT_LOGO_IMAGE_URL}
+                alt="Channah Cakes"
+                className="object-contain"
+                eager
+                placeholderClassName="bg-transparent"
+                timeoutMs={2000}
+              />
+            </div>
           </Link>
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
@@ -93,7 +103,16 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
             {/* Brand */}
             <div className="md:col-span-1">
               <div className="flex items-center mb-4">
-                <img src={DEFAULT_LOGO_IMAGE_URL} alt="Channah Cakes" className="h-[4.5rem] w-auto object-contain" />
+                <div className="h-[4.5rem] w-32">
+                  <RevealImage
+                    src={DEFAULT_LOGO_IMAGE_URL}
+                    alt="Channah Cakes"
+                    className="object-contain"
+                    eager
+                    placeholderClassName="bg-transparent"
+                    timeoutMs={2000}
+                  />
+                </div>
               </div>
               <p className="text-white/60 text-sm leading-7 max-w-xs">
                 Premium artisan celebration cakes, custom creations, and everyday indulgences — handcrafted in Mombasa, Kenya.
