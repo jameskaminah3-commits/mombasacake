@@ -28,16 +28,23 @@ jobs:
       - name: Deploy to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
           RAILWAY_PROJECT: ${{ secrets.RAILWAY_PROJECT }}
           RAILWAY_ENVIRONMENT: ${{ secrets.RAILWAY_ENVIRONMENT }}
           RAILWAY_SERVICE: ${{ secrets.RAILWAY_SERVICE }}
         run: |
           set -euo pipefail
 
-          if [ -z "${RAILWAY_TOKEN:-}" ]; then
-            echo "Missing GitHub secret RAILWAY_TOKEN."
+          token="${RAILWAY_TOKEN:-${RAILWAY_API_TOKEN:-}}"
+
+          if [ -z "$token" ]; then
+            echo "Missing Railway token secret."
+            echo "Add GitHub secret RAILWAY_TOKEN (project token) or RAILWAY_API_TOKEN (account/workspace token)."
             exit 1
           fi
+
+          export RAILWAY_TOKEN="$token"
+          unset RAILWAY_API_TOKEN
 
           args=(up --ci)
 
