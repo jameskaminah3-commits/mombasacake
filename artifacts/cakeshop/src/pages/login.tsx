@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Link } from "wouter";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api-base";
-import { buildSupabaseMediaUrl } from "@/lib/supabase-media";
+import { DEFAULT_LOGO_IMAGE_URL } from "@/lib/site-images";
 
 const RESET_EMAIL_KEY = "creme_admin_reset_email";
 
@@ -179,7 +179,7 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
           <Link href="/" className="inline-flex flex-col items-center gap-2">
-            <img src={buildSupabaseMediaUrl("logo.jpeg")} alt="Channah Cakes" className="h-20 w-20 object-contain rounded-2xl shadow-md" />
+            <img src={DEFAULT_LOGO_IMAGE_URL} alt="Channah Cakes" className="h-20 w-20 object-contain rounded-2xl shadow-md" />
             <span className="font-serif text-3xl font-bold text-secondary tracking-tight">
               Channah <span className="text-primary">Cakes</span>
             </span>
