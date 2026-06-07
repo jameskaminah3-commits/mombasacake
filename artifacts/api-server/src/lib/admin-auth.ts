@@ -4,6 +4,7 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
 import { db, adminsTable } from "@workspace/db";
 import { adminPasswordResetsTable } from "@workspace/db/schema";
+import { logger } from "./logger";
 import { sendResendEmail } from "./resend-email";
 
 export interface AdminAuthPayload {
@@ -17,6 +18,16 @@ export interface LoginSessionResponse {
   refreshToken: string | null;
   expiresAt: string | null;
   admin: AdminAuthPayload;
+}
+
+export class InvalidAdminCredentialsError extends Error {
+  readonly reason: "admin_not_found" | "invalid_password";
+
+  constructor(reason: InvalidAdminCredentialsError["reason"]) {
+    super("Invalid credentials");
+    this.name = "InvalidAdminCredentialsError";
+    this.reason = reason;
+  }
 }
 
 const JWT_SECRET = process.env.SESSION_SECRET || "dev-only-session-secret";
@@ -57,15 +68,18 @@ export async function loginAdmin(email: string, password: string): Promise<Login
     .where(eq(adminsTable.email, normalizedEmail));
 
   if (!admin) {
-    throw new Error("Invalid credentials");
+    logger.warn({ email: normalizedEmail, reason: "admin_not_found" }, "Admin login failed");
+    throw new InvalidAdminCredentialsError("admin_not_found");
   }
 
   if (!(await bcrypt.compare(password, admin.passwordHash))) {
-    throw new Error("Invalid credentials");
+    logger.warn({ email: normalizedEmail, reason: "invalid_password" }, "Admin login failed");
+    throw new InvalidAdminCredentialsError("invalid_password");
   }
 
   const adminPayload = normalizeAdmin(admin);
   const token = jwt.sign(adminPayload, JWT_SECRET, { expiresIn: SESSION_TTL });
+  logger.info({ email: normalizedEmail, adminId: adminPayload.id }, "Admin login succeeded");
 
   return {
     token,

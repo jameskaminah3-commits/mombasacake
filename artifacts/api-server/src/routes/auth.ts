@@ -1,12 +1,14 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
 import {
+  InvalidAdminCredentialsError,
   loginAdmin,
   refreshAdminSession,
   resolveAdminFromBearerToken,
   sendAdminPasswordResetEmail,
   updateAdminPassword,
 } from "../lib/admin-auth";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -39,9 +41,16 @@ router.post("/auth/login", async (req: Request, res: Response): Promise<void> =>
     const session = await loginAdmin(parsed.data.email, parsed.data.password);
     res.json(session);
   } catch (error) {
-    res.status(401).json({
-      error: error instanceof Error ? error.message : "Invalid credentials",
-    });
+    if (error instanceof InvalidAdminCredentialsError) {
+      res.status(401).json({ error: "Invalid credentials" });
+      return;
+    }
+
+    logger.error(
+      { err: error, email: parsed.data.email.trim().toLowerCase() },
+      "Admin login service error",
+    );
+    res.status(500).json({ error: "Login service unavailable" });
   }
 });
 

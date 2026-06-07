@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "check:admins": "tsx ./src/check-admins.ts",
     "seed": "tsx ./src/seed.ts",
     "seed:admin": "tsx ./src/seed-admin.ts",
     "media:sync": "tsx ./src/sync-media.ts",
