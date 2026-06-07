@@ -22,10 +22,6 @@ export interface LoginSessionResponse {
 const JWT_SECRET = process.env.SESSION_SECRET || "dev-only-session-secret";
 const SESSION_TTL = "7d";
 const RESET_TOKEN_TTL_MINUTES = 30;
-const DEFAULT_ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "jameskaminah3@gmail.com").trim().toLowerCase();
-const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "James@Channah";
-const HAS_CONFIGURED_ADMIN_PASSWORD = Boolean(process.env.ADMIN_PASSWORD);
-const DEFAULT_ADMIN_NAME = (process.env.ADMIN_NAME || "James").trim();
 
 function normalizeAdmin(admin: { id: number; email: string; name: string }): AdminAuthPayload {
   return {
@@ -37,39 +33,6 @@ function normalizeAdmin(admin: { id: number; email: string; name: string }): Adm
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
-}
-
-async function ensureDefaultAdminAccount(): Promise<AdminAuthPayload | null> {
-  const [existing] = await db
-    .select()
-    .from(adminsTable)
-    .where(eq(adminsTable.email, DEFAULT_ADMIN_EMAIL));
-
-  if (existing) {
-    return normalizeAdmin(existing);
-  }
-
-  const passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 12);
-  const [inserted] = await db
-    .insert(adminsTable)
-    .values({
-      email: DEFAULT_ADMIN_EMAIL,
-      name: DEFAULT_ADMIN_NAME,
-      passwordHash,
-    })
-    .onConflictDoNothing({ target: adminsTable.email })
-    .returning();
-
-  if (inserted) {
-    return normalizeAdmin(inserted);
-  }
-
-  const [admin] = await db
-    .select()
-    .from(adminsTable)
-    .where(eq(adminsTable.email, DEFAULT_ADMIN_EMAIL));
-
-  return admin ? normalizeAdmin(admin) : null;
 }
 
 function buildResetUrl(token: string) {
@@ -87,8 +50,6 @@ export async function resolveAdminFromBearerToken(token: string): Promise<AdminA
 }
 
 export async function loginAdmin(email: string, password: string): Promise<LoginSessionResponse> {
-  await ensureDefaultAdminAccount();
-
   const normalizedEmail = email.trim().toLowerCase();
   const [admin] = await db
     .select()
@@ -99,19 +60,7 @@ export async function loginAdmin(email: string, password: string): Promise<Login
     throw new Error("Invalid credentials");
   }
 
-  let valid = await bcrypt.compare(password, admin.passwordHash);
-  if (!valid && HAS_CONFIGURED_ADMIN_PASSWORD && normalizedEmail === DEFAULT_ADMIN_EMAIL && password === DEFAULT_ADMIN_PASSWORD) {
-    const passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 12);
-    await db
-      .update(adminsTable)
-      .set({ passwordHash, name: DEFAULT_ADMIN_NAME })
-      .where(eq(adminsTable.id, admin.id));
-    admin.passwordHash = passwordHash;
-    admin.name = DEFAULT_ADMIN_NAME;
-    valid = true;
-  }
-
-  if (!valid) {
+  if (!(await bcrypt.compare(password, admin.passwordHash))) {
     throw new Error("Invalid credentials");
   }
 

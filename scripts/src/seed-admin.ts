@@ -1,10 +1,19 @@
 import bcrypt from "bcryptjs";
 import { adminsTable, db } from "@workspace/db";
 
+function requireEnv(name: string): string {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    throw new Error(`${name} must be set to seed an admin account.`);
+  }
+
+  return value;
+}
+
 async function seedAdmin() {
-  const email = process.env.ADMIN_EMAIL || "jameskaminah3@gmail.com";
-  const password = process.env.ADMIN_PASSWORD || "James@Channah";
-  const name = process.env.ADMIN_NAME || "James";
+  const email = requireEnv("SEED_ADMIN_EMAIL");
+  const password = requireEnv("SEED_ADMIN_PASSWORD");
+  const name = process.env.SEED_ADMIN_NAME?.trim() || "Admin";
 
   console.log(`Creating admin row: ${email}`);
   const passwordHash = await bcrypt.hash(password, 12);
