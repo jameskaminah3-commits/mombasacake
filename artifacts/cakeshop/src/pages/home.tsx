@@ -120,6 +120,10 @@ const HOME_CRITICAL_SOURCES = [
   DEFAULT_GALLERY_IMAGE_URL,
 ];
 
+const HERO_IMAGE_SOURCES = Array.from(
+  new Set(HERO_CAKES.flatMap((hero) => [hero.src, hero.previewSrc])),
+);
+
 function preloadImage(src: string) {
   return new Promise<void>((resolve) => {
     const image = new Image();
@@ -201,15 +205,13 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    setHeroReady(false);
-
-    const sources = HOME_CRITICAL_SOURCES;
+    setHeroReady(HERO_IMAGE_SOURCES.length === 0);
 
     const fallbackTimer = window.setTimeout(() => {
       if (!cancelled) setHeroReady(true);
-    }, 3500);
+    }, 7000);
 
-    Promise.all(sources.map((src) => preloadImage(src))).then(() => {
+    Promise.all(HERO_IMAGE_SOURCES.map((src) => preloadImage(src))).then(() => {
       if (!cancelled) setHeroReady(true);
     }).finally(() => {
       window.clearTimeout(fallbackTimer);
@@ -222,10 +224,8 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!heroReady) return;
-
-    const warmSources = HERO_CAKES.flatMap((hero) => [hero.src, hero.previewSrc]).filter(
-      (src) => !HOME_CRITICAL_SOURCES.includes(src),
+    const warmSources = HOME_CRITICAL_SOURCES.filter(
+      (src) => !HERO_IMAGE_SOURCES.includes(src),
     );
 
     const timer = window.setTimeout(() => {
@@ -238,6 +238,8 @@ export default function Home() {
   }, [heroReady]);
 
   useEffect(() => {
+    if (!heroReady) return;
+
     const timer = window.setInterval(() => {
       setActiveHeroIndex((current) => (current + 1) % heroCakes.length);
     }, 5200);
@@ -311,53 +313,6 @@ export default function Home() {
 
     return () => window.clearInterval(timer);
   }, [liveReviews.length]);
-
-  if (!heroReady) {
-    return (
-      <div className="flex min-h-[100svh] flex-col w-full bg-[#12080c] text-white">
-        <section className="relative flex min-h-[100svh] items-center overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(231,83,154,0.18),_transparent_42%),linear-gradient(135deg,_#12080c_0%,_#1b0d13_55%,_#241016_100%)]" />
-          <div className="absolute inset-x-0 top-0 h-px bg-white/10" />
-          <div className="relative z-10 container mx-auto px-4 py-12 sm:py-16">
-            <div className="mx-auto max-w-3xl">
-              <div className="mb-6 flex items-center gap-4">
-                <div className="h-14 w-14 rounded-2xl bg-white/10 p-2 shadow-lg">
-                  <RevealImage
-                    src={DEFAULT_LOGO_IMAGE_URL}
-                    alt="Channah Cakes"
-                    className="object-contain"
-                    eager
-                    placeholderClassName="bg-transparent"
-                    timeoutMs={2000}
-                  />
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/60">Channah Cake House</p>
-                  <h1 className="font-serif text-3xl font-bold sm:text-5xl">Loading the experience</h1>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-[1.05fr_0.95fr]">
-                <div className="rounded-[2rem] border border-white/10 bg-white/5 p-4 shadow-2xl shadow-black/20 backdrop-blur-sm sm:p-5">
-                  <Skeleton className="h-[42vh] min-h-[320px] w-full rounded-[1.5rem] bg-white/10" />
-                </div>
-                <div className="space-y-4">
-                  <Skeleton className="h-8 w-2/3 bg-white/10" />
-                  <Skeleton className="h-5 w-full bg-white/10" />
-                  <Skeleton className="h-5 w-5/6 bg-white/10" />
-                  <Skeleton className="h-12 w-44 rounded-full bg-white/10" />
-                  <div className="grid grid-cols-2 gap-3 pt-6">
-                    <Skeleton className="h-24 rounded-2xl bg-white/10" />
-                    <Skeleton className="h-24 rounded-2xl bg-white/10" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col w-full">

@@ -24,6 +24,7 @@ const SESSION_TTL = "7d";
 const RESET_TOKEN_TTL_MINUTES = 30;
 const DEFAULT_ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "jameskaminah3@gmail.com").trim().toLowerCase();
 const DEFAULT_ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "James@Channah";
+const HAS_CONFIGURED_ADMIN_PASSWORD = Boolean(process.env.ADMIN_PASSWORD);
 const DEFAULT_ADMIN_NAME = (process.env.ADMIN_NAME || "James").trim();
 
 function normalizeAdmin(admin: { id: number; email: string; name: string }): AdminAuthPayload {
@@ -88,16 +89,28 @@ export async function resolveAdminFromBearerToken(token: string): Promise<AdminA
 export async function loginAdmin(email: string, password: string): Promise<LoginSessionResponse> {
   await ensureDefaultAdminAccount();
 
+  const normalizedEmail = email.trim().toLowerCase();
   const [admin] = await db
     .select()
     .from(adminsTable)
-    .where(eq(adminsTable.email, email.trim().toLowerCase()));
+    .where(eq(adminsTable.email, normalizedEmail));
 
   if (!admin) {
     throw new Error("Invalid credentials");
   }
 
-  const valid = await bcrypt.compare(password, admin.passwordHash);
+  let valid = await bcrypt.compare(password, admin.passwordHash);
+  if (!valid && HAS_CONFIGURED_ADMIN_PASSWORD && normalizedEmail === DEFAULT_ADMIN_EMAIL && password === DEFAULT_ADMIN_PASSWORD) {
+    const passwordHash = await bcrypt.hash(DEFAULT_ADMIN_PASSWORD, 12);
+    await db
+      .update(adminsTable)
+      .set({ passwordHash, name: DEFAULT_ADMIN_NAME })
+      .where(eq(adminsTable.id, admin.id));
+    admin.passwordHash = passwordHash;
+    admin.name = DEFAULT_ADMIN_NAME;
+    valid = true;
+  }
+
   if (!valid) {
     throw new Error("Invalid credentials");
   }

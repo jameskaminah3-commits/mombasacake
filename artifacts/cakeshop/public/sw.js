@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const SHELL_CACHE = `channah-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `channah-runtime-${CACHE_VERSION}`;
 const IMAGE_CACHE = `channah-images-${CACHE_VERSION}`;
@@ -7,19 +7,7 @@ const DATA_CACHE = `channah-data-${CACHE_VERSION}`;
 const CORE_ASSETS = [
   "/",
   "/index.html",
-  "/logo-clear.png",
-  "/images/cake1.png",
-  "/gallery/cake-gold-butterfly.jpeg",
-  "/gallery/cake-heart.jpeg",
-  "/gallery/cake-heels.jpeg",
-  "/gallery/landing/hero-cake-lady-dress.jpeg",
-  "/gallery/landing/work-cake-lady-dress.jpeg",
-  "/gallery/landing/hero-cake-gold-butterfly.jpeg",
-  "/gallery/landing/work-cake-gold-butterfly.jpeg",
-  "/gallery/landing/hero-cake-blue-gold.jpeg",
-  "/gallery/landing/work-cake-blue-gold.jpeg",
-  "/gallery/landing/hero-cake-spiderman.jpeg",
-  "/gallery/landing/work-cake-spiderman.jpeg"
+  "/logo-clear.png"
 ];
 
 const OFFLINE_IMAGE = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
@@ -65,6 +53,26 @@ async function cacheFirst(request, cacheName, fallbackResponse) {
   }
 }
 
+async function staleWhileRevalidate(request, cacheName, fallbackResponse) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  const refresh = fetch(request)
+    .then((response) => {
+      if (response.ok) {
+        cache.put(request, response.clone());
+      }
+      return response;
+    })
+    .catch(() => null);
+
+  if (cached) {
+    return cached;
+  }
+
+  const response = await refresh;
+  return response || fallbackResponse;
+}
+
 async function networkFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
   try {
@@ -82,7 +90,9 @@ async function networkFirst(request, cacheName) {
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => cache.addAll(CORE_ASSETS.map(cacheUrl))),
+    caches.open(SHELL_CACHE).then((cache) =>
+      Promise.allSettled(CORE_ASSETS.map((asset) => cache.add(cacheUrl(asset)))),
+    ),
   );
   self.skipWaiting();
 });
@@ -120,7 +130,7 @@ self.addEventListener("fetch", (event) => {
   if (!isSameOrigin) return;
 
   if (request.destination === "image") {
-    event.respondWith(cacheFirst(request, IMAGE_CACHE, new Response(OFFLINE_IMAGE, {
+    event.respondWith(staleWhileRevalidate(request, IMAGE_CACHE, new Response(OFFLINE_IMAGE, {
       headers: { "Content-Type": "image/svg+xml" },
     })));
     return;
