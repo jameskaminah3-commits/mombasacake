@@ -1,0 +1,8 @@
+[build]
+builder = "DOCKERFILE"
+watchPatterns = ["**"]
+
+[deploy]
+healthcheckPath = "/api/healthz"
+healthcheckTimeout = 300
+restartPolicyType = "ALWAYS"

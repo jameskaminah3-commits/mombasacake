@@ -1,0 +1,56 @@
+name: Deploy to Railway
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: railway-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli@latest
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT: ${{ secrets.RAILWAY_PROJECT }}
+          RAILWAY_ENVIRONMENT: ${{ secrets.RAILWAY_ENVIRONMENT }}
+          RAILWAY_SERVICE: ${{ secrets.RAILWAY_SERVICE }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${RAILWAY_TOKEN:-}" ]; then
+            echo "Missing GitHub secret RAILWAY_TOKEN."
+            exit 1
+          fi
+
+          args=(up --ci)
+
+          if [ -n "${RAILWAY_PROJECT:-}" ]; then
+            args+=(--project "$RAILWAY_PROJECT")
+          fi
+
+          if [ -n "${RAILWAY_ENVIRONMENT:-}" ]; then
+            args+=(--environment "$RAILWAY_ENVIRONMENT")
+          fi
+
+          if [ -n "${RAILWAY_SERVICE:-}" ]; then
+            args+=(--service "$RAILWAY_SERVICE")
+          fi
+
+          railway "${args[@]}"
