@@ -3,7 +3,6 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useQuery } from "@tanstack/react-query";
 import { useCart } from "@/lib/cart-context";
 import {
   getGetOrderQueryKey,
@@ -20,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
-import { DEFAULT_PAYMENT_DETAILS, fetchPaymentDetails } from "@/lib/payment-details";
 
 const checkoutSchema = z.object({
   customerName: z.string().min(2, "Name is required"),
@@ -45,17 +43,12 @@ export default function Checkout() {
   const [, setLocation] = useLocation();
 
   const [activeOrderId, setActiveOrderId] = useState<number | null>(null);
-  const [paymentOrder, setPaymentOrder] = useState<{ id: number; phone: string; amount: number } | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "prompted" | "success" | "failed">("idle");
+  const [paymentDetails, setPaymentDetails] = useState<{ shortCode: string; amount: number } | null>(null);
 
   const createOrder = useCreateOrder();
   const initiatePayment = useInitiateMpesaPayment();
   const { data: promotions } = useListPromotions();
-  const { data: paymentDetails } = useQuery({
-    queryKey: ["payment-details"],
-    queryFn: fetchPaymentDetails,
-    placeholderData: DEFAULT_PAYMENT_DETAILS,
-  });
 
   // Polling logic when payment is prompted
   const { data: orderData } = useGetOrder(activeOrderId as number, {
@@ -81,11 +74,6 @@ export default function Checkout() {
   const promoCode = form.watch("promoCode");
   const promotionPreview = resolvePromotionPreview(promotions ?? [], items, total, promoCode);
   const discountedTotal = Math.max(total - promotionPreview.discountAmount, 0);
-  const currentPaymentOrder = paymentOrder ?? (activeOrderId ? { id: activeOrderId, phone: form.getValues("customerPhone"), amount: discountedTotal } : null);
-
-  const paymentReference = currentPaymentOrder
-    ? `${paymentDetails?.accountReferencePrefix || DEFAULT_PAYMENT_DETAILS.accountReferencePrefix}-${currentPaymentOrder.id}`
-    : `${DEFAULT_PAYMENT_DETAILS.accountReferencePrefix}-`;
 
   useEffect(() => {
     if (orderData?.paymentStatus === "paid") {
@@ -103,6 +91,27 @@ export default function Checkout() {
     setLocation("/cart");
     return null;
   }
+
+  const mpesaPaymentBlock = paymentDetails && activeOrderId ? (
+    <div className="mt-6 bg-[#52B44B]/10 border border-[#52B44B]/30 rounded-xl p-5 text-left">
+      <p className="text-sm font-bold text-[#52B44B] uppercase tracking-wide mb-3">M-Pesa Payment Details</p>
+      <div className="space-y-2 text-sm">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Paybill Number</span>
+          <span className="font-bold text-foreground">{paymentDetails.shortCode}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Account Number</span>
+          <span className="font-bold text-foreground">Order-{activeOrderId}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Amount</span>
+          <span className="font-bold text-foreground">KES {Math.ceil(paymentDetails.amount).toLocaleString()}</span>
+        </div>
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">Use the details above to pay manually via M-Pesa if the prompt doesn't appear.</p>
+    </div>
+  ) : null;
 
   const onSubmit = async (values: CheckoutFormValues) => {
     try {
@@ -122,13 +131,8 @@ export default function Checkout() {
       });
 
       setActiveOrderId(order.id);
-      setPaymentOrder({
-        id: order.id,
-        phone: values.customerPhone,
-        amount: order.total,
-      });
 
-      await initiatePayment.mutateAsync({
+      const payResult = await initiatePayment.mutateAsync({
         data: {
           orderId: order.id,
           phone: values.customerPhone,
@@ -136,23 +140,9 @@ export default function Checkout() {
         },
       });
 
-      setPaymentStatus("prompted");
-    } catch (error) {
-      console.error(error);
-      setPaymentStatus("failed");
-    }
-  };
-
-  const retryPayment = async () => {
-    if (!currentPaymentOrder) return;
-    try {
-      setPaymentStatus("processing");
-      await initiatePayment.mutateAsync({
-        data: {
-          orderId: currentPaymentOrder.id,
-          phone: currentPaymentOrder.phone,
-          amount: currentPaymentOrder.amount,
-        },
+      setPaymentDetails({
+        shortCode: payResult.businessShortCode || "522522",
+        amount: order.total,
       });
       setPaymentStatus("prompted");
     } catch (error) {
@@ -161,22 +151,18 @@ export default function Checkout() {
     }
   };
 
-  const showCheckoutForm = paymentStatus === "idle" || (paymentStatus === "failed" && !currentPaymentOrder);
-  const showPendingPayment = paymentStatus === "prompted" || (paymentStatus === "failed" && Boolean(currentPaymentOrder)) || paymentStatus === "processing";
-  const paymentPromptPhone = currentPaymentOrder?.phone || form.getValues("customerPhone");
-
   return (
     <div className="container mx-auto px-4 py-12 max-w-5xl">
       <h1 className="font-serif text-4xl font-bold mb-8">Checkout</h1>
 
       <div className="grid lg:grid-cols-2 gap-12">
         <div>
-          {showCheckoutForm ? (
+          {paymentStatus === "idle" || (paymentStatus === "failed" && !activeOrderId) ? (
             <div className="bg-card border border-border p-6 rounded-2xl shadow-sm">
               <h2 className="font-bold text-xl mb-6">Delivery Details</h2>
-              {paymentStatus === "failed" && !currentPaymentOrder && (
+              {paymentStatus === "failed" && (
                 <div className="bg-destructive/10 text-destructive p-4 rounded-lg mb-6 text-sm font-medium border border-destructive/20">
-                  Payment failed or was cancelled. Please try again.
+                  Something went wrong. Please check your details and try again.
                 </div>
               )}
 
@@ -285,102 +271,59 @@ export default function Checkout() {
                 </form>
               </Form>
             </div>
+          ) : paymentStatus === "prompted" ? (
+            <div className="bg-card border border-[#52B44B]/30 p-8 rounded-2xl shadow-sm">
+              <div className="text-center mb-6">
+                <div className="w-20 h-20 bg-[#52B44B]/10 rounded-full flex items-center justify-center mb-4 mx-auto">
+                  <Loader2 className="h-10 w-10 text-[#52B44B] animate-spin" />
+                </div>
+                <h2 className="font-serif text-2xl font-bold mb-2 text-[#52B44B]">Check your phone</h2>
+                <p className="text-muted-foreground text-base max-w-xs mx-auto">
+                  An M-Pesa STK push has been sent to your phone. Enter your PIN to complete payment of{" "}
+                  <strong>KES {discountedTotal.toLocaleString()}</strong>.
+                </p>
+              </div>
+              {mpesaPaymentBlock}
+            </div>
+          ) : paymentStatus === "failed" && activeOrderId ? (
+            <div className="bg-card border border-amber-400/40 p-8 rounded-2xl shadow-sm">
+              <div className="text-center mb-6">
+                <div className="w-20 h-20 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500">
+                    <path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  </svg>
+                </div>
+                <h2 className="font-serif text-2xl font-bold mb-2 text-amber-600 dark:text-amber-400">Payment Not Confirmed</h2>
+                <p className="text-muted-foreground text-sm max-w-xs mx-auto">
+                  Your order <strong>#{activeOrderId}</strong> has been saved and is in <strong>pending orders</strong>. Complete payment using the details below and we'll confirm your order.
+                </p>
+              </div>
+              {mpesaPaymentBlock}
+              <div className="mt-6 flex flex-col gap-3">
+                <Button
+                  className="w-full rounded-full bg-[#52B44B] hover:bg-[#52B44B]/90 text-white font-bold"
+                  onClick={() => setLocation(`/order/${activeOrderId}`)}
+                >
+                  View My Order
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full rounded-full"
+                  onClick={() => { setPaymentStatus("idle"); setActiveOrderId(null); setPaymentDetails(null); }}
+                >
+                  Try Paying Again
+                </Button>
+              </div>
+            </div>
           ) : (
-            <div className="space-y-4">
-              {paymentStatus === "processing" ? (
-                <div className="bg-card border border-[#52B44B]/30 p-12 rounded-2xl shadow-sm text-center flex flex-col items-center justify-center min-h-[320px]">
-                  <div className="w-20 h-20 bg-[#52B44B]/10 rounded-full flex items-center justify-center mb-6">
-                    <Loader2 className="h-10 w-10 text-[#52B44B] animate-spin" />
-                  </div>
-                  <h2 className="font-serif text-2xl font-bold mb-4 text-[#52B44B]">Sending your MPesa prompt</h2>
-                  <p className="text-muted-foreground text-lg max-w-xs mx-auto">
-                    Please wait a moment while we send the payment request for{" "}
-                    <strong>KES {discountedTotal.toLocaleString()}</strong>.
-                  </p>
-                </div>
-              ) : paymentStatus === "prompted" || (paymentStatus === "failed" && currentPaymentOrder) ? (
-                <div className="bg-card border border-[#52B44B]/30 p-6 rounded-2xl shadow-sm space-y-6">
-                  <div className="text-center flex flex-col items-center justify-center">
-                    <div className="w-20 h-20 bg-[#52B44B]/10 rounded-full flex items-center justify-center mb-6">
-                      <Loader2 className="h-10 w-10 text-[#52B44B] animate-spin" />
-                    </div>
-                    <h2 className="font-serif text-2xl font-bold mb-4 text-[#52B44B]">
-                      {paymentStatus === "failed" ? "Payment not confirmed yet" : "Check your phone"}
-                    </h2>
-                    <p className="text-muted-foreground text-lg max-w-md mx-auto">
-                      {paymentStatus === "failed"
-                        ? "The order is still pending in admin. You can retry the payment using the details below."
-                        : "We've sent an MPesa prompt to your phone. Enter your PIN to complete the payment."}
-                    </p>
-                  </div>
-
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-2xl border bg-muted/30 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Order reference</p>
-                      <p className="mt-2 font-mono text-lg font-bold">{paymentReference}</p>
-                    </div>
-                    <div className="rounded-2xl border bg-muted/30 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Amount</p>
-                      <p className="mt-2 text-lg font-bold">KES {discountedTotal.toLocaleString()}</p>
-                    </div>
-                    <div className="rounded-2xl border bg-muted/30 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Business shortcode</p>
-                      <p className="mt-2 text-lg font-bold">{paymentDetails?.businessShortCode || DEFAULT_PAYMENT_DETAILS.businessShortCode}</p>
-                    </div>
-                    <div className="rounded-2xl border bg-muted/30 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Phone number</p>
-                      <p className="mt-2 text-lg font-bold">{paymentPromptPhone}</p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-[#52B44B]/20 bg-[#52B44B]/5 p-4 text-sm leading-6 text-muted-foreground">
-                    {paymentDetails?.instructions || DEFAULT_PAYMENT_DETAILS.instructions}
-                  </div>
-
-                  {paymentStatus === "failed" && currentPaymentOrder && (
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                      <Button
-                        type="button"
-                        size="lg"
-                        className="flex-1 h-14 rounded-full bg-[#52B44B] hover:bg-[#52B44B]/90 text-white font-bold text-base"
-                        onClick={retryPayment}
-                        disabled={initiatePayment.isPending}
-                      >
-                        {initiatePayment.isPending ? (
-                          <>
-                            <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Retrying...
-                          </>
-                        ) : (
-                          "Retry MPesa payment"
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="lg"
-                        className="h-14 rounded-full px-8 text-base font-semibold"
-                        onClick={() => {
-                          setPaymentStatus("idle");
-                          setActiveOrderId(null);
-                          setPaymentOrder(null);
-                        }}
-                      >
-                        Edit details
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="bg-card border border-[#52B44B]/30 p-12 rounded-2xl shadow-sm text-center flex flex-col items-center justify-center min-h-[400px]">
-                  <div className="w-20 h-20 bg-[#52B44B] rounded-full flex items-center justify-center mb-6">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20 6 9 17l-5-5" />
-                    </svg>
-                  </div>
-                  <h2 className="font-serif text-2xl font-bold mb-4 text-[#52B44B]">Payment Successful</h2>
-                  <p className="text-muted-foreground text-lg">Redirecting to your receipt...</p>
-                </div>
-              )}
+            <div className="bg-card border border-[#52B44B]/30 p-12 rounded-2xl shadow-sm text-center flex flex-col items-center justify-center min-h-[400px]">
+              <div className="w-20 h-20 bg-[#52B44B] rounded-full flex items-center justify-center mb-6">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              </div>
+              <h2 className="font-serif text-2xl font-bold mb-4 text-[#52B44B]">Payment Successful</h2>
+              <p className="text-muted-foreground text-lg">Redirecting to your receipt...</p>
             </div>
           )}
         </div>
