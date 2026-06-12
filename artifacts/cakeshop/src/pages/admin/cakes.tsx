@@ -53,6 +53,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
+import { normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
 
 const cakeSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -422,9 +423,9 @@ export default function AdminCakes() {
               cakes?.map((cake) => (
                 <TableRow key={cake.id}>
                   <TableCell>
-                    <img 
-                      src={cake.imageUrl || DEFAULT_CAKE_IMAGE_URL} 
-                      alt={cake.name} 
+                    <img
+                      src={normalizeSupabaseMediaUrl(cake.imageUrl || DEFAULT_CAKE_IMAGE_URL) || DEFAULT_CAKE_IMAGE_URL}
+                      alt={cake.name}
                       className="w-12 h-12 rounded-md object-cover bg-muted"
                     />
                   </TableCell>

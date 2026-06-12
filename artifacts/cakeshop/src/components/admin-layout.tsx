@@ -8,6 +8,7 @@ import {
   Megaphone,
   Menu,
   Image as ImageIcon,
+  FolderOpen,
   ShoppingBag,
   Tags,
   Users,
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/customers", label: "Customers", icon: Users },
   { href: "/payments", label: "Payments", icon: CreditCard },
   { href: "/homepage", label: "Homepage", icon: ImageIcon },
+  { href: "/media-library", label: "Media Library", icon: FolderOpen },
   { href: "/marketing", label: "Marketing", icon: Megaphone },
 ];
 

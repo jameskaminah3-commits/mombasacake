@@ -24,6 +24,17 @@ export function getSupabaseMediaMaxBytes() {
   return MAX_IMAGE_BYTES;
 }
 
+export type SupabaseMediaLibraryItem = {
+  path: string;
+  url: string;
+  filename: string;
+  folder: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+  mimeType: string | null;
+  size: number | null;
+};
+
 export function buildSupabaseMediaUrl(path: string) {
   const cleanPath = path.replace(/^\/+/, "");
   return `/api/media?path=${encodeURIComponent(cleanPath)}`;
@@ -184,4 +195,36 @@ export async function deleteSupabaseMedia(url: string, accessToken: string) {
     const message = await response.text();
     throw new Error(message || "Image delete failed");
   }
+}
+
+export async function fetchSupabaseMediaLibrary(
+  accessToken: string,
+  folder?: string,
+  limit = 24,
+): Promise<SupabaseMediaLibraryItem[]> {
+  assertSupabaseMediaConfig();
+
+  if (!accessToken) {
+    throw new Error("You need to sign in before browsing images.");
+  }
+
+  const params = new URLSearchParams();
+  if (folder) {
+    params.set("folder", folder);
+  }
+  params.set("limit", String(limit));
+
+  const response = await fetch(`${getApiBaseUrl()}/api/uploads/media/library?${params.toString()}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Failed to load media library");
+  }
+
+  const data = (await response.json()) as { items?: SupabaseMediaLibraryItem[] };
+  return Array.isArray(data.items) ? data.items : [];
 }

@@ -7,25 +7,31 @@
       "title": "Couture celebration cakes",
       "label": "Signature artistry",
       "accent": "Hand-sculpted finishes for milestone moments",
-      "imageUrl": "/storage/v1/object/public/cake-media/gallery/landing/hero-cake-lady-dress.jpeg"
+      "imageUrl": "/api/media?path=gallery%2Flanding%2Fhero-cake-lady-dress.jpeg"
     },
     {
       "title": "Butterfly birthday cakes",
       "label": "Birthday favorites",
       "accent": "Delicate wings, metallic details, and soft buttercream",
-      "imageUrl": "/storage/v1/object/public/cake-media/gallery/landing/hero-cake-gold-butterfly.jpeg"
+      "imageUrl": "/api/media?path=gallery%2Flanding%2Fhero-cake-gold-butterfly.jpeg"
     },
     {
       "title": "Luxury occasion cakes",
       "label": "Blue and gold",
       "accent": "Polished statement cakes for elegant gatherings",
-      "imageUrl": "/storage/v1/object/public/cake-media/gallery/landing/hero-cake-blue-gold.jpeg"
+      "imageUrl": "/api/media?path=gallery%2Flanding%2Fhero-cake-blue-gold.jpeg"
     },
     {
       "title": "Themed party cakes",
       "label": "Kids celebrations",
       "accent": "Character cakes with color, detail, and plenty of joy",
-      "imageUrl": "/storage/v1/object/public/cake-media/gallery/landing/hero-cake-spiderman.jpeg"
+      "imageUrl": "/api/media?path=gallery%2Flanding%2Fhero-cake-spiderman.jpeg"
+    },
+    {
+      "title": "Custom Novelty",
+      "label": "Cultural themed cakes ",
+      "accent": "Kiondo cake for ruracio, mother's celebration, or homecoming ceremony cake",
+      "imageUrl": "/api/media?path=homepage-hero%2F1780928281792-56cb55b4-9127-47ea-b6d0-0f2cb758a7a0.jpg"
     }
   ]
 }

@@ -14,6 +14,7 @@ alter table public.customers enable row level security;
 alter table public.admins enable row level security;
 alter table public.admin_password_resets enable row level security;
 alter table public.payments enable row level security;
+alter table public.payment_settings enable row level security;
 
 drop policy if exists "Public can read cakes" on public.cakes;
 create policy "Public can read cakes"
@@ -49,6 +50,13 @@ on public.reviews
 for select
 to anon, authenticated
 using (approved = 1);
+
+drop policy if exists "Public can read payment settings" on public.payment_settings;
+create policy "Public can read payment settings"
+on public.payment_settings
+for select
+to anon, authenticated
+using (true);
 
 -- Leave write access to the API server. If you later move any workflow to direct
 -- Supabase client access, add targeted INSERT/UPDATE policies instead of opening

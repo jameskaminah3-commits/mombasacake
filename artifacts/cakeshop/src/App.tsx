@@ -29,6 +29,7 @@ import AdminOrders from "@/pages/admin/orders";
 import AdminCustomers from "@/pages/admin/customers";
 import AdminPayments from "@/pages/admin/payments";
 import AdminHomepage from "@/pages/admin/homepage";
+import AdminMediaLibrary from "@/pages/admin/media-library";
 import AdminMarketing from "@/pages/admin/marketing";
 
 import NotFound from "@/pages/not-found";
@@ -60,6 +61,7 @@ function Router() {
               <Route path="/customers" component={AdminCustomers} />
               <Route path="/payments" component={AdminPayments} />
               <Route path="/homepage" component={AdminHomepage} />
+              <Route path="/media-library" component={AdminMediaLibrary} />
               <Route path="/marketing" component={AdminMarketing} />
               <Route component={NotFound} />
             </Switch>

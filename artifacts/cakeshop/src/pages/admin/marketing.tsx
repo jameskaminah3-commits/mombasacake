@@ -55,6 +55,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Edit, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/api-base";
+import { normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
 
 type BlogPost = {
   id: number;
@@ -865,7 +866,13 @@ function PromotionList({
           promotions.map((promo) => (
             <div key={promo.id} className="rounded-md border bg-card p-4">
               <div className="flex gap-3">
-                {promo.bannerUrl && <img src={promo.bannerUrl} alt="" className="h-16 w-20 shrink-0 rounded-md object-cover" />}
+                {promo.bannerUrl && (
+                  <img
+                    src={normalizeSupabaseMediaUrl(promo.bannerUrl) || promo.bannerUrl}
+                    alt=""
+                    className="h-16 w-20 shrink-0 rounded-md object-cover"
+                  />
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <h3 className="truncate font-medium">{promo.title}</h3>
@@ -916,7 +923,13 @@ function PromotionList({
                 <TableRow key={promo.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-3">
-                      {promo.bannerUrl && <img src={promo.bannerUrl} alt="" className="h-10 w-14 rounded-md object-cover" />}
+                      {promo.bannerUrl && (
+                        <img
+                          src={normalizeSupabaseMediaUrl(promo.bannerUrl) || promo.bannerUrl}
+                          alt=""
+                          className="h-10 w-14 rounded-md object-cover"
+                        />
+                      )}
                       <div className="min-w-0">
                         <p className="truncate">{promo.title}</p>
                         <p className="truncate text-xs text-muted-foreground">{promo.code ? `Code ${promo.code}` : "Automatic"}</p>

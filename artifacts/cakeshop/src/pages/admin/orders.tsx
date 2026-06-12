@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { Link } from "wouter";
 import { Search } from "lucide-react";
+import { normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
 
 const STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
 
@@ -206,7 +207,11 @@ export default function AdminOrders() {
                       {order.items.slice(0, 3).map((item) => (
                         <div key={item.id} className="flex items-center gap-2 text-sm">
                           {item.cakeImage && (
-                            <img src={item.cakeImage} alt="" className="h-8 w-8 rounded-md object-cover" />
+                            <img
+                              src={normalizeSupabaseMediaUrl(item.cakeImage) || item.cakeImage}
+                              alt=""
+                              className="h-8 w-8 rounded-md object-cover"
+                            />
                           )}
                           <span className="truncate">{item.quantity}x {item.cakeName}</span>
                         </div>

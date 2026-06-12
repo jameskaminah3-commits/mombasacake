@@ -16,7 +16,7 @@ const HomepageHeroSchema = z.object({
   brandLine: z.string().min(2),
   headline: z.string().min(2),
   description: z.string().min(2),
-  slides: z.array(HeroSlideSchema).length(4),
+  slides: z.array(HeroSlideSchema).min(1),
 });
 
 router.get("/homepage-hero", async (_req: Request, res: Response): Promise<void> => {

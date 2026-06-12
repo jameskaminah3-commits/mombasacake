@@ -3,6 +3,7 @@ export * from "./cakes";
 export * from "./customers";
 export * from "./orders";
 export * from "./payments";
+export * from "./payment-settings";
 export * from "./promotions";
 export * from "./reviews";
 export * from "./admins";

@@ -3,10 +3,14 @@ import { Button } from "@/components/ui/button";
 import { useGetFeaturedCakes, useGetPopularCakes, useListCakes, useListPromotions } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DEFAULT_GALLERY_IMAGE_URL, DEFAULT_LOGO_IMAGE_URL, SITE_IMAGE_OPTIONS } from "@/lib/site-images";
+import { DEFAULT_GALLERY_IMAGE_URL } from "@/lib/site-images";
+import { buildSupabaseMediaUrl } from "@/lib/supabase-media";
+import { DEFAULT_HOMEPAGE_GALLERY, fetchHomepageGallery } from "@/lib/homepage-gallery";
+import { DEFAULT_HOMEPAGE_HERO, fetchHomepageHero } from "@/lib/homepage-hero";
 import { Star, Truck, Clock, ShieldCheck, ChevronRight } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { getApiBaseUrl } from "@/lib/api-base";
 import { RevealImage } from "@/components/reveal-image";
 
@@ -79,50 +83,29 @@ const TESTIMONIALS = [
 ];
 
 const landingImage = (variant: "hero" | "work", file: string) =>
-  `/gallery/landing/${variant}-${file}`;
+  buildSupabaseMediaUrl(`gallery/landing/${variant}-${file}`);
+const galleryImage = (file: string) => buildSupabaseMediaUrl(`gallery/${file}`);
 
-const GALLERY = SITE_IMAGE_OPTIONS.slice(0, 16);
-const HERO_CAKES = [
-  {
-    src: landingImage("hero", "cake-lady-dress.jpeg"),
-    previewSrc: landingImage("work", "cake-lady-dress.jpeg"),
-    title: "Couture celebration cakes",
-    label: "Signature artistry",
-    accent: "Hand-sculpted finishes for milestone moments",
-  },
-  {
-    src: landingImage("hero", "cake-gold-butterfly.jpeg"),
-    previewSrc: landingImage("work", "cake-gold-butterfly.jpeg"),
-    title: "Butterfly birthday cakes",
-    label: "Birthday favorites",
-    accent: "Delicate wings, metallic details, and soft buttercream",
-  },
-  {
-    src: landingImage("hero", "cake-blue-gold.jpeg"),
-    previewSrc: landingImage("work", "cake-blue-gold.jpeg"),
-    title: "Luxury occasion cakes",
-    label: "Blue and gold",
-    accent: "Polished statement cakes for elegant gatherings",
-  },
-  {
-    src: landingImage("hero", "cake-spiderman.jpeg"),
-    previewSrc: landingImage("work", "cake-spiderman.jpeg"),
-    title: "Themed party cakes",
-    label: "Kids celebrations",
-    accent: "Character cakes with color, detail, and plenty of joy",
-  },
-];
+const HERO_ROTATION_MS = 3000;
+const HERO_CROSSFADE_MS = 420;
 
-const HOME_CRITICAL_SOURCES = [
-  DEFAULT_LOGO_IMAGE_URL,
-  HERO_CAKES[0].src,
-  HERO_CAKES[0].previewSrc,
-  DEFAULT_GALLERY_IMAGE_URL,
-];
+type HeroCarouselSlide = {
+  src: string;
+  previewSrc: string;
+  title: string;
+  label: string;
+  accent: string;
+};
 
-const HERO_IMAGE_SOURCES = Array.from(
-  new Set(HERO_CAKES.flatMap((hero) => [hero.src, hero.previewSrc])),
-);
+function toHeroCarouselSlides(slides: typeof DEFAULT_HOMEPAGE_HERO.slides): HeroCarouselSlide[] {
+  return slides.map((slide) => ({
+    src: slide.imageUrl,
+    previewSrc: slide.imageUrl,
+    title: slide.title,
+    label: slide.label,
+    accent: slide.accent,
+  }));
+}
 
 function preloadImage(src: string) {
   return new Promise<void>((resolve) => {
@@ -132,6 +115,49 @@ function preloadImage(src: string) {
     image.onerror = () => resolve();
     image.src = src;
   });
+}
+
+function HeroCarouselImage({
+  slides,
+  activeIndex,
+}: {
+  slides: HeroCarouselSlide[];
+  activeIndex: number;
+}) {
+  useEffect(() => {
+    slides.forEach((slide) => {
+      void preloadImage(slide.src);
+      void preloadImage(slide.previewSrc);
+    });
+  }, [slides]);
+  const visibleSlide = slides.length > 0 ? slides[activeIndex % slides.length] : undefined;
+
+  if (!visibleSlide) {
+    return null;
+  }
+
+  return (
+    <AnimatePresence mode="sync" initial={false}>
+      <motion.img
+        key={visibleSlide.src}
+        src={visibleSlide.src}
+        srcSet={`${visibleSlide.previewSrc} 560w, ${visibleSlide.src} 1200w`}
+        sizes="100vw"
+        alt={visibleSlide.title}
+        className="absolute inset-0 h-full w-full select-none object-cover pointer-events-none"
+        initial={{ opacity: 0, scale: 1.06 }}
+        animate={{ opacity: 1, scale: 1.1 }}
+        exit={{ opacity: 0 }}
+        transition={{
+          opacity: { duration: 0.45, ease: "easeOut" },
+          scale: { duration: 18, ease: "easeInOut" },
+        }}
+        loading="eager"
+        decoding="async"
+        fetchPriority="high"
+      />
+    </AnimatePresence>
+  );
 }
 
 function StarRating({ rating }: { rating: number }) {
@@ -152,11 +178,20 @@ export default function Home() {
   const { data: popularCakes, isLoading: loadingPopular } = useGetPopularCakes();
   const { data: listedCakes } = useListCakes({ available: true });
   const { data: promotions } = useListPromotions();
+  const { data: homepageHero } = useQuery({
+    queryKey: ["homepage-hero"],
+    queryFn: fetchHomepageHero,
+    placeholderData: DEFAULT_HOMEPAGE_HERO,
+  });
+  const { data: homepageGallery } = useQuery({
+    queryKey: ["homepage-gallery"],
+    queryFn: fetchHomepageGallery,
+    placeholderData: DEFAULT_HOMEPAGE_GALLERY,
+  });
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const [activeReviewIndex, setActiveReviewIndex] = useState(0);
   const [liveReviews, setLiveReviews] = useState<CakeReview[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
-  const [heroReady, setHeroReady] = useState(false);
   const cakeNameBySlug = new Map((listedCakes ?? []).map((cake) => [cake.slug, cake.name]));
 
   const now = Date.now();
@@ -168,12 +203,12 @@ export default function Home() {
     return true;
   }) || [];
 
-  const heroCakes = HERO_CAKES;
-  const activeHero = heroCakes[activeHeroIndex % heroCakes.length];
+  const heroSlides = toHeroCarouselSlides(homepageHero?.slides ?? DEFAULT_HOMEPAGE_HERO.slides);
+  const activeHero = heroSlides[activeHeroIndex % heroSlides.length];
   const featuredCards: DisplayCakeCard[] =
     featuredCakes?.slice(0, 3)?.length
       ? featuredCakes.slice(0, 3)
-      : HERO_CAKES.slice(0, 3).map((cake, index) => ({
+      : heroSlides.slice(0, 3).map((cake, index) => ({
           id: `featured-fallback-${index}`,
           name: cake.title,
           price: 0,
@@ -185,7 +220,7 @@ export default function Home() {
   const popularCards: DisplayCakeCard[] =
     popularCakes?.slice(0, 4)?.length
       ? popularCakes.slice(0, 4)
-      : [...HERO_CAKES, ...HERO_CAKES].slice(0, 4).map((cake, index) => ({
+      : [...heroSlides, ...heroSlides].slice(0, 4).map((cake, index) => ({
           id: `popular-fallback-${index}`,
           name: cake.title,
           price: 0,
@@ -195,37 +230,21 @@ export default function Home() {
           description: cake.accent,
         }));
 
-  const dataGallery = listedCakes
-    ?.filter((cake) => cake.imageUrl)
-    .slice(0, 16)
-    .map((cake) => ({ src: cake.imageUrl || DEFAULT_GALLERY_IMAGE_URL, label: cake.name })) || [];
-  const galleryItems = dataGallery.length >= 4 ? dataGallery : GALLERY;
+  const galleryItems = homepageGallery?.items ?? DEFAULT_HOMEPAGE_GALLERY.items;
   const gallerySplit = Math.ceil(galleryItems.length / 2);
   const galleryRows = [galleryItems.slice(0, gallerySplit), galleryItems.slice(gallerySplit)];
 
   useEffect(() => {
-    let cancelled = false;
-    setHeroReady(HERO_IMAGE_SOURCES.length === 0);
-
-    const fallbackTimer = window.setTimeout(() => {
-      if (!cancelled) setHeroReady(true);
-    }, 7000);
-
-    Promise.all(HERO_IMAGE_SOURCES.map((src) => preloadImage(src))).then(() => {
-      if (!cancelled) setHeroReady(true);
-    }).finally(() => {
-      window.clearTimeout(fallbackTimer);
-    });
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(fallbackTimer);
-    };
-  }, []);
-
-  useEffect(() => {
-    const warmSources = HOME_CRITICAL_SOURCES.filter(
-      (src) => !HERO_IMAGE_SOURCES.includes(src),
+    const warmSources = Array.from(
+      new Set([
+        ...heroSlides.flatMap((cake) => [cake.src, cake.previewSrc]),
+        ...galleryItems.map((item) => item.imageUrl),
+        landingImage("hero", "cake-heart.jpeg"),
+        landingImage("hero", "cake-heels.jpeg"),
+        galleryImage("cake-heart.jpeg"),
+        galleryImage("cake-heels.jpeg"),
+        DEFAULT_GALLERY_IMAGE_URL,
+      ]),
     );
 
     const timer = window.setTimeout(() => {
@@ -235,21 +254,22 @@ export default function Home() {
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [heroReady]);
+  }, [heroSlides, galleryItems]);
 
   useEffect(() => {
-    if (!heroReady) return;
-
+    if (heroSlides.length <= 1) {
+      return;
+    }
     const timer = window.setInterval(() => {
-      setActiveHeroIndex((current) => (current + 1) % heroCakes.length);
-    }, 5200);
+      setActiveHeroIndex((current) => (current + 1) % heroSlides.length);
+    }, HERO_ROTATION_MS);
 
     return () => window.clearInterval(timer);
-  }, [heroCakes.length]);
+  }, [heroSlides.length]);
 
   useEffect(() => {
     setActiveHeroIndex(0);
-  }, [heroCakes.length]);
+  }, [heroSlides.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -318,27 +338,7 @@ export default function Home() {
     <div className="flex flex-col w-full">
       {/* ── HERO ─────────────────────────────────────────── */}
       <section className="relative h-[calc(100svh-112px)] min-h-[480px] max-h-[780px] w-full overflow-hidden bg-[#170c10] text-white sm:min-h-[620px]">
-        <AnimatePresence mode="sync">
-          <motion.div
-            key={activeHero.src}
-            className="absolute inset-0 h-full w-full"
-            initial={{ opacity: 0, scale: 1.06 }}
-            animate={{ opacity: 1, scale: 1.12 }}
-            exit={{ opacity: 0 }}
-            transition={{ opacity: { duration: 1.2, ease: "easeOut" }, scale: { duration: 6.4, ease: "easeOut" } }}
-          >
-            <RevealImage
-              src={activeHero.src}
-              srcSet={`${activeHero.previewSrc} 560w, ${activeHero.src} 1200w`}
-              sizes="100vw"
-              alt={activeHero.title}
-              className="object-cover"
-              eager
-              fallbackSrc={DEFAULT_GALLERY_IMAGE_URL}
-              placeholderClassName="bg-[#170c10]"
-            />
-          </motion.div>
-        </AnimatePresence>
+        <HeroCarouselImage slides={heroSlides} activeIndex={activeHeroIndex} />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(23,12,16,0.88)_0%,rgba(23,12,16,0.58)_46%,rgba(23,12,16,0.2)_100%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(0deg,rgba(23,12,16,0.72)_0%,rgba(23,12,16,0.1)_42%,rgba(23,12,16,0.34)_100%)]" />
 
@@ -374,7 +374,7 @@ export default function Home() {
             </AnimatePresence>
 
             <div className="mb-8 flex flex-wrap items-center gap-2">
-              {heroCakes.map((cake, index) => (
+              {heroSlides.map((cake, index) => (
                 <button
                   key={cake.src}
                   type="button"
@@ -412,7 +412,7 @@ export default function Home() {
         </div>
 
         <div className="absolute bottom-5 right-4 z-10 hidden items-end gap-3 sm:flex">
-          {heroCakes.map((cake, index) => (
+          {heroSlides.map((cake, index) => (
             <button
               key={cake.src}
               type="button"
@@ -561,13 +561,13 @@ export default function Home() {
             {galleryRows.map((row, rowIndex) => (
               <div key={rowIndex} className="work-rail">
                 <div className={`work-rail-track ${rowIndex === 1 ? "work-rail-reverse" : ""}`}>
-                  {[...row, ...row].map(({ src, label }, index) => (
+                  {[...row, ...row].map(({ imageUrl, label }, index) => (
                     <figure
-                      key={`${src}-${index}`}
+                      key={`${imageUrl}-${index}`}
                       className="group relative h-52 w-[62vw] max-w-[260px] shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/5 shadow-2xl shadow-black/30 sm:h-64 sm:w-[240px] lg:h-72 lg:w-[260px]"
                     >
                       <RevealImage
-                        src={src}
+                        src={imageUrl}
                         alt={label}
                         className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
                         fallbackSrc={DEFAULT_GALLERY_IMAGE_URL}
@@ -598,7 +598,7 @@ export default function Home() {
           <div className="relative min-h-[500px]">
             <div className="absolute inset-0">
               <RevealImage
-                src="/gallery/cake-heels.jpeg"
+                src={galleryImage("cake-heels.jpeg")}
                 alt="Custom cake by Channah Cakes"
                 className="object-cover"
                 eager
@@ -806,7 +806,7 @@ export default function Home() {
         <div className="absolute inset-0 opacity-15">
           <div className="absolute inset-0">
             <RevealImage
-              src="/gallery/cake-heart.jpeg"
+              src={galleryImage("cake-heart.jpeg")}
               alt=""
               className="object-cover"
               eager
@@ -944,3 +944,4 @@ function describePromotion(
 
   return `Get ${discountText} off ${scopeText}.`;
 }
+

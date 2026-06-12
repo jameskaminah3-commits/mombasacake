@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ImgHTMLAttributes } from "react";
+import { normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
 
 type RevealImageProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "alt"> & {
   src: string;
@@ -21,14 +22,16 @@ export function RevealImage({
   onError,
   ...props
 }: RevealImageProps) {
-  const [currentSrc, setCurrentSrc] = useState(src);
+  const normalizedSrc = normalizeSupabaseMediaUrl(src) || src;
+  const normalizedFallbackSrc = fallbackSrc ? normalizeSupabaseMediaUrl(fallbackSrc) || fallbackSrc : undefined;
+  const [currentSrc, setCurrentSrc] = useState(normalizedSrc);
   const [isLoaded, setIsLoaded] = useState(false);
   const isLoadedRef = useRef(false);
 
   useEffect(() => {
-    setCurrentSrc(src);
+    setCurrentSrc(normalizedSrc);
     setIsLoaded(false);
-  }, [src]);
+  }, [normalizedSrc]);
 
   useEffect(() => {
     isLoadedRef.current = isLoaded;
@@ -39,8 +42,8 @@ export function RevealImage({
 
     const timer = window.setTimeout(() => {
       if (!isLoadedRef.current) {
-        if (fallbackSrc && currentSrc !== fallbackSrc) {
-          setCurrentSrc(fallbackSrc);
+        if (normalizedFallbackSrc && currentSrc !== normalizedFallbackSrc) {
+          setCurrentSrc(normalizedFallbackSrc);
         } else {
           setIsLoaded(true);
         }
@@ -48,7 +51,7 @@ export function RevealImage({
     }, timeoutMs);
 
     return () => window.clearTimeout(timer);
-  }, [currentSrc, fallbackSrc, timeoutMs]);
+  }, [currentSrc, normalizedFallbackSrc, timeoutMs]);
 
   return (
     <div className="relative h-full w-full overflow-hidden">
@@ -72,8 +75,8 @@ export function RevealImage({
           onLoad?.(event);
         }}
         onError={(event) => {
-          if (fallbackSrc && currentSrc !== fallbackSrc) {
-            setCurrentSrc(fallbackSrc);
+          if (normalizedFallbackSrc && currentSrc !== normalizedFallbackSrc) {
+            setCurrentSrc(normalizedFallbackSrc);
             return;
           }
           setIsLoaded(true);

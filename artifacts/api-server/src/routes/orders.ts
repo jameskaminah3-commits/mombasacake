@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, cakesTable, promotionsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, cakesTable, promotionsTable, customersTable } from "@workspace/db";
 import { requireAdmin } from "../lib/auth-middleware";
 import { logger } from "../lib/logger";
 import { sendNewOrderNotification } from "../lib/order-notifications";
@@ -93,13 +93,20 @@ router.post("/orders", async (req, res): Promise<void> => {
 
   const discountAmount = appliedPromotion ? calculateDiscount(appliedPromotion, orderSubtotal, enrichedItems) : 0;
   const total = Math.max(orderSubtotal - discountAmount, 0);
+  const customerPayload = {
+    name: parsed.data.customerName.trim(),
+    phone: parsed.data.customerPhone.trim(),
+    email: parsed.data.customerEmail?.trim() || null,
+  };
+  const customerId = await resolveCustomerId(customerPayload);
 
   const [order] = await db
     .insert(ordersTable)
     .values({
-      customerName: parsed.data.customerName,
-      customerPhone: parsed.data.customerPhone,
-      customerEmail: parsed.data.customerEmail,
+      customerId,
+      customerName: customerPayload.name,
+      customerPhone: customerPayload.phone,
+      customerEmail: customerPayload.email,
       deliveryAddress: parsed.data.deliveryAddress,
       notes: parsed.data.notes,
       promoCode: appliedPromotion?.code ?? requestedCode,
@@ -265,6 +272,30 @@ function parseApplicableCakeSlugs(value: string | null) {
       .map((slug) => slug.trim())
       .filter(Boolean);
   }
+}
+
+async function resolveCustomerId(customer: { name: string; phone: string; email: string | null }) {
+  const [existing] = await db
+    .select()
+    .from(customersTable)
+    .where(eq(customersTable.phone, customer.phone))
+    .orderBy(desc(customersTable.createdAt))
+    .limit(1);
+
+  if (existing) {
+    const [updated] = await db
+      .update(customersTable)
+      .set({
+        name: customer.name,
+        email: customer.email,
+      })
+      .where(eq(customersTable.id, existing.id))
+      .returning();
+    return updated.id;
+  }
+
+  const [created] = await db.insert(customersTable).values(customer).returning();
+  return created.id;
 }
 
 export default router;

@@ -1,0 +1,40 @@
+{
+  "items": [
+    {
+      "label": "Lady in Blue",
+      "imageUrl": "/api/media?path=gallery%2Flanding%2Fwork-cake-lady-dress.jpeg"
+    },
+    {
+      "label": "Gold Butterfly",
+      "imageUrl": "/api/media?path=gallery%2Flanding%2Fwork-cake-gold-butterfly.jpeg"
+    },
+    {
+      "label": "Blue and Gold",
+      "imageUrl": "/api/media?path=gallery%2Flanding%2Fwork-cake-blue-gold.jpeg"
+    },
+    {
+      "label": "Spiderman Party",
+      "imageUrl": "/api/media?path=gallery%2Flanding%2Fwork-cake-spiderman.jpeg"
+    },
+    {
+      "label": "Heart Anniversary",
+      "imageUrl": "/api/media?path=gallery%2Flanding%2Fwork-cake-heart.jpeg"
+    },
+    {
+      "label": "Glam Heels",
+      "imageUrl": "/api/media?path=gallery%2Flanding%2Fwork-cake-heels.jpeg"
+    },
+    {
+      "label": "White and Gold",
+      "imageUrl": "/api/media?path=gallery%2Flanding%2Fwork-cake-white-gold.jpeg"
+    },
+    {
+      "label": "Tuxedo",
+      "imageUrl": "/api/media?path=gallery%2Flanding%2Fwork-cake-tuxedo.jpeg"
+    },
+    {
+      "label": "Kiondo Cake",
+      "imageUrl": "/api/media?path=homepage-gallery%2F1780929367848-79a5e641-1336-4c7f-9424-9e62bcc39d87.jpg"
+    }
+  ]
+}

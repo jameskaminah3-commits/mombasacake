@@ -1,9 +1,11 @@
 import { useParams, Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { useGetOrder, getGetOrderQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, Package, MapPin, Phone, Receipt } from "lucide-react";
+import { CheckCircle2, Clock3, Package, MapPin, Phone, Receipt } from "lucide-react";
 import { format } from "date-fns";
+import { DEFAULT_PAYMENT_DETAILS, fetchPaymentDetails } from "@/lib/payment-details";
 
 export default function OrderSuccess() {
   const { id } = useParams();
@@ -11,6 +13,11 @@ export default function OrderSuccess() {
   
   const { data: order, isLoading } = useGetOrder(orderId, {
     query: { enabled: !!orderId, queryKey: getGetOrderQueryKey(orderId) }
+  });
+  const { data: paymentDetails } = useQuery({
+    queryKey: ["payment-details"],
+    queryFn: fetchPaymentDetails,
+    placeholderData: DEFAULT_PAYMENT_DETAILS,
   });
 
   if (isLoading) {
@@ -34,11 +41,21 @@ export default function OrderSuccess() {
     <div className="container mx-auto px-4 py-12 max-w-3xl">
       <div className="bg-card border border-border rounded-3xl p-8 md:p-12 shadow-sm text-center mb-8 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-2 bg-primary"></div>
-        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-          <CheckCircle2 className="w-10 h-10 text-primary" />
+        <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${order.paymentStatus === "paid" ? "bg-primary/10" : "bg-yellow-100"}`}>
+          {order.paymentStatus === "paid" ? (
+            <CheckCircle2 className="w-10 h-10 text-primary" />
+          ) : (
+            <Clock3 className="w-10 h-10 text-yellow-700" />
+          )}
         </div>
-        <h1 className="font-serif text-4xl font-bold mb-2">Thank You!</h1>
-        <p className="text-muted-foreground text-lg mb-8">Your order has been confirmed and is being prepared.</p>
+        <h1 className="font-serif text-4xl font-bold mb-2">
+          {order.paymentStatus === "paid" ? "Thank You!" : "Order Received"}
+        </h1>
+        <p className="text-muted-foreground text-lg mb-8">
+          {order.paymentStatus === "paid"
+            ? "Your order has been confirmed and is being prepared."
+            : "Your order is pending payment confirmation. Please complete payment using the MPesa details below."}
+        </p>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left border-y border-border py-6 mb-8 bg-muted/30 rounded-xl px-6">
           <div>
@@ -55,7 +72,9 @@ export default function OrderSuccess() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Status</p>
-            <p className="font-bold text-primary capitalize">{order.status}</p>
+            <p className={`font-bold capitalize ${order.paymentStatus === "paid" ? "text-primary" : "text-yellow-700"}`}>
+              {order.paymentStatus === "paid" ? order.status : "pending"}
+            </p>
           </div>
         </div>
 
@@ -100,16 +119,26 @@ export default function OrderSuccess() {
               <span className="text-muted-foreground">Method</span>
               <span className="font-medium">MPesa</span>
             </div>
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-muted-foreground">Status</span>
+              <span className={`font-medium uppercase text-xs tracking-wider px-2 py-1 rounded ${order.paymentStatus === "paid" ? "bg-[#52B44B]/10 text-[#52B44B]" : order.paymentStatus === "failed" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
+                {order.paymentStatus}
+              </span>
+            </div>
             {order.mpesaReceiptNo && (
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-muted-foreground">Receipt No.</span>
                 <span className="font-medium">{order.mpesaReceiptNo}</span>
               </div>
             )}
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Status</span>
-              <span className="font-medium text-[#52B44B] uppercase text-xs tracking-wider bg-[#52B44B]/10 px-2 py-1 rounded">Paid</span>
-            </div>
+            {order.paymentStatus !== "paid" && (
+              <div className="mt-4 rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground space-y-2">
+                <p className="font-medium text-foreground">Payment still pending</p>
+                <p>Use the MPesa prompt on your phone. If it does not arrive, use:</p>
+                <p><span className="font-medium text-foreground">Shortcode:</span> {paymentDetails?.businessShortCode || DEFAULT_PAYMENT_DETAILS.businessShortCode}</p>
+                <p><span className="font-medium text-foreground">Reference:</span> {`${paymentDetails?.accountReferencePrefix || DEFAULT_PAYMENT_DETAILS.accountReferencePrefix}-${order.id}`}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

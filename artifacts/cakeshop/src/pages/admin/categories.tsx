@@ -45,6 +45,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
+import { normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
 
 const categorySchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -238,9 +239,9 @@ export default function AdminCategories() {
                 <TableRow key={category.id}>
                   <TableCell>
                     {category.imageUrl ? (
-                      <img 
-                        src={category.imageUrl} 
-                        alt={category.name} 
+                      <img
+                        src={normalizeSupabaseMediaUrl(category.imageUrl) || category.imageUrl}
+                        alt={category.name}
                         className="w-10 h-10 rounded-md object-cover"
                       />
                     ) : (

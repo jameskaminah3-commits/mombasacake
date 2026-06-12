@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { normalizeSupabaseMediaUrl } from "./media-urls";
+import { buildSupabaseMediaUrl, normalizeSupabaseMediaUrl } from "./media-urls";
 
 const HeroSlideSchema = z.object({
   title: z.string().min(2),
@@ -14,7 +14,7 @@ const HomepageHeroSchema = z.object({
   brandLine: z.string().min(2),
   headline: z.string().min(2),
   description: z.string().min(2),
-  slides: z.array(HeroSlideSchema).length(4),
+  slides: z.array(HeroSlideSchema).min(1),
 });
 
 export type HomepageHeroSlide = z.infer<typeof HeroSlideSchema>;
@@ -33,25 +33,25 @@ export const DEFAULT_HOMEPAGE_HERO: HomepageHeroContent = {
       title: "Couture celebration cakes",
       label: "Signature artistry",
       accent: "Hand-sculpted finishes for milestone moments",
-      imageUrl: "/gallery/landing/hero-cake-lady-dress.jpeg",
+      imageUrl: buildSupabaseMediaUrl("gallery/landing/hero-cake-lady-dress.jpeg"),
     },
     {
       title: "Butterfly birthday cakes",
       label: "Birthday favorites",
       accent: "Delicate wings, metallic details, and soft buttercream",
-      imageUrl: "/gallery/landing/hero-cake-gold-butterfly.jpeg",
+      imageUrl: buildSupabaseMediaUrl("gallery/landing/hero-cake-gold-butterfly.jpeg"),
     },
     {
       title: "Luxury occasion cakes",
       label: "Blue and gold",
       accent: "Polished statement cakes for elegant gatherings",
-      imageUrl: "/gallery/landing/hero-cake-blue-gold.jpeg",
+      imageUrl: buildSupabaseMediaUrl("gallery/landing/hero-cake-blue-gold.jpeg"),
     },
     {
       title: "Themed party cakes",
       label: "Kids celebrations",
       accent: "Character cakes with color, detail, and plenty of joy",
-      imageUrl: "/gallery/landing/hero-cake-spiderman.jpeg",
+      imageUrl: buildSupabaseMediaUrl("gallery/landing/hero-cake-spiderman.jpeg"),
     },
   ],
 };
