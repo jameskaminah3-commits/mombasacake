@@ -914,7 +914,9 @@ components:
         merchantRequestId:
           type: string
           nullable: true
-
+        businessShortCode:
+          type: string
+          nullable: true
     MpesaCallbackInput:
       type: object
       properties:
