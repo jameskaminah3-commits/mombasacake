@@ -10,4 +10,5 @@ export interface MpesaInitiateResponse {
   checkoutRequestId: string;
   responseDescription: string;
   merchantRequestId?: string | null;
+    businessShortCode?: string | null;
 }
