@@ -571,7 +571,7 @@ export default function Home() {
                         alt={label}
                         className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
                         fallbackSrc={DEFAULT_GALLERY_IMAGE_URL}
-                        timeoutMs={2500}
+                        timeoutMs={7000}
                       />
                       <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent_38%,rgba(0,0,0,0.72)_100%)]" />
                       <figcaption className="absolute bottom-0 left-0 right-0 p-3 text-xs font-semibold uppercase tracking-[0.16em] text-white/90 sm:p-4">
