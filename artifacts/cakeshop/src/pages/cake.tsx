@@ -5,13 +5,14 @@ import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Minus, Plus, ShoppingBag, ChevronLeft, Star } from "lucide-react";
+import { Minus, Plus, ShoppingBag, ChevronLeft, Star, ZoomIn, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getApiBaseUrl } from "@/lib/api-base";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 interface Review {
   id: number;
@@ -67,6 +68,7 @@ export default function CakeDetail() {
   const { addItem } = useCart();
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
@@ -166,8 +168,15 @@ export default function CakeDetail() {
         </Link>
 
         <div className="grid md:grid-cols-2 gap-12 items-start">
-          {/* Image */}
-          <div className="bg-card rounded-3xl overflow-hidden border border-border shadow-sm">
+          {/* Image — click/tap to open lightbox */}
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label={`View ${cake.name} full size`}
+            className="bg-card rounded-3xl overflow-hidden border border-border shadow-sm cursor-zoom-in group relative"
+            onClick={() => setLightboxOpen(true)}
+            onKeyDown={(e) => e.key === "Enter" && setLightboxOpen(true)}
+          >
             <div className="aspect-square relative">
               <RevealImage
                 src={cake.imageUrl || DEFAULT_CAKE_IMAGE_URL}
@@ -177,8 +186,36 @@ export default function CakeDetail() {
                 eager
                 timeoutMs={3000}
               />
+              {/* Zoom hint: always visible on mobile, shows on hover on desktop */}
+              <div className="absolute bottom-4 right-4 flex items-center gap-1.5 bg-black/50 backdrop-blur-sm text-white text-xs font-medium px-3 py-2 rounded-full pointer-events-none transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                <ZoomIn className="w-3.5 h-3.5 shrink-0" />
+                <span>Tap to zoom</span>
+              </div>
             </div>
           </div>
+
+          {/* Lightbox */}
+          <DialogPrimitive.Root open={lightboxOpen} onOpenChange={setLightboxOpen}>
+            <DialogPrimitive.Portal>
+              <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/95 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
+              <DialogPrimitive.Content
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200 outline-none"
+                aria-describedby={undefined}
+              >
+                <DialogPrimitive.Title className="sr-only">{cake.name} — full size image</DialogPrimitive.Title>
+                <img
+                  src={cake.imageUrl || DEFAULT_CAKE_IMAGE_URL}
+                  alt={cake.name}
+                  className="rounded-2xl object-contain"
+                  style={{ maxWidth: "100%", maxHeight: "calc(100dvh - 80px)" }}
+                />
+                <DialogPrimitive.Close className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-colors backdrop-blur-sm">
+                  <X className="w-5 h-5" />
+                  <span className="sr-only">Close</span>
+                </DialogPrimitive.Close>
+              </DialogPrimitive.Content>
+            </DialogPrimitive.Portal>
+          </DialogPrimitive.Root>
 
           {/* Details */}
           <div className="flex flex-col">
