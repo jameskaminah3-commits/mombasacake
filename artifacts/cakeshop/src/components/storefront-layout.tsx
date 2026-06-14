@@ -16,7 +16,7 @@ const SOCIALS = [
 ];
 
 export function StorefrontLayout({ children }: { children: React.ReactNode }) {
-  const { itemCount } = useCart();
+  const { itemCount, total } = useCart();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [location] = useLocation();
 
@@ -187,6 +187,19 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </footer>
+
+      {/* Floating cart pill — mobile only, hidden on cart/checkout/order pages */}
+      {itemCount > 0 && location !== "/cart" && !location.startsWith("/checkout") && !location.startsWith("/order") && (
+        <Link
+          href="/cart"
+          aria-label={`View cart — ${itemCount} ${itemCount === 1 ? "item" : "items"}`}
+          className="md:hidden fixed bottom-6 right-4 z-50 flex items-center gap-2 bg-primary text-white pl-4 pr-5 py-3.5 rounded-full shadow-lg shadow-primary/30 hover:bg-primary/90 active:scale-95 transition-all"
+        >
+          <ShoppingBag className="w-5 h-5 shrink-0" />
+          <span className="font-semibold text-sm">{itemCount} {itemCount === 1 ? "item" : "items"}</span>
+          <span className="text-sm text-white/75">· KES {total.toLocaleString()}</span>
+        </Link>
+      )}
     </div>
   );
 }
