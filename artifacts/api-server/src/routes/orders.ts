@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and } from "drizzle-orm";
+import { ensureOrdersSchema } from "../lib/ensure-orders-schema";
 import { db, ordersTable, orderItemsTable, cakesTable, promotionsTable, customersTable } from "@workspace/db";
 import { requireAdmin } from "../lib/auth-middleware";
 import { logger } from "../lib/logger";
@@ -72,7 +73,9 @@ router.post("/orders", async (req, res): Promise<void> => {
       };
     })
   );
-
+    
+await ensureOrdersSchema();
+    
     try {
     await ensurePromotionsSchema();
   } catch (err) {
