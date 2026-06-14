@@ -5,20 +5,38 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, ChevronDown } from "lucide-react";
+import { Search, ChevronDown, Plus, Check } from "lucide-react";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
+import { useCart } from "@/lib/cart-context";
 
 export default function Menu() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [addedIds, setAddedIds] = useState<Set<number>>(new Set());
+
+  const { addItem, items } = useCart();
 
   const { data: categories, isLoading: loadingCategories } = useListCategories();
   const { data: cakes, isLoading: loadingCakes } = useListCakes({
     categoryId: selectedCategory || undefined,
     search: search || undefined,
   });
+
+  const handleQuickAdd = (e: React.MouseEvent, cake: NonNullable<typeof cakes>[number]) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addItem(cake, 1);
+    setAddedIds((prev) => new Set([...prev, cake.id]));
+    setTimeout(() => {
+      setAddedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(cake.id);
+        return next;
+      });
+    }, 1500);
+  };
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -172,7 +190,27 @@ export default function Menu() {
                       </div>
                       <div className="mt-4 flex items-center justify-between">
                         <p className="font-medium text-foreground">KES {cake.price.toLocaleString()}</p>
-                        <span className="text-sm font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">View &rarr;</span>
+                        {cake.available ? (
+                          <button
+                            onClick={(e) => handleQuickAdd(e, cake)}
+                            aria-label={`Add ${cake.name} to cart`}
+                            className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full transition-all duration-200 ${
+                              addedIds.has(cake.id)
+                                ? "bg-green-100 text-green-700"
+                                : items.find((i) => i.cake.id === cake.id)
+                                ? "bg-primary text-white"
+                                : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                            }`}
+                          >
+                            {addedIds.has(cake.id) ? (
+                              <><Check className="w-3 h-3" /> Added</>
+                            ) : items.find((i) => i.cake.id === cake.id) ? (
+                              <>{items.find((i) => i.cake.id === cake.id)!.quantity} in cart</>
+                            ) : (
+                              <><Plus className="w-3 h-3" /> Add</>
+                            )}
+                          </button>
+                        ) : null}
                       </div>
                     </CardContent>
                   </Card>
