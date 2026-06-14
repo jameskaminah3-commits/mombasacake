@@ -188,6 +188,18 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
         </div>
       </footer>
 
+      {/* WhatsApp sticky CTA — all pages, all screen sizes */}
+      <a
+        href="https://wa.me/254721868212?text=Hi!%20I%27m%20interested%20in%20ordering%20a%20cake%20from%20Channah%20Cake%20House."
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Chat with us on WhatsApp"
+        className="fixed bottom-6 left-4 z-50 flex items-center gap-2 bg-[#25D366] text-white p-3.5 sm:pl-3.5 sm:pr-5 sm:py-3 rounded-full shadow-lg shadow-green-500/25 hover:bg-green-500 active:scale-95 transition-all"
+      >
+        <SiWhatsapp className="w-5 h-5 shrink-0" />
+        <span className="hidden sm:inline text-sm font-semibold">Chat with us</span>
+      </a>
+
       {/* Floating cart pill — mobile only, hidden on cart/checkout/order pages */}
       {itemCount > 0 && location !== "/cart" && !location.startsWith("/checkout") && !location.startsWith("/order") && (
         <Link
