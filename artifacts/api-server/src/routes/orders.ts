@@ -45,6 +45,7 @@ router.get("/orders", requireAdmin, async (req, res): Promise<void> => {
 });
 
 router.post("/orders", async (req, res): Promise<void> => {
+  try {
   const parsed = CreateOrderBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -72,8 +73,12 @@ router.post("/orders", async (req, res): Promise<void> => {
     })
   );
 
-  await ensurePromotionsSchema();
-  const promotions = await db.select().from(promotionsTable).orderBy(desc(promotionsTable.createdAt));
+    try {
+    await ensurePromotionsSchema();
+  } catch (err) {
+    logger.error({ err }, "ensurePromotionsSchema failed, continuing without promotions");
+  }
+  const promotions = await db.select().from(promotionsTable).orderBy(desc(promotionsTable.createdAt)).catch(() => []);
   const eligiblePromotions = promotions
     .map(formatPromotion)
     .filter((promo) => isPromotionActive(promo))
@@ -129,8 +134,12 @@ router.post("/orders", async (req, res): Promise<void> => {
   }
 
   res.status(201).json(formatOrder(order, items));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error({ err }, "Order creation failed");
+    res.status(500).json({ error: message });
+  }
 });
-
 router.get("/orders/:id", async (req, res): Promise<void> => {
   const params = GetOrderParams.safeParse(req.params);
   if (!params.success) {
