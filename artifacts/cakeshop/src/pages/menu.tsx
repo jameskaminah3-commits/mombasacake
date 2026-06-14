@@ -5,13 +5,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, ChevronDown } from "lucide-react";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
 
 export default function Menu() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [search, setSearch] = useState("");
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
 
   const { data: categories, isLoading: loadingCategories } = useListCategories();
   const { data: cakes, isLoading: loadingCakes } = useListCakes({
@@ -43,33 +44,66 @@ export default function Menu() {
             </div>
           </div>
 
-          <div>
-            <h3 className="font-bold uppercase tracking-wider text-sm mb-4 text-secondary">Categories</h3>
-            {loadingCategories ? (
-              <div className="space-y-2">
-                <Skeleton className="h-8 w-full" />
-                <Skeleton className="h-8 w-3/4" />
-                <Skeleton className="h-8 w-5/6" />
+          <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm overflow-hidden md:bg-transparent md:border-0 md:rounded-none md:backdrop-blur-none">
+            <button
+              className="w-full flex items-center justify-between px-4 py-3 md:px-0 md:py-0 md:pointer-events-none"
+              onClick={() => setCategoriesOpen((o) => !o)}
+              aria-expanded={categoriesOpen}
+            >
+              <h3 className="font-bold uppercase tracking-wider text-sm text-secondary">Categories</h3>
+              <ChevronDown
+                className={`h-4 w-4 text-secondary transition-transform duration-300 md:hidden ${categoriesOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            <div
+              className={`grid transition-[grid-template-rows] duration-300 ease-in-out md:grid-rows-[1fr] ${categoriesOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
+            >
+              <div className="overflow-hidden">
+                <div className="px-4 pb-4 pt-1 md:px-0 md:pb-0 md:pt-0 md:mt-4">
+                  {loadingCategories ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-8 w-full" />
+                      <Skeleton className="h-8 w-3/4" />
+                      <Skeleton className="h-8 w-5/6" />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col space-y-1">
+                      <Button
+                        variant="ghost"
+                        className={`justify-start font-medium rounded-lg ${selectedCategory === null ? "bg-secondary/10 text-secondary hover:bg-secondary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                        onClick={() => { setSelectedCategory(null); setCategoriesOpen(false); }}
+                      >
+                        All Cakes
+                      </Button>
+                      {categories?.map((cat) => (
+                        <Button
+                          key={cat.id}
+                          variant="ghost"
+                          className={`justify-start font-medium rounded-lg ${selectedCategory === cat.id ? "bg-secondary/10 text-secondary hover:bg-secondary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                          onClick={() => { setSelectedCategory(cat.id); setCategoriesOpen(false); }}
+                        >
+                          {cat.name}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            ) : (
-              <div className="flex flex-col space-y-1">
-                <Button
-                  variant="ghost"
-                  className={`justify-start font-medium rounded-lg ${selectedCategory === null ? "bg-secondary/10 text-secondary hover:bg-secondary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
-                  onClick={() => setSelectedCategory(null)}
-                >
-                  All Cakes
-                </Button>
-                {categories?.map((cat) => (
-                  <Button
-                    key={cat.id}
-                    variant="ghost"
-                    className={`justify-start font-medium rounded-lg ${selectedCategory === cat.id ? "bg-secondary/10 text-secondary hover:bg-secondary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
-                    onClick={() => setSelectedCategory(cat.id)}
+            </div>
+
+            {selectedCategory !== null && (
+              <div className="px-4 pb-3 md:hidden">
+                <span className="inline-flex items-center gap-1 text-xs font-medium bg-secondary/10 text-secondary px-3 py-1 rounded-full">
+                  {categories?.find((c) => c.id === selectedCategory)?.name}
+                  <button
+                    className="ml-1 hover:text-secondary/70"
+                    onClick={() => setSelectedCategory(null)}
+                    aria-label="Clear category filter"
                   >
-                    {cat.name}
-                  </Button>
-                ))}
+                    ×
+                  </button>
+                </span>
               </div>
             )}
           </div>
