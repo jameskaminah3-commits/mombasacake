@@ -10,4 +10,5 @@ export interface OrderItemInput {
   cakeId: number;
   /** @minimum 1 */
   quantity: number;
+  variantLabel?: string;
 }
