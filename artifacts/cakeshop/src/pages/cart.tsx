@@ -34,11 +34,14 @@ export default function Cart() {
       
       <div className="grid lg:grid-cols-3 gap-12">
         <div className="lg:col-span-2 space-y-6">
-          {items.map((item) => (
-            <div key={item.cake.id} className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-card rounded-2xl border border-border shadow-sm">
+          {items.map((item) => {
+            const price = item.variantPrice ?? item.cake.price;
+            const key = `${item.cake.id}:${item.variantLabel || ""}`;
+            return (
+            <div key={key} className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-card rounded-2xl border border-border shadow-sm">
               <div className="w-24 h-24 sm:w-32 sm:h-32 shrink-0">
                 <RevealImage
-                src={item.cake.imageUrl || DEFAULT_CAKE_IMAGE_URL} 
+                src={item.cake.imageUrl || DEFAULT_CAKE_IMAGE_URL}
                 alt={item.cake.name}
                 className="object-cover rounded-xl bg-muted"
                 fallbackSrc={DEFAULT_CAKE_IMAGE_URL}
@@ -47,42 +50,46 @@ export default function Cart() {
               </div>
               <div className="flex-1 text-center sm:text-left">
                 <h3 className="font-bold text-lg">{item.cake.name}</h3>
-                <p className="text-muted-foreground text-sm mb-4">KES {item.cake.price.toLocaleString()}</p>
+                {item.variantLabel && (
+                  <span className="inline-block mb-1 text-xs font-medium text-primary bg-primary/10 px-2.5 py-0.5 rounded-full">{item.variantLabel}</span>
+                )}
+                <p className="text-muted-foreground text-sm mb-4">KES {price.toLocaleString()}</p>
                 <div className="flex items-center justify-center sm:justify-start gap-4">
                   <div className="flex items-center border border-border rounded-full bg-background p-1">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-8 w-8 rounded-full"
-                      onClick={() => updateQty(item.cake.id, item.quantity - 1)}
+                      onClick={() => updateQty(item.cake.id, item.quantity - 1, item.variantLabel)}
                     >
                       <Minus className="h-4 w-4" />
                     </Button>
                     <span className="w-10 text-center font-medium text-sm">{item.quantity}</span>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-8 w-8 rounded-full"
-                      onClick={() => updateQty(item.cake.id, item.quantity + 1)}
+                      onClick={() => updateQty(item.cake.id, item.quantity + 1, item.variantLabel)}
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="text-destructive hover:bg-destructive/10 hover:text-destructive rounded-full"
-                    onClick={() => removeItem(item.cake.id)}
+                    onClick={() => removeItem(item.cake.id, item.variantLabel)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
               <div className="font-bold text-lg sm:text-right w-full sm:w-auto mt-4 sm:mt-0 pt-4 sm:pt-0 border-t sm:border-t-0 border-border">
-                KES {(item.cake.price * item.quantity).toLocaleString()}
+                KES {(price * item.quantity).toLocaleString()}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
         
         <div className="lg:col-span-1">
