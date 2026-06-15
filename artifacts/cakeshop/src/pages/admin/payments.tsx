@@ -116,16 +116,11 @@ export default function AdminPayments() {
       </div>
 
       <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">Homepage payment details</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              These values are read from Supabase and shown to customers at checkout.
-            </p>
-          </div>
-          <div className="rounded-full bg-[#52B44B]/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#52B44B]">
-            Supabase-backed
-          </div>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">MPesa payment settings</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Shown to customers at checkout. Changes take effect immediately.
+          </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -138,28 +133,21 @@ export default function AdminPayments() {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Business shortcode</label>
+            <label className="text-sm font-medium">Business shortcode (Paybill / Till)</label>
             <Input
               value={draftSettings.businessShortCode}
               onChange={(event) => updateSetting("businessShortCode", event.target.value)}
               placeholder="174379"
             />
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Transaction type</label>
-            <Input
-              value={draftSettings.transactionType}
-              onChange={(event) => updateSetting("transactionType", event.target.value)}
-              placeholder="CustomerPayBillOnline"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Account reference prefix</label>
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-sm font-medium">Order reference prefix</label>
             <Input
               value={draftSettings.accountReferencePrefix}
               onChange={(event) => updateSetting("accountReferencePrefix", event.target.value)}
               placeholder="Order"
             />
+            <p className="text-xs text-muted-foreground">Customers will see this as the account reference on the MPesa prompt, e.g. "Order #42".</p>
           </div>
         </div>
 
@@ -173,10 +161,7 @@ export default function AdminPayments() {
           />
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs leading-5 text-muted-foreground">
-            Checkout uses the same record from <span className="font-mono">/api/payment-details</span>, so updates here take effect immediately.
-          </p>
+        <div className="flex justify-end">
           <Button
             type="button"
             className="h-11 rounded-full bg-[#52B44B] px-6 text-white hover:bg-[#52B44B]/90"
@@ -189,7 +174,7 @@ export default function AdminPayments() {
                 Saving...
               </>
             ) : (
-              "Save payment details"
+              "Save settings"
             )}
           </Button>
         </div>
