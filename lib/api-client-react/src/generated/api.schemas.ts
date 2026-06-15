@@ -168,7 +168,7 @@ export interface MpesaInitiateResponse {
   checkoutRequestId: string;
   responseDescription: string;
   merchantRequestId?: string | null;
-  businessShortCode?: string | null;  // ← add this line
+  businessShortCode?: string | null;
 }
 
 export type MpesaCallbackInputBody = { [key: string]: unknown };
@@ -255,4 +255,3 @@ export type ListOrdersParams = {
 status?: string;
 customerId?: number;
 };
-
