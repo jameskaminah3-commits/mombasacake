@@ -27,6 +27,7 @@ export const orderItemsTable = pgTable("order_items", {
   cakeId: integer("cake_id").notNull(),
   cakeName: text("cake_name").notNull(),
   cakeImage: text("cake_image"),
+  variantLabel: text("variant_label"),
   quantity: integer("quantity").notNull(),
   unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
   subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
