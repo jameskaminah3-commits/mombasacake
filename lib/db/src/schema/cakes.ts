@@ -12,6 +12,7 @@ export const cakesTable = pgTable("cakes", {
   available: boolean("available").notNull().default(true),
   featured: boolean("featured").notNull().default(false),
   categoryId: integer("category_id"),
+  variants: text("variants"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
