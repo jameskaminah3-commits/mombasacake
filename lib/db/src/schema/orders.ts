@@ -16,6 +16,7 @@ export const ordersTable = pgTable("orders", {
   paymentStatus: text("payment_status").notNull().default("pending"),
   total: numeric("total", { precision: 10, scale: 2 }).notNull(),
   mpesaReceiptNo: text("mpesa_receipt_no"),
+  deliveryDate: timestamp("delivery_date", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
