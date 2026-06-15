@@ -69,6 +69,7 @@ export default function CakeDetail() {
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [selectedVariant, setSelectedVariant] = useState<{ label: string; price: number } | null>(null);
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
@@ -91,10 +92,16 @@ export default function CakeDetail() {
       .catch(() => setReviewsLoading(false));
   }, [cakeId]);
 
+  const effectivePrice = selectedVariant?.price ?? cake?.price ?? 0;
+
   const handleAddToCart = () => {
     if (!cake) return;
-    addItem(cake, quantity);
-    toast({ title: "Added to cart", description: `${quantity}x ${cake.name} added to your cart.` });
+    if (cake.variants && cake.variants.length > 0 && !selectedVariant) {
+      toast({ title: "Please choose a size", description: "Select a size before adding to cart.", variant: "destructive" });
+      return;
+    }
+    addItem(cake, quantity, selectedVariant?.label ?? null, selectedVariant?.price ?? null);
+    toast({ title: "Added to cart", description: `${quantity}x ${cake.name}${selectedVariant ? ` (${selectedVariant.label})` : ""} added to your cart.` });
   };
 
   const handleSubmitReview = async (e: React.FormEvent) => {
@@ -235,7 +242,12 @@ export default function CakeDetail() {
               </div>
             )}
 
-            <p className="text-2xl font-medium text-foreground mb-6">KES {cake.price.toLocaleString()}</p>
+            <p className="text-2xl font-medium text-foreground mb-6">
+              KES {effectivePrice.toLocaleString()}
+              {selectedVariant && cake.variants && cake.variants.length > 0 && (
+                <span className="ml-2 text-base font-normal text-muted-foreground">({selectedVariant.label})</span>
+              )}
+            </p>
 
             <div className="prose prose-sm md:prose-base text-muted-foreground mb-8">
               <p>{cake.description || "A delicious creation from Channah Cakes."}</p>
@@ -243,6 +255,32 @@ export default function CakeDetail() {
 
             {cake.available ? (
               <div className="space-y-6 mt-auto">
+                {/* Size / variant selector */}
+                {cake.variants && cake.variants.length > 0 && (
+                  <div>
+                    <p className="font-medium mb-3">Size:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {cake.variants.map((v) => (
+                        <button
+                          key={v.label}
+                          type="button"
+                          onClick={() => setSelectedVariant(v)}
+                          className={`px-4 py-2 rounded-full border text-sm font-medium transition-all ${
+                            selectedVariant?.label === v.label
+                              ? "border-primary bg-primary text-white shadow-sm"
+                              : "border-border bg-card text-foreground hover:border-primary/60"
+                          }`}
+                        >
+                          {v.label}
+                          <span className={`ml-2 text-xs ${selectedVariant?.label === v.label ? "text-white/75" : "text-muted-foreground"}`}>
+                            KES {v.price.toLocaleString()}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-4">
                   <span className="font-medium">Quantity:</span>
                   <div className="flex items-center border border-border rounded-full bg-card p-1">
@@ -275,7 +313,7 @@ export default function CakeDetail() {
                   data-testid="button-add-to-cart"
                 >
                   <ShoppingBag className="w-5 h-5 mr-2" />
-                  Add to Cart — KES {(cake.price * quantity).toLocaleString()}
+                  Add to Cart — KES {(effectivePrice * quantity).toLocaleString()}
                 </Button>
               </div>
             ) : (
