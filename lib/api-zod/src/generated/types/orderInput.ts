@@ -14,6 +14,8 @@ export interface OrderInput {
   customerPhone: string;
   customerEmail?: string;
   deliveryAddress?: string;
+  /** Requested delivery date in YYYY-MM-DD format */
+  deliveryDate?: string;
   notes?: string;
   promoCode?: string;
   items: OrderItemInput[];
