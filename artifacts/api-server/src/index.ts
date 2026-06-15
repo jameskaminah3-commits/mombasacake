@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { ensureOrdersSchema } from "./lib/ensure-orders-schema";
 
 const rawPort =
   process.env["PORT"] ??
@@ -16,6 +17,10 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+ensureOrdersSchema().catch((err) => {
+  logger.error({ err }, "ensureOrdersSchema failed at startup");
+});
 
 app.listen(port, (err) => {
   if (err) {
