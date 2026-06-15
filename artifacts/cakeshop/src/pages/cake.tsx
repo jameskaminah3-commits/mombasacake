@@ -5,8 +5,7 @@ import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Minus, Plus, ShoppingBag, ChevronLeft, Star, ZoomIn, X } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
+import { Minus, Plus, ShoppingBag, ChevronLeft, Star, ZoomIn, X, ChevronDown, ChevronUp } from "lucide-react";import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getApiBaseUrl } from "@/lib/api-base";
@@ -73,6 +72,7 @@ export default function CakeDetail() {
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewsExpanded, setReviewsExpanded] = useState(false);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewName, setReviewName] = useState("");
   const [reviewBody, setReviewBody] = useState("");
@@ -433,11 +433,26 @@ export default function CakeDetail() {
               <p className="text-sm">Be the first to share your experience with {cake.name}.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {reviews.map((review) => (
-                <ReviewCard key={review.id} review={review} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {(reviewsExpanded ? reviews : reviews.slice(0, 3)).map((review) => (
+                  <ReviewCard key={review.id} review={review} />
+                ))}
+              </div>
+              {reviews.length > 3 && (
+                <button
+                  type="button"
+                  onClick={() => setReviewsExpanded(!reviewsExpanded)}
+                  className="mt-6 flex items-center gap-2 mx-auto text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                >
+                  {reviewsExpanded ? (
+                    <>Show less <ChevronUp className="w-4 h-4" /></>
+                  ) : (
+                    <>Show all {reviews.length} reviews <ChevronDown className="w-4 h-4" /></>
+                  )}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
