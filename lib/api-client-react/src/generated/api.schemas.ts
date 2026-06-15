@@ -44,6 +44,7 @@ export interface Cake {
   featured: boolean;
   categoryId?: number | null;
   categoryName?: string | null;
+  variants?: Array<{ label: string; price: number }> | null;
   createdAt: string;
 }
 
@@ -59,6 +60,7 @@ export interface CakeInput {
   available?: boolean;
   featured?: boolean;
   categoryId?: number;
+  variants?: Array<{ label: string; price: number }>;
 }
 
 export interface CakeUpdate {
@@ -73,6 +75,7 @@ export interface CakeUpdate {
   available?: boolean;
   featured?: boolean;
   categoryId?: number;
+  variants?: Array<{ label: string; price: number }> | null;
 }
 
 export interface Customer {
@@ -99,6 +102,7 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  variantLabel?: string | null;
 }
 
 export interface Order {
@@ -123,6 +127,7 @@ export interface OrderItemInput {
   cakeId: number;
   /** @minimum 1 */
   quantity: number;
+  variantLabel?: string;
 }
 
 export interface OrderInput {
@@ -132,6 +137,7 @@ export interface OrderInput {
   customerPhone: string;
   customerEmail?: string;
   deliveryAddress?: string;
+  deliveryDate?: string;
   notes?: string;
   promoCode?: string;
   items: OrderItemInput[];
