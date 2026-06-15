@@ -189,8 +189,21 @@ export default function Menu() {
                         </h3>
                       </div>
                       <div className="mt-4 flex items-center justify-between">
-                        <p className="font-medium text-foreground">KES {cake.price.toLocaleString()}</p>
+                        <p className="font-medium text-foreground">
+                          {cake.variants && cake.variants.length > 0
+                            ? `From KES ${Math.min(...cake.variants.map((v) => v.price)).toLocaleString()}`
+                            : `KES ${cake.price.toLocaleString()}`}
+                        </p>
                         {cake.available ? (
+                          cake.variants && cake.variants.length > 0 ? (
+                            <Link
+                              href={`/cake/${cake.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all duration-200"
+                            >
+                              Choose Size
+                            </Link>
+                          ) : (
                           <button
                             onClick={(e) => handleQuickAdd(e, cake)}
                             aria-label={`Add ${cake.name} to cart`}
@@ -210,6 +223,7 @@ export default function Menu() {
                               <><Plus className="w-3 h-3" /> Add</>
                             )}
                           </button>
+                          )
                         ) : null}
                       </div>
                     </CardContent>
