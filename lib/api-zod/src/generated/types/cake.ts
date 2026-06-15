@@ -6,6 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export interface CakeVariant {
+  label: string;
+  price: number;
+}
+
 export interface Cake {
   id: number;
   name: string;
@@ -17,5 +22,6 @@ export interface Cake {
   featured: boolean;
   categoryId?: number | null;
   categoryName?: string | null;
+  variants?: CakeVariant[] | null;
   createdAt: string;
 }
