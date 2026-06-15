@@ -59,7 +59,13 @@ router.post("/orders", async (req, res): Promise<void> => {
     parsed.data.items.map(async (item) => {
       const [cake] = await db.select().from(cakesTable).where(eq(cakesTable.id, item.cakeId));
       if (!cake) throw new Error(`Cake ${item.cakeId} not found`);
-      const unitPrice = parseFloat(cake.price);
+      let unitPrice = parseFloat(cake.price);
+      if (item.variantLabel) {
+        const variants = parseCakeVariants(cake.variants);
+        const variant = variants?.find((v) => v.label === item.variantLabel);
+        if (!variant) throw new Error(`Variant "${item.variantLabel}" not found for cake ${item.cakeId}`);
+        unitPrice = variant.price;
+      }
       const lineSubtotal = unitPrice * item.quantity;
       orderSubtotal += lineSubtotal;
       return {
@@ -67,6 +73,7 @@ router.post("/orders", async (req, res): Promise<void> => {
         cakeSlug: cake.slug,
         cakeName: cake.name,
         cakeImage: normalizeSupabaseMediaUrl(cake.imageUrl),
+        variantLabel: item.variantLabel ?? null,
         quantity: item.quantity,
         unitPrice: String(unitPrice),
         subtotal: String(lineSubtotal),
@@ -116,6 +123,7 @@ await ensureOrdersSchema();
       customerPhone: customerPayload.phone,
       customerEmail: customerPayload.email,
       deliveryAddress: parsed.data.deliveryAddress,
+      deliveryDate: parsed.data.deliveryDate ? new Date(parsed.data.deliveryDate + "T00:00:00Z") : null,
       notes: parsed.data.notes,
       promoCode: appliedPromotion?.code ?? requestedCode,
       discountAmount: String(discountAmount),
@@ -193,6 +201,7 @@ function formatOrder(
     customerPhone: order.customerPhone,
     customerEmail: order.customerEmail ?? null,
     deliveryAddress: order.deliveryAddress ?? null,
+    deliveryDate: order.deliveryDate ? order.deliveryDate.toISOString().split("T")[0] : null,
     notes: order.notes ?? null,
     promoCode: order.promoCode ?? null,
     discountAmount: parseFloat(order.discountAmount),
@@ -205,6 +214,7 @@ function formatOrder(
       cakeId: i.cakeId,
       cakeName: i.cakeName,
       cakeImage: normalizeSupabaseMediaUrl(i.cakeImage) ?? null,
+      variantLabel: i.variantLabel ?? null,
       quantity: i.quantity,
       unitPrice: parseFloat(i.unitPrice),
       subtotal: parseFloat(i.subtotal),
@@ -271,6 +281,20 @@ function calculateDiscount(promo: PromotionView, subtotal: number, items: OrderP
   if (!isPromotionEligible(promo, items, subtotal)) return 0;
   const amount = promo.discountAmount ?? (promo.discountPct != null ? (subtotal * promo.discountPct) / 100 : 0);
   return Math.min(amount, subtotal);
+}
+
+function parseCakeVariants(value: string | null | undefined) {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return null;
+    return parsed.filter(
+      (v): v is { label: string; price: number } =>
+        typeof v === "object" && v !== null && typeof v.label === "string" && typeof v.price === "number"
+    );
+  } catch {
+    return null;
+  }
 }
 
 function parseApplicableCakeSlugs(value: string | null) {
