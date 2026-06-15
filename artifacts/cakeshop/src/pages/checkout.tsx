@@ -20,11 +20,21 @@ import { Loader2 } from "lucide-react";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
 
+const tomorrow = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split("T")[0];
+};
+
 const checkoutSchema = z.object({
   customerName: z.string().min(2, "Name is required"),
   customerPhone: z.string().regex(/^254\d{9}$/, "Must be a valid Safaricom number (254XXXXXXXXX)"),
   customerEmail: z.string().email("Valid email required").optional().or(z.literal("")),
   deliveryAddress: z.string().min(5, "Delivery address is required"),
+  deliveryDate: z.string().min(1, "Please select a delivery date").refine(
+    (val) => new Date(val) >= new Date(tomorrow()),
+    "Delivery date must be at least tomorrow — we need time to bake!"
+  ),
   notes: z.string().optional(),
   promoCode: z.string().optional(),
 });
@@ -66,6 +76,7 @@ export default function Checkout() {
       customerPhone: "254",
       customerEmail: "",
       deliveryAddress: "",
+      deliveryDate: "",
       notes: "",
       promoCode: "",
     },
@@ -120,11 +131,13 @@ export default function Checkout() {
       const orderItems = items.map((item) => ({
         cakeId: item.cake.id,
         quantity: item.quantity,
+        variantLabel: item.variantLabel || undefined,
       }));
 
       const order = await createOrder.mutateAsync({
         data: {
           ...values,
+          deliveryDate: values.deliveryDate || undefined,
           promoCode: values.promoCode?.trim() || undefined,
           items: orderItems,
         },
@@ -220,6 +233,26 @@ export default function Checkout() {
                         <FormControl>
                           <Textarea placeholder="Apartment, Street, Area..." {...field} className="bg-background resize-none" />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="deliveryDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Delivery Date</FormLabel>
+                        <FormControl>
+                          <input
+                            type="date"
+                            min={tomorrow()}
+                            {...field}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">We need at least 24 hours notice to prepare your cake.</p>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -332,8 +365,11 @@ export default function Checkout() {
           <div className="bg-card border border-border p-6 rounded-2xl shadow-sm sticky top-24">
             <h2 className="font-bold text-xl mb-6">Order Summary</h2>
             <div className="space-y-4 mb-6">
-              {items.map((item) => (
-                <div key={item.cake.id} className="flex items-center gap-4">
+              {items.map((item) => {
+                const price = item.variantPrice ?? item.cake.price;
+                const key = `${item.cake.id}:${item.variantLabel || ""}`;
+                return (
+                <div key={key} className="flex items-center gap-4">
                   <div className="relative">
                     <div className="w-16 h-16">
                       <RevealImage
@@ -350,11 +386,15 @@ export default function Checkout() {
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-sm line-clamp-1">{item.cake.name}</p>
-                    <p className="text-muted-foreground text-xs">KES {item.cake.price.toLocaleString()}</p>
+                    {item.variantLabel && (
+                      <p className="text-primary text-xs font-medium">{item.variantLabel}</p>
+                    )}
+                    <p className="text-muted-foreground text-xs">KES {price.toLocaleString()}</p>
                   </div>
-                  <div className="font-medium text-sm">KES {(item.cake.price * item.quantity).toLocaleString()}</div>
+                  <div className="font-medium text-sm">KES {(price * item.quantity).toLocaleString()}</div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="border-t border-border pt-4 space-y-2 text-sm">
@@ -383,7 +423,7 @@ export default function Checkout() {
 
 function resolvePromotionPreview(
   promotions: Promotion[],
-  items: { cake: { slug: string; name: string; price: number }; quantity: number }[],
+  items: { cake: { slug: string; name: string; price: number }; quantity: number; variantPrice?: number | null }[],
   subtotal: number,
   promoCode?: string,
 ): PromotionPreview {
