@@ -73,7 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<AdminSession | null>(() => readStoredSession());
   const [admin, setAdmin] = useState<AdminUser | null>(null);
   const [isLoading, setIsLoading] = useState(() => Boolean(readStoredSession()));
-  const token = session?.token ?? null;
+const token = session?.token ?? null;
+
+  // Set synchronously so queries fired on first render already have the token.
+  // The useEffect below keeps it in sync after token changes.
+  setAuthTokenGetter(() => token);
 
   useEffect(() => {
     setAuthTokenGetter(() => token);
