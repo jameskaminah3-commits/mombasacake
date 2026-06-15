@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { 
-  useListCakes, 
-  useCreateCake, 
-  useUpdateCake, 
+import {
+  useListCakes,
+  useCreateCake,
+  useUpdateCake,
   useDeleteCake,
   useListCategories,
   getListCakesQueryKey,
@@ -12,7 +12,7 @@ import {
   Cake
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
@@ -40,7 +40,7 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Edit, Plus, Search, Star, StarOff } from "lucide-react";
+import { Trash2, Edit, Plus, Search, Star, StarOff, X } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,6 +55,11 @@ import {
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
 
+const variantSchema = z.object({
+  label: z.string().min(1, "Label required"),
+  price: z.coerce.number().min(0, "Price required"),
+});
+
 const cakeSchema = z.object({
   name: z.string().min(2, "Name is required"),
   slug: z.string().min(2, "Slug is required"),
@@ -64,6 +69,7 @@ const cakeSchema = z.object({
   categoryId: z.coerce.number().optional().nullable(),
   available: z.boolean().default(true),
   featured: z.boolean().default(false),
+  variants: z.array(variantSchema).optional(),
 });
 
 type CakeFormValues = z.infer<typeof cakeSchema>;
@@ -77,6 +83,7 @@ const defaultCakeFormValues: CakeFormValues = {
   categoryId: null,
   available: true,
   featured: false,
+  variants: [],
 };
 
 function slugify(value: string) {
@@ -106,6 +113,11 @@ export default function AdminCakes() {
     defaultValues: defaultCakeFormValues,
   });
 
+  const { fields: variantFields, append: appendVariant, remove: removeVariant } = useFieldArray({
+    control: form.control,
+    name: "variants",
+  });
+
   const selectedImage = form.watch("imageUrl");
 
   const invalidateQueries = () => {
@@ -116,14 +128,16 @@ export default function AdminCakes() {
 
   const onSubmit = async (values: CakeFormValues) => {
     try {
+      const variants = values.variants && values.variants.length > 0 ? values.variants : undefined;
       if (editingCake) {
         await updateCake.mutateAsync({
           id: editingCake.id,
-            data: {
-              ...values,
-              categoryId: values.categoryId ?? undefined,
-              imageUrl: values.imageUrl?.trim() || undefined,
-            }
+          data: {
+            ...values,
+            categoryId: values.categoryId ?? undefined,
+            imageUrl: values.imageUrl?.trim() || undefined,
+            variants: variants ?? null,
+          }
         });
         toast({ title: "Cake updated successfully" });
       } else {
@@ -132,6 +146,7 @@ export default function AdminCakes() {
             ...values,
             categoryId: values.categoryId ?? undefined,
             imageUrl: values.imageUrl?.trim() || undefined,
+            variants,
           }
         });
         toast({ title: "Cake created successfully" });
@@ -154,6 +169,7 @@ export default function AdminCakes() {
       categoryId: cake.categoryId || null,
       available: cake.available,
       featured: cake.featured,
+      variants: cake.variants ?? [],
     });
     setIsDialogOpen(true);
   };
@@ -329,6 +345,49 @@ export default function AdminCakes() {
                   )}
                 />
 
+                {/* Variants / size options */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <FormLabel className="text-base">Size Variants <span className="text-muted-foreground font-normal text-xs">(optional)</span></FormLabel>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => appendVariant({ label: "", price: 0 })}
+                    >
+                      <Plus className="w-3 h-3 mr-1" /> Add Size
+                    </Button>
+                  </div>
+                  {variantFields.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No size variants. The base price above applies. Add variants if this cake comes in multiple sizes with different prices.</p>
+                  )}
+                  {variantFields.map((field, index) => (
+                    <div key={field.id} className="flex items-center gap-2">
+                      <Input
+                        placeholder="e.g. 1 kg"
+                        className="flex-1"
+                        {...form.register(`variants.${index}.label`)}
+                      />
+                      <Input
+                        type="number"
+                        placeholder="Price (KES)"
+                        className="w-32"
+                        {...form.register(`variants.${index}.price`)}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                        onClick={() => removeVariant(index)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
                 <div className="flex gap-8">
                   <FormField
                     control={form.control}
@@ -440,7 +499,16 @@ export default function AdminCakes() {
                     )}
                   </TableCell>
                   <TableCell>
-                    KES {cake.price.toLocaleString()}
+                    {cake.variants && cake.variants.length > 0 ? (
+                      <div className="space-y-0.5">
+                        <span className="text-xs text-muted-foreground">From KES {Math.min(...cake.variants.map((v) => v.price)).toLocaleString()}</span>
+                        <div>
+                          <Badge variant="outline" className="text-xs">{cake.variants.length} size{cake.variants.length !== 1 ? "s" : ""}</Badge>
+                        </div>
+                      </div>
+                    ) : (
+                      `KES ${cake.price.toLocaleString()}`
+                    )}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
