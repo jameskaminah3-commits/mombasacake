@@ -135,7 +135,8 @@ export const CreateCakeBody = zod.object({
   "imageUrl": zod.string().optional(),
   "available": zod.boolean().optional(),
   "featured": zod.boolean().optional(),
-  "categoryId": zod.number().optional()
+  "categoryId": zod.number().optional(),
+  "variants": zod.array(zod.object({ "label": zod.string(), "price": zod.number() })).optional()
 })
 
 
@@ -220,7 +221,8 @@ export const UpdateCakeBody = zod.object({
   "imageUrl": zod.string().optional(),
   "available": zod.boolean().optional(),
   "featured": zod.boolean().optional(),
-  "categoryId": zod.number().optional()
+  "categoryId": zod.number().optional(),
+  "variants": zod.array(zod.object({ "label": zod.string(), "price": zod.number() })).optional().nullable()
 })
 
 export const UpdateCakeResponse = zod.object({
@@ -338,11 +340,13 @@ export const CreateOrderBody = zod.object({
   "customerPhone": zod.string().min(1),
   "customerEmail": zod.string().optional(),
   "deliveryAddress": zod.string().optional(),
+  "deliveryDate": zod.string().optional(),
   "notes": zod.string().optional(),
   "promoCode": zod.string().optional(),
   "items": zod.array(zod.object({
   "cakeId": zod.number(),
-  "quantity": zod.number().min(1)
+  "quantity": zod.number().min(1),
+  "variantLabel": zod.string().optional()
 }))
 })
 
