@@ -5,6 +5,7 @@
  * Cake Shop API
  * OpenAPI spec version: 0.1.0
  */
+import type { CakeVariant } from './cake';
 
 export interface CakeUpdate {
   /** @minLength 1 */
@@ -18,4 +19,5 @@ export interface CakeUpdate {
   available?: boolean;
   featured?: boolean;
   categoryId?: number;
+  variants?: CakeVariant[] | null;
 }
