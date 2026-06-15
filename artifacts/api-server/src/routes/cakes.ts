@@ -83,6 +83,7 @@ router.post("/cakes", requireAdmin, async (req, res): Promise<void> => {
     ...parsed.data,
     imageUrl: normalizeSupabaseMediaUrl(parsed.data.imageUrl) || undefined,
     price: String(parsed.data.price),
+    variants: parsed.data.variants ? JSON.stringify(parsed.data.variants) : null,
   }).returning();
   res.status(201).json(formatCake(cake, null));
 });
@@ -121,6 +122,9 @@ router.patch("/cakes/:id", requireAdmin, async (req, res): Promise<void> => {
     updateData.imageUrl = normalizeSupabaseMediaUrl(updateData.imageUrl) || undefined;
   }
   if (parsed.data.price != null) updateData.price = String(parsed.data.price);
+  if ("variants" in parsed.data) {
+    updateData.variants = parsed.data.variants ? JSON.stringify(parsed.data.variants) : null;
+  }
 
   const [cake] = await db
     .update(cakesTable)
@@ -144,6 +148,20 @@ router.delete("/cakes/:id", requireAdmin, async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
+function parseVariants(value: string | null | undefined) {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) return null;
+    return parsed.filter(
+      (v): v is { label: string; price: number } =>
+        typeof v === "object" && v !== null && typeof v.label === "string" && typeof v.price === "number"
+    );
+  } catch {
+    return null;
+  }
+}
+
 function formatCake(
   cake: typeof cakesTable.$inferSelect,
   categoryName: string | null | undefined
@@ -159,6 +177,7 @@ function formatCake(
     featured: cake.featured,
     categoryId: cake.categoryId ?? null,
     categoryName: categoryName ?? null,
+    variants: parseVariants(cake.variants),
     createdAt: cake.createdAt.toISOString(),
   };
 }
