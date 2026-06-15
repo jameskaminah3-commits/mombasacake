@@ -348,7 +348,7 @@ export default function AdminCakes() {
                 {/* Variants / size options */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <FormLabel className="text-base">Size Variants <span className="text-muted-foreground font-normal text-xs">(optional)</span></FormLabel>
+<p className="text-sm font-medium leading-none">Size Variants <span className="text-muted-foreground font-normal text-xs">(optional)</span></p>
                     <Button
                       type="button"
                       variant="outline"
