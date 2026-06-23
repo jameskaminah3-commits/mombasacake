@@ -10,6 +10,53 @@ import { useCart } from "@/lib/cart-context";
 
 type SortOption = "default" | "price-asc" | "price-desc" | "name-asc" | "name-desc";
 
+const SLUG_TO_HERO: Record<string, string> = {
+  kitchen: "kitchen",       "personal-care": "kitchen",
+  bedroom: "kitchen",       "living-room": "kitchen",
+  "small-appliances": "kitchen", lifestyle: "kitchen",
+  appliances: "appliances", refrigerators: "appliances",
+  "washing-machines": "appliances", "ac-fans": "appliances",
+  cookers: "appliances",    microwaves: "appliances",
+  fitness: "fitness",       treadmills: "fitness",
+  "exercise-bikes": "fitness", weights: "fitness",
+  benches: "fitness",       cardio: "fitness", gym: "fitness",
+  electronics: "electronics", tvs: "electronics",
+  sound: "electronics",     "smart-home": "electronics",
+  "home-office": "electronics", accessories: "electronics",
+};
+
+const CATEGORY_HEROES: Record<string, {
+  title: string; tagline: string; bg: string; fg: string; fgMuted: string; accent: string;
+}> = {
+  kitchen: {
+    title: "Kitchen & Lifestyle",
+    tagline: "Blenders, kettles, cookers and everything that makes your home shine.",
+    bg: "#e8ede8", fg: "#013220", fgMuted: "rgba(1,50,32,0.55)", accent: "#013220",
+  },
+  appliances: {
+    title: "Home Appliances",
+    tagline: "Refrigerators, washing machines, ACs — premium brands at wholesale prices.",
+    bg: "#013220", fg: "#ffffff", fgMuted: "rgba(255,255,255,0.55)", accent: "#D4AF37",
+  },
+  fitness: {
+    title: "Fitness Equipment",
+    tagline: "Build your home gym with treadmills, bikes, weights, and more.",
+    bg: "#2d3748", fg: "#ffffff", fgMuted: "rgba(255,255,255,0.55)", accent: "#D4AF37",
+  },
+  electronics: {
+    title: "Electronics",
+    tagline: "Smart TVs, sound systems, home office tech — upgrade every room.",
+    bg: "#111827", fg: "#ffffff", fgMuted: "rgba(255,255,255,0.55)", accent: "#D4AF37",
+  },
+};
+
+const CATEGORY_PILLS = [
+  { key: "kitchen",     label: "Kitchen & Lifestyle", href: "/menu?category=kitchen" },
+  { key: "appliances",  label: "Appliances",          href: "/menu?category=appliances" },
+  { key: "fitness",     label: "Fitness",             href: "/menu?category=fitness" },
+  { key: "electronics", label: "Electronics",         href: "/menu?category=electronics" },
+];
+
 const SORT_LABELS: Record<SortOption, string> = {
   "default":    "Relevance",
   "price-asc":  "Price: Low to High",
@@ -105,18 +152,68 @@ export default function Menu() {
   const hasActiveFilters = selectedCategory !== null || search || minPrice || maxPrice || inStock || sortBy !== "default";
   const selectedCatName  = categories?.find((c) => c.id === selectedCategory)?.name;
 
+  const heroKey = SLUG_TO_HERO[urlCategory.toLowerCase()] ?? null;
+  const hero    = heroKey ? CATEGORY_HEROES[heroKey] : null;
+
   return (
     <div className="bg-background min-h-screen">
-      {/* Page header */}
-      <div className="bg-secondary text-white py-10 sm:py-12">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-primary mb-2">HAPPYFINE_KE Wholesalers</p>
-          <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold mb-3">Shop All Products</h1>
-          <p className="text-white/60 text-base max-w-lg mx-auto">
-            Premium home appliances, kitchen essentials, fitness equipment — wholesale prices in Mombasa.
-          </p>
+      {/* Page hero — dynamic per category */}
+      {hero ? (
+        <div className="py-12 sm:py-16 transition-colors duration-300" style={{ backgroundColor: hero.bg }}>
+          <div className="container mx-auto px-4 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-[0.28em] mb-3" style={{ color: hero.accent, opacity: 0.7 }}>
+              HAPPYFINE_KE Wholesalers
+            </p>
+            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold mb-3" style={{ color: hero.fg }}>
+              {hero.title}
+            </h1>
+            <p className="text-base max-w-lg mx-auto mb-7" style={{ color: hero.fgMuted }}>
+              {hero.tagline}
+            </p>
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              {CATEGORY_PILLS.map((pill) => (
+                <Link
+                  key={pill.key}
+                  href={pill.href}
+                  className={`text-xs font-semibold px-4 py-2 rounded-full border transition-all duration-200 ${
+                    heroKey === pill.key
+                      ? "bg-white text-foreground border-white shadow-sm"
+                      : "border-current hover:bg-white/10"
+                  }`}
+                  style={{ color: heroKey === pill.key ? undefined : hero.fgMuted }}
+                >
+                  {pill.label}
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-[#F7F7F7] py-10 sm:py-12">
+          <div className="container mx-auto px-4 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-secondary/50 mb-2">
+              HAPPYFINE_KE Wholesalers
+            </p>
+            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3">
+              All Products
+            </h1>
+            <p className="text-muted-foreground text-base max-w-lg mx-auto mb-7">
+              Premium home appliances, kitchen essentials, fitness equipment — wholesale prices in Mombasa.
+            </p>
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              {CATEGORY_PILLS.map((pill) => (
+                <Link
+                  key={pill.key}
+                  href={pill.href}
+                  className="text-xs font-semibold px-4 py-2 rounded-full border border-secondary/25 text-secondary hover:bg-secondary hover:text-white hover:border-secondary transition-all duration-200"
+                >
+                  {pill.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="container mx-auto px-4 py-10">
 
