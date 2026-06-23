@@ -49,54 +49,41 @@
   --radius-xl: calc(var(--radius) + 6px);
 }
 
-/* ─── HAPPYFINE_KE · Expanse-by-Archetype theme ─── */
-/* Light: crisp white canvas, forest-green text, gold accent  */
-/* Dark:  brand deep forest-green, gold accent, cream text    */
-
 :root {
   --app-font-sans: 'Inter', system-ui, sans-serif;
   --app-font-serif: 'Playfair Display', Georgia, serif;
   --app-font-mono: Menlo, monospace;
-  --radius: 0.1875rem; /* 3px — near-square, architectural like Expanse */
+  --radius: 0.1875rem;
 
-  /* Canvas */
-  --background: 90 8% 97%;      /* #f6f7f5 — barely-green off-white */
-  --foreground: 145 30% 8%;     /* #101f14 — deep forest near-black */
+  --background: 90 8% 97%;
+  --foreground: 145 30% 8%;
   --border: 90 8% 86%;
   --input: 90 8% 86%;
-  --ring: 43 70% 42%;           /* gold focus ring */
+  --ring: 43 70% 42%;
 
-  /* Cards */
   --card: 0 0% 100%;
   --card-foreground: 145 30% 8%;
   --card-border: 90 8% 90%;
 
-  /* Popovers */
   --popover: 0 0% 100%;
   --popover-foreground: 145 30% 8%;
   --popover-border: 90 8% 90%;
 
-  /* Primary — HAPPYFINE gold */
-  --primary: 43 70% 42%;        /* #c49a14 */
+  --primary: 43 70% 42%;
   --primary-foreground: 0 0% 100%;
 
-  /* Secondary — deep forest green (brand bg) */
-  --secondary: 145 42% 17%;     /* #163324 */
+  --secondary: 145 42% 17%;
   --secondary-foreground: 0 0% 100%;
 
-  /* Muted */
   --muted: 90 8% 93%;
   --muted-foreground: 145 10% 42%;
 
-  /* Accent — pale gold tint for highlights */
   --accent: 43 55% 92%;
   --accent-foreground: 145 30% 8%;
 
-  /* Destructive */
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  /* Admin sidebar — white in light mode */
   --sidebar: 0 0% 100%;
   --sidebar-foreground: 145 30% 8%;
   --sidebar-border: 90 8% 88%;
@@ -106,7 +93,6 @@
   --sidebar-accent-foreground: 145 30% 8%;
   --sidebar-ring: 43 70% 42%;
 
-  /* Charts */
   --chart-1: 43 70% 42%;
   --chart-2: 145 42% 17%;
   --chart-3: 145 30% 8%;
@@ -120,44 +106,35 @@
 }
 
 .dark {
-  /* Canvas — deep HAPPYFINE brand forest green */
-  --background: 145 45% 5%;    /* #060f08 */
-  --foreground: 60 20% 95%;    /* #f5f4ec — warm cream */
+  --background: 145 45% 5%;
+  --foreground: 60 20% 95%;
   --border: 145 25% 14%;
   --input: 145 25% 14%;
-  --ring: 43 80% 55%;          /* brighter gold on dark */
+  --ring: 43 80% 55%;
 
-  /* Cards */
-  --card: 145 40% 8%;          /* #0c1a0f */
+  --card: 145 40% 8%;
   --card-foreground: 60 20% 95%;
   --card-border: 145 25% 14%;
 
-  /* Popovers */
   --popover: 145 40% 8%;
   --popover-foreground: 60 20% 95%;
   --popover-border: 145 25% 14%;
 
-  /* Primary — vivid gold on dark green */
-  --primary: 43 80% 55%;       /* #d4a820 */
+  --primary: 43 80% 55%;
   --primary-foreground: 145 45% 5%;
 
-  /* Secondary — medium forest green */
-  --secondary: 145 35% 20%;    /* #1e3d27 */
+  --secondary: 145 35% 20%;
   --secondary-foreground: 60 20% 95%;
 
-  /* Muted */
   --muted: 145 30% 11%;
   --muted-foreground: 145 10% 58%;
 
-  /* Accent — subtle gold-green highlight */
   --accent: 145 30% 14%;
   --accent-foreground: 43 80% 65%;
 
-  /* Destructive */
   --destructive: 0 55% 38%;
   --destructive-foreground: 60 20% 95%;
 
-  /* Admin sidebar — brand-dark on dark mode */
   --sidebar: 145 40% 8%;
   --sidebar-foreground: 60 20% 95%;
   --sidebar-border: 145 25% 14%;
@@ -181,76 +158,38 @@
   }
 }
 
-/**
- * Using the elevate system.
- * Automatic contrast adjustment.
- *
- * <element className="hover-elevate" />
- * <element className="active-elevate-2" />
- *
- * // Using the tailwind utility when a data attribute is "on"
- * <element className="toggle-elevate data-[state=on]:toggle-elevated" />
- * // Or manually controlling the toggle state
- * <element className="toggle-elevate toggle-elevated" />
- *
- * Elevation systems have to handle many states.
- * - not-hovered, vs. hovered vs. active  (three mutually exclusive states)
- * - toggled or not
- * - focused or not (this is not handled with these utilities)
- *
- * Even without handling focused or not, this is six possible combinations that
- * need to be distinguished from eachother visually.
- */
 @layer utilities {
-
-  /* Hide ugly search cancel button in Chrome until we can style it properly */
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;
   }
 
-  /* Placeholder styling for contentEditable div */
   [contenteditable][data-placeholder]:empty::before {
     content: attr(data-placeholder);
     color: hsl(var(--muted-foreground));
     pointer-events: none;
   }
 
-  /* .no-default-hover-elevate/no-default-active-elevate is an escape hatch so consumers of
-   * buttons/badges can remove the automatic brightness adjustment on interactions
-   * and program their own. */
   .no-default-hover-elevate {}
-
   .no-default-active-elevate {}
 
-
-  /**
-   * Toggleable backgrounds go behind the content. Hoverable/active goes on top.
-   * This way they can stack/compound. Both will overlap the parent's borders!
-   * So borders will be automatically adjusted both on toggle, and hover/active,
-   * and they will be compounded.
-   */
   .toggle-elevate::before,
   .toggle-elevate-2::before {
     content: "";
     pointer-events: none;
     position: absolute;
     inset: 0px;
-    /*border-radius: inherit;   match rounded corners */
     border-radius: inherit;
     z-index: -1;
-    /* sits behind content but above backdrop */
   }
 
   .toggle-elevate.toggle-elevated::before {
     background-color: var(--elevate-2);
   }
 
-  /* If there's a 1px border, adjust the inset so that it covers that parent's border */
   .border.toggle-elevate::before {
     inset: -1px;
   }
 
-  /* Does not work on elements with overflow:hidden! */
   .hover-elevate:not(.no-default-hover-elevate),
   .active-elevate:not(.no-default-active-elevate),
   .hover-elevate-2:not(.no-default-hover-elevate),
@@ -267,10 +206,8 @@
     pointer-events: none;
     position: absolute;
     inset: 0px;
-    /*border-radius: inherit;   match rounded corners */
     border-radius: inherit;
     z-index: 999;
-    /* sits in front of content */
   }
 
   .hover-elevate:hover:not(.no-default-hover-elevate)::after,
@@ -283,7 +220,6 @@
     background-color: var(--elevate-2);
   }
 
-  /* If there's a 1px border, adjust the inset so that it covers that parent's border */
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
   .border.active-elevate:not(.no-active-interaction-elevate)::after,
   .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
