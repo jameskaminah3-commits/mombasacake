@@ -2,53 +2,56 @@ import { Link, useLocation } from "wouter";
 import { useCart } from "@/lib/cart-context";
 import {
   ShoppingBag, Menu, X, Search, ChevronDown, ChevronRight,
-  MapPin, Phone, Truck, UtensilsCrossed, Microwave, Dumbbell,
-  Tv, Wind, Sparkles, BedDouble, Sofa, Package, Laptop,
+  MapPin, Phone, Truck,
 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { SiFacebook, SiInstagram, SiTiktok, SiWhatsapp } from "react-icons/si";
 import { DEFAULT_LOGO_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
 
-const MEGA_MENU_GROUPS = [
+const CATEGORY_NAV_GROUPS = [
   {
-    label: "Appliances",
+    label: "Kitchen & Lifestyle",
+    href: "/menu?category=kitchen",
     items: [
-      { label: "Refrigerators",            href: "/menu?category=refrigerators" },
-      { label: "Washing Machines",         href: "/menu?category=washing-machines" },
-      { label: "Air Conditioners & Fans",  href: "/menu?category=ac-fans" },
-      { label: "Cookers & Ovens",          href: "/menu?category=cookers" },
-      { label: "Microwaves",               href: "/menu?category=microwaves" },
+      { label: "Kitchen Appliances",      href: "/menu?category=kitchen" },
+      { label: "Personal Care",           href: "/menu?category=personal-care" },
+      { label: "Bedroom",                 href: "/menu?category=bedroom" },
+      { label: "Living Room",             href: "/menu?category=living-room" },
+      { label: "Small Appliances",        href: "/menu?category=small-appliances" },
     ],
   },
   {
-    label: "Fitness Equipment",
+    label: "Appliances",
+    href: "/menu?category=appliances",
     items: [
-      { label: "Treadmills",               href: "/menu?category=treadmills" },
-      { label: "Exercise Bikes",           href: "/menu?category=exercise-bikes" },
-      { label: "Weights & Barbells",       href: "/menu?category=weights" },
-      { label: "Gym Benches",              href: "/menu?category=benches" },
-      { label: "Cardio Equipment",         href: "/menu?category=cardio" },
+      { label: "Refrigerators",           href: "/menu?category=refrigerators" },
+      { label: "Washing Machines",        href: "/menu?category=washing-machines" },
+      { label: "Air Conditioners & Fans", href: "/menu?category=ac-fans" },
+      { label: "Cookers & Ovens",         href: "/menu?category=cookers" },
+      { label: "Microwaves",              href: "/menu?category=microwaves" },
+    ],
+  },
+  {
+    label: "Fitness",
+    href: "/menu?category=fitness",
+    items: [
+      { label: "Treadmills",              href: "/menu?category=treadmills" },
+      { label: "Exercise Bikes",          href: "/menu?category=exercise-bikes" },
+      { label: "Weights & Barbells",      href: "/menu?category=weights" },
+      { label: "Gym Benches",             href: "/menu?category=benches" },
+      { label: "Cardio Equipment",        href: "/menu?category=cardio" },
     ],
   },
   {
     label: "Electronics",
+    href: "/menu?category=electronics",
     items: [
-      { label: "TVs & Entertainment",      href: "/menu?category=tvs" },
-      { label: "Sound Systems",            href: "/menu?category=sound" },
-      { label: "Smart Home",               href: "/menu?category=smart-home" },
-      { label: "Home Office",              href: "/menu?category=home-office" },
-      { label: "Accessories",              href: "/menu?category=accessories" },
-    ],
-  },
-  {
-    label: "Kitchen & Lifestyle",
-    items: [
-      { label: "Kitchen Appliances",       href: "/menu?category=kitchen" },
-      { label: "Personal Care",            href: "/menu?category=personal-care" },
-      { label: "Bedroom",                  href: "/menu?category=bedroom" },
-      { label: "Living Room",              href: "/menu?category=living-room" },
-      { label: "Small Appliances",         href: "/menu?category=small-appliances" },
+      { label: "TVs & Entertainment",     href: "/menu?category=tvs" },
+      { label: "Sound Systems",           href: "/menu?category=sound" },
+      { label: "Smart Home",              href: "/menu?category=smart-home" },
+      { label: "Home Office",             href: "/menu?category=home-office" },
+      { label: "Accessories",             href: "/menu?category=accessories" },
     ],
   },
 ];
@@ -72,10 +75,10 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
   const { itemCount, total } = useCart();
   const [location, setLocation] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isMegaMenuOpen, setIsMegaMenuOpen]     = useState(false);
-  const [mobileShopOpen, setMobileShopOpen]     = useState(false);
+  const [openNavItem,      setOpenNavItem]      = useState<string | null>(null);
+  const [mobileOpenGroup,  setMobileOpenGroup]  = useState<string | null>(null);
 
-  const closeMenu = () => { setIsMobileMenuOpen(false); setMobileShopOpen(false); };
+  const closeMenu = () => { setIsMobileMenuOpen(false); setMobileOpenGroup(null); };
 
   const handleSearch = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -85,6 +88,8 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
 
   const isActive = (href: string) =>
     location === href || location.startsWith(href.split("?")[0] + "?") || location === href.split("?")[0];
+
+  const activeDropdownGroup = CATEGORY_NAV_GROUPS.find((g) => g.label === openNavItem) ?? null;
 
   return (
     <div className="min-h-[100dvh] flex flex-col font-sans bg-background">
@@ -189,10 +194,10 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Nav bar + mega menu — desktop */}
+        {/* Nav bar — desktop */}
         <div
           className="hidden lg:block relative bg-secondary"
-          onMouseLeave={() => setIsMegaMenuOpen(false)}
+          onMouseLeave={() => setOpenNavItem(null)}
         >
           <nav className="container mx-auto px-4 h-11 flex items-center gap-0 text-sm font-medium">
             <Link
@@ -204,17 +209,29 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
               Home
             </Link>
 
-            <div onMouseEnter={() => setIsMegaMenuOpen(true)}>
-              <Link
-                href="/menu"
-                className={`flex items-center gap-1 px-4 h-11 transition-colors border-b-2 ${
-                  isActive("/menu") ? "text-primary border-primary" : "text-white/80 hover:text-white border-transparent"
-                }`}
-              >
-                Shop
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isMegaMenuOpen ? "rotate-180" : ""}`} />
-              </Link>
-            </div>
+            {CATEGORY_NAV_GROUPS.map((group) => {
+              const isGroupActive = group.items.some((i) => isActive(i.href)) || isActive(group.href);
+              return (
+                <div key={group.label} onMouseEnter={() => setOpenNavItem(group.label)}>
+                  <Link
+                    href={group.href}
+                    onClick={() => setOpenNavItem(null)}
+                    className={`flex items-center gap-1 px-4 h-11 transition-colors border-b-2 ${
+                      isGroupActive || openNavItem === group.label
+                        ? "text-primary border-primary"
+                        : "text-white/80 hover:text-white border-transparent"
+                    }`}
+                  >
+                    {group.label}
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                        openNavItem === group.label ? "rotate-180" : ""
+                      }`}
+                    />
+                  </Link>
+                </div>
+              );
+            })}
 
             <Link
               href="/menu?deals=true"
@@ -232,58 +249,56 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
             </Link>
           </nav>
 
-          {/* Mega menu — full width */}
-          {isMegaMenuOpen && (
+          {/* Category dropdown panel */}
+          {activeDropdownGroup && (
             <div className="absolute top-full left-0 right-0 bg-white border-b border-border shadow-2xl z-50">
-              <div className="container mx-auto px-4 py-8">
-                <div className="grid grid-cols-4 gap-0 divide-x divide-border">
-                  {MEGA_MENU_GROUPS.map((group) => (
-                    <div key={group.label} className="px-6 first:pl-0 last:pr-0">
-                      <h3 className="font-bold text-[10px] uppercase tracking-[0.22em] text-primary mb-4">
-                        {group.label}
-                      </h3>
-                      <ul className="space-y-2.5">
-                        {group.items.map((item) => (
-                          <li key={item.href}>
-                            <Link
-                              href={item.href}
-                              onClick={() => setIsMegaMenuOpen(false)}
-                              className="flex items-center gap-1.5 text-sm text-foreground/65 hover:text-primary transition-colors group"
-                            >
-                              <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                              {item.label}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
+              <div className="container mx-auto px-4 py-7">
+                <div className="flex gap-12">
+                  <div className="shrink-0 min-w-[200px]">
+                    <h3 className="font-bold text-[10px] uppercase tracking-[0.22em] text-primary mb-5">
+                      {activeDropdownGroup.label}
+                    </h3>
+                    <ul className="space-y-2.5">
+                      {activeDropdownGroup.items.map((item) => (
+                        <li key={item.href}>
+                          <Link
+                            href={item.href}
+                            onClick={() => setOpenNavItem(null)}
+                            className="flex items-center gap-1.5 text-sm text-foreground/65 hover:text-primary transition-colors group/link"
+                          >
+                            <ChevronRight className="w-3 h-3 opacity-0 group-hover/link:opacity-100 transition-opacity shrink-0" />
+                            {item.label}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                    <Link
+                      href={activeDropdownGroup.href}
+                      onClick={() => setOpenNavItem(null)}
+                      className="mt-6 inline-flex items-center text-[11px] font-bold text-primary hover:underline uppercase tracking-wide"
+                    >
+                      View all {activeDropdownGroup.label} <ChevronRight className="w-3 h-3 ml-0.5" />
+                    </Link>
+                  </div>
+
+                  <div className="flex-1 border-l border-border pl-12 flex items-center">
+                    <div className="rounded-xl p-6 w-full max-w-xs" style={{ backgroundColor: "#e8ede8" }}>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: "rgba(1,50,32,0.5)" }}>
+                        Shop Now
+                      </p>
+                      <h4 className="font-serif text-lg font-bold text-foreground mb-1 leading-snug">
+                        {activeDropdownGroup.label}
+                      </h4>
+                      <p className="text-xs text-foreground/55 mb-4">Wholesale prices in Mombasa</p>
                       <Link
-                        href="/menu"
-                        onClick={() => setIsMegaMenuOpen(false)}
-                        className="mt-5 inline-flex items-center text-[11px] font-bold text-primary hover:underline uppercase tracking-wide"
+                        href={activeDropdownGroup.href}
+                        onClick={() => setOpenNavItem(null)}
+                        className="inline-flex items-center gap-1 text-xs font-bold text-secondary hover:text-primary transition-colors uppercase tracking-wide"
                       >
-                        View all <ChevronRight className="w-3 h-3 ml-0.5" />
+                        Browse all <ChevronRight className="w-3 h-3" />
                       </Link>
                     </div>
-                  ))}
-                </div>
-              </div>
-              <div className="border-t border-border bg-gray-50 px-4 py-3">
-                <div className="container mx-auto flex items-center gap-6">
-                  <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wide">Quick:</span>
-                  {[
-                    { label: "All Products",  href: "/menu" },
-                    { label: "Deals & Offers", href: "/menu?deals=true" },
-                    { label: "New Arrivals",  href: "/menu" },
-                  ].map((l) => (
-                    <Link
-                      key={l.label}
-                      href={l.href}
-                      onClick={() => setIsMegaMenuOpen(false)}
-                      className="text-xs font-semibold text-secondary hover:text-primary transition-colors"
-                    >
-                      {l.label}
-                    </Link>
-                  ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -317,37 +332,41 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
               Home
             </Link>
 
-            <div className="border-b border-white/10">
-              <button
-                className="w-full flex items-center justify-between py-4 text-white/80"
-                onClick={() => setMobileShopOpen(!mobileShopOpen)}
-              >
-                <span>Shop All</span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${mobileShopOpen ? "rotate-180" : ""}`} />
-              </button>
-              {mobileShopOpen && (
-                <div className="pb-4 space-y-4">
-                  {MEGA_MENU_GROUPS.map((group) => (
-                    <div key={group.label}>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary px-2 mb-2">
-                        {group.label}
-                      </p>
-                      {group.items.map((item) => (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={closeMenu}
-                          className="flex items-center gap-2 px-2 py-2 text-white/60 hover:text-white transition-colors"
-                        >
-                          <ChevronRight className="w-3 h-3 shrink-0" />
-                          {item.label}
-                        </Link>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            {CATEGORY_NAV_GROUPS.map((group) => (
+              <div key={group.label} className="border-b border-white/10">
+                <button
+                  className="w-full flex items-center justify-between py-4 text-white/80"
+                  onClick={() => setMobileOpenGroup(mobileOpenGroup === group.label ? null : group.label)}
+                >
+                  <span>{group.label}</span>
+                  <ChevronDown
+                    className={`w-4 h-4 transition-transform ${mobileOpenGroup === group.label ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {mobileOpenGroup === group.label && (
+                  <div className="pb-3">
+                    {group.items.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={closeMenu}
+                        className="flex items-center gap-2 px-2 py-2 text-white/60 hover:text-white transition-colors"
+                      >
+                        <ChevronRight className="w-3 h-3 shrink-0" />
+                        {item.label}
+                      </Link>
+                    ))}
+                    <Link
+                      href={group.href}
+                      onClick={closeMenu}
+                      className="flex items-center gap-2 px-2 py-2.5 mt-1 text-primary font-semibold text-xs uppercase tracking-wide"
+                    >
+                      View all {group.label} <ChevronRight className="w-3 h-3 shrink-0" />
+                    </Link>
+                  </div>
+                )}
+              </div>
+            ))}
 
             <Link href="/menu?deals=true" onClick={closeMenu} className="py-4 border-b border-white/10 text-white/80 hover:text-white">
               Deals
