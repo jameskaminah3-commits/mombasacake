@@ -200,15 +200,6 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
           onMouseLeave={() => setOpenNavItem(null)}
         >
           <nav className="container mx-auto px-4 h-11 flex items-center gap-0 text-sm font-medium">
-            <Link
-              href="/"
-              className={`px-4 h-11 flex items-center transition-colors border-b-2 border-transparent ${
-                location === "/" ? "text-primary border-primary" : "text-white/80 hover:text-white"
-              }`}
-            >
-              Home
-            </Link>
-
             {CATEGORY_NAV_GROUPS.map((group) => {
               const isGroupActive = group.items.some((i) => isActive(i.href)) || isActive(group.href);
               return (
