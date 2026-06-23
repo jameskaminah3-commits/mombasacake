@@ -183,20 +183,20 @@ function HeroCarouselImage({ slides, activeIndex }: { slides: HeroSlide[]; activ
 function CategoryCard({ icon: Icon, label, sub, href }: { icon: typeof Dumbbell; label: string; sub: string; href: string }) {
   return (
     <Link href={href}>
-      <div className="group relative overflow-hidden bg-secondary cursor-pointer">
-        <div className="aspect-[4/3] flex flex-col items-center justify-center p-6 gap-4 transition-colors duration-300 group-hover:bg-secondary/90">
-          <div className="w-16 h-16 rounded-full border border-white/10 flex items-center justify-center bg-white/5 group-hover:bg-primary/20 transition-colors duration-300">
-            <Icon className="w-8 h-8 text-primary" />
+      <div className="group relative overflow-hidden bg-white border border-gray-100 rounded-2xl cursor-pointer hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+        <div className="aspect-[4/3] flex flex-col items-center justify-center p-6 gap-4">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-300 group-hover:bg-secondary/10" style={{ backgroundColor: "#e8ede8" }}>
+            <Icon className="w-8 h-8 text-secondary" />
           </div>
           <div className="text-center">
-            <h3 className="font-bold text-white text-sm uppercase tracking-[0.1em] leading-snug">{label}</h3>
-            <p className="text-white/40 text-xs mt-1.5 leading-relaxed">{sub}</p>
+            <h3 className="font-semibold text-sm text-foreground leading-snug">{label}</h3>
+            <p className="text-muted-foreground text-xs mt-1.5 leading-relaxed">{sub}</p>
           </div>
-          <span className="text-primary text-xs font-semibold flex items-center gap-1 opacity-0 group-hover:opacity-100 -translate-y-1 group-hover:translate-y-0 transition-all duration-200">
+          <span className="text-secondary text-xs font-semibold flex items-center gap-1 opacity-0 group-hover:opacity-100 -translate-y-1 group-hover:translate-y-0 transition-all duration-200">
             Shop now <ChevronRight className="w-3 h-3" />
           </span>
         </div>
-        <div className="absolute inset-x-0 bottom-0 h-0.5 bg-primary scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+        <div className="absolute inset-x-0 bottom-0 h-0.5 bg-secondary scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
       </div>
     </Link>
   );
@@ -434,6 +434,47 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── PROMO CARDS ────────────────────────────────────── */}
+      <section className="py-12 sm:py-16 bg-[#F7F7F7]">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Sage green */}
+            <div className="rounded-2xl p-8 flex flex-col justify-between min-h-[260px]" style={{ backgroundColor: "#e8ede8" }}>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] mb-3" style={{ color: "rgba(1,50,32,0.5)" }}>This Weekend</p>
+                <h3 className="font-serif text-2xl font-bold text-foreground leading-snug mb-3">Weekend Deals on Kitchen Essentials</h3>
+                <p className="text-sm leading-relaxed" style={{ color: "rgba(34,34,34,0.55)" }}>Blenders, kettles, cookers and more — at prices that make sense.</p>
+              </div>
+              <Button size="sm" className="mt-6 self-start bg-secondary hover:bg-secondary/90 text-white rounded-full px-6 h-10 text-xs font-bold uppercase tracking-[0.1em]" asChild>
+                <Link href="/menu?category=kitchen">Shop Kitchen</Link>
+              </Button>
+            </div>
+            {/* Warm beige */}
+            <div className="rounded-2xl p-8 flex flex-col justify-between min-h-[260px]" style={{ backgroundColor: "#f0ece6" }}>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-foreground/40 mb-3">Just Arrived</p>
+                <h3 className="font-serif text-2xl font-bold text-foreground leading-snug mb-3">New Smart TVs & Entertainment Systems</h3>
+                <p className="text-sm text-foreground/55 leading-relaxed">Upgrade your living room with the latest 4K TVs and sound systems.</p>
+              </div>
+              <Button size="sm" className="mt-6 self-start bg-foreground hover:bg-foreground/90 text-background rounded-full px-6 h-10 text-xs font-bold uppercase tracking-[0.1em]" asChild>
+                <Link href="/menu?category=tvs">Shop TVs</Link>
+              </Button>
+            </div>
+            {/* Dark charcoal */}
+            <div className="rounded-2xl p-8 flex flex-col justify-between min-h-[260px]" style={{ backgroundColor: "#2d3748" }}>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-3">Our Promise</p>
+                <h3 className="font-serif text-2xl font-bold text-white leading-snug mb-3">Same-Day Delivery in Mombasa</h3>
+                <p className="text-sm text-white/55 leading-relaxed">Order before 2pm and get your appliances delivered the same day.</p>
+              </div>
+              <Button size="sm" className="mt-6 self-start bg-primary hover:bg-primary/90 text-primary-foreground rounded-full px-6 h-10 text-xs font-bold uppercase tracking-[0.1em]" asChild>
+                <Link href="/menu">Shop Now</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── PROMOTIONAL BANNER ─────────────────────────────── */}
       <section className="relative overflow-hidden min-h-[360px] flex items-center">
         <div className="absolute inset-0">
@@ -506,10 +547,10 @@ export default function Home() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
             {PROMISES.map(({ icon: Icon, title, desc }) => (
               <div key={title} className="text-center group">
-                <div className="w-16 h-16 mx-auto mb-5 flex items-center justify-center bg-primary/10 border border-primary/15 group-hover:bg-primary group-hover:border-primary transition-colors duration-300">
-                  <Icon className="w-7 h-7 text-primary group-hover:text-white transition-colors duration-300" />
+                <div className="w-16 h-16 mx-auto mb-5 rounded-full flex items-center justify-center transition-colors duration-300 group-hover:bg-secondary/10" style={{ backgroundColor: "#e8ede8" }}>
+                  <Icon className="w-7 h-7 text-secondary" />
                 </div>
-                <h3 className="font-bold text-sm uppercase tracking-[0.12em] mb-2 text-foreground">{title}</h3>
+                <h3 className="font-semibold text-sm mb-2 text-foreground">{title}</h3>
                 <p className="text-muted-foreground text-sm leading-relaxed">{desc}</p>
               </div>
             ))}
