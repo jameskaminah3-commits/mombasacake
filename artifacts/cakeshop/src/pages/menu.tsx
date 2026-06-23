@@ -41,9 +41,10 @@ export default function Menu() {
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="text-center max-w-2xl mx-auto mb-12">
-        <h1 className="font-serif text-4xl md:text-5xl font-bold mb-4">Our Menu</h1>
+        <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-primary mb-3">HAPPYFINE_KE Wholesalers</p>
+        <h1 className="font-serif text-4xl md:text-5xl font-bold mb-4">Shop All Products</h1>
         <p className="text-muted-foreground text-lg">
-          Browse our collection of artisan cakes. Each piece is crafted to perfection.
+          Premium home appliances, kitchen essentials, and lifestyle products — wholesale prices in Mombasa.
         </p>
       </div>
 
@@ -54,15 +55,15 @@ export default function Menu() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search cakes..."
-                className="pl-9 bg-card border-border rounded-full"
+                placeholder="Search products..."
+                className="pl-9 bg-card border-border rounded-sm"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
           </div>
 
-          <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-sm overflow-hidden md:bg-transparent md:border-0 md:rounded-none md:backdrop-blur-none">
+          <div className="rounded-sm border border-border bg-card/60 backdrop-blur-sm overflow-hidden md:bg-transparent md:border-0 md:rounded-none md:backdrop-blur-none">
             <button
               className="w-full flex items-center justify-between px-4 py-3 md:px-0 md:py-0 md:pointer-events-none"
               onClick={() => setCategoriesOpen((o) => !o)}
@@ -86,19 +87,19 @@ export default function Menu() {
                       <Skeleton className="h-8 w-5/6" />
                     </div>
                   ) : (
-                    <div className="flex flex-col space-y-1">
+                    <div className="flex flex-col space-y-0.5">
                       <Button
                         variant="ghost"
-                        className={`justify-start font-medium rounded-lg ${selectedCategory === null ? "bg-secondary/10 text-secondary hover:bg-secondary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                        className={`justify-start font-medium rounded-sm ${selectedCategory === null ? "bg-primary/10 text-primary hover:bg-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
                         onClick={() => { setSelectedCategory(null); setCategoriesOpen(false); }}
                       >
-                        All Cakes
+                        All Products
                       </Button>
                       {categories?.map((cat) => (
                         <Button
                           key={cat.id}
                           variant="ghost"
-                          className={`justify-start font-medium rounded-lg ${selectedCategory === cat.id ? "bg-secondary/10 text-secondary hover:bg-secondary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                          className={`justify-start font-medium rounded-sm ${selectedCategory === cat.id ? "bg-primary/10 text-primary hover:bg-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
                           onClick={() => { setSelectedCategory(cat.id); setCategoriesOpen(false); }}
                         >
                           {cat.name}
@@ -130,24 +131,24 @@ export default function Menu() {
         {/* Main Content */}
         <main className="flex-1 w-full">
           {loadingCakes ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Card key={i} className="overflow-hidden border-none shadow-sm rounded-xl">
+                <Card key={i} className="overflow-hidden border border-border shadow-none rounded-sm">
                   <Skeleton className="h-[250px] w-full" />
                   <CardContent className="p-4">
-                    <Skeleton className="h-6 w-2/3 mb-2" />
+                    <Skeleton className="h-5 w-2/3 mb-2" />
                     <Skeleton className="h-4 w-1/3" />
                   </CardContent>
                 </Card>
               ))}
             </div>
           ) : cakes?.length === 0 ? (
-            <div className="text-center py-24 bg-card rounded-2xl border border-border">
-              <h3 className="text-xl font-bold mb-2">No cakes found</h3>
+            <div className="text-center py-24 bg-card rounded-sm border border-border">
+              <h3 className="text-xl font-bold mb-2">No products found</h3>
               <p className="text-muted-foreground">Try adjusting your filters or search term.</p>
               <Button
                 variant="outline"
-                className="mt-6 rounded-full"
+                className="mt-6 rounded-sm"
                 onClick={() => {
                   setSelectedCategory(null);
                   setSearch("");
@@ -157,10 +158,10 @@ export default function Menu() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {cakes?.map((cake) => (
                 <Link key={cake.id} href={`/cake/${cake.id}`}>
-                  <Card className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 rounded-xl cursor-pointer bg-white h-full flex flex-col">
+                  <Card className="group overflow-hidden border border-border shadow-none hover:shadow-md transition-all duration-300 rounded-sm cursor-pointer bg-card h-full flex flex-col">
                     <div className="aspect-[4/3] overflow-hidden bg-muted relative">
                       <RevealImage
                         src={cake.imageUrl || DEFAULT_CAKE_IMAGE_URL}
@@ -171,25 +172,29 @@ export default function Menu() {
                       />
                       {!cake.available && (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="bg-black/80 text-white font-bold px-4 py-2 rounded-full uppercase tracking-wider text-sm">
-                            Sold Out
+                          <span className="bg-black/80 text-white font-bold px-4 py-2 rounded-sm uppercase tracking-wider text-sm">
+                            Out of Stock
                           </span>
                         </div>
                       )}
+                      {cake.available && (
+                        <div className="absolute top-3 left-3">
+                          {cake.categoryName && (
+                            <span className="bg-secondary/90 text-white text-[9px] font-bold uppercase tracking-[0.18em] px-2 py-1 rounded-sm">
+                              {cake.categoryName}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <CardContent className="p-5 flex-1 flex flex-col">
+                    <CardContent className="p-4 flex-1 flex flex-col">
                       <div className="mb-auto">
-                        {cake.categoryName && (
-                          <p className="text-xs font-semibold text-secondary uppercase tracking-wider mb-1">
-                            {cake.categoryName}
-                          </p>
-                        )}
-                        <h3 className="font-serif text-lg font-bold mb-1 leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                        <h3 className="font-semibold text-base mb-1 leading-snug group-hover:text-primary transition-colors line-clamp-2">
                           {cake.name}
                         </h3>
                       </div>
-                      <div className="mt-4 flex items-center justify-between">
-                        <p className="font-medium text-foreground">
+                      <div className="mt-3 flex items-center justify-between">
+                        <p className="font-bold text-primary text-sm">
                           {cake.variants && cake.variants.length > 0
                             ? `From KES ${Math.min(...cake.variants.map((v) => v.price)).toLocaleString()}`
                             : `KES ${cake.price.toLocaleString()}`}
@@ -199,15 +204,15 @@ export default function Menu() {
                             <Link
                               href={`/cake/${cake.id}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all duration-200"
+                              className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-sm bg-primary/10 text-primary hover:bg-primary hover:text-white transition-all duration-200"
                             >
-                              Choose Size
+                              View Options
                             </Link>
                           ) : (
                           <button
                             onClick={(e) => handleQuickAdd(e, cake)}
                             aria-label={`Add ${cake.name} to cart`}
-                            className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full transition-all duration-200 ${
+                            className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-sm transition-all duration-200 ${
                               addedIds.has(cake.id)
                                 ? "bg-green-100 text-green-700"
                                 : items.find((i) => i.cake.id === cake.id)
