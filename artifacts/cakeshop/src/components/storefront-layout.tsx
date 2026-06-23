@@ -370,16 +370,16 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 flex flex-col">{children}</main>
 
       {/* ── FOOTER ─────────────────────────────────────────── */}
-      <footer className="bg-secondary text-white">
-        <div className="border-b border-white/10 py-4">
-          <div className="container mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-white/55">
+      <footer className="bg-[#F2F2F2] text-foreground">
+        <div className="border-b border-border py-4">
+          <div className="container mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 shrink-0 text-primary" />
+              <MapPin className="w-4 h-4 shrink-0 text-secondary" />
               Mombasa, Kenya — Mon–Sat 8am–7pm · Sun 10am–5pm
             </div>
             <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4 shrink-0 text-primary" />
-              <a href="tel:+254700000000" className="hover:text-white transition-colors">+254 700 000 000</a>
+              <Phone className="w-4 h-4 shrink-0 text-secondary" />
+              <a href="tel:+254700000000" className="hover:text-foreground transition-colors">+254 700 000 000</a>
             </div>
           </div>
         </div>
@@ -398,10 +398,10 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
                   timeoutMs={2000}
                 />
               </div>
-              <p className="text-white/50 text-sm leading-7 max-w-xs mb-6">
+              <p className="text-muted-foreground text-sm leading-7 max-w-xs mb-6">
                 Your soft life ambassador. Premium home appliances, kitchen essentials, and lifestyle products — wholesale prices in Mombasa.
               </p>
-              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-primary mb-3">Follow us</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-secondary mb-3">Follow us</p>
               <div className="flex items-center gap-2.5">
                 {SOCIALS.map(({ icon: Icon, href, label }) => (
                   <a
@@ -410,7 +410,7 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label={label}
-                    className="w-9 h-9 flex items-center justify-center bg-white/10 hover:bg-primary transition-colors"
+                    className="w-9 h-9 flex items-center justify-center bg-foreground/8 hover:bg-secondary hover:text-white transition-colors"
                   >
                     <Icon className="w-4 h-4" />
                   </a>
@@ -419,60 +419,60 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
             </div>
 
             <div>
-              <h4 className="font-bold mb-5 uppercase tracking-[0.2em] text-[11px] text-primary">Shop</h4>
-              <ul className="space-y-3 text-sm text-white/50">
+              <h4 className="font-bold mb-5 uppercase tracking-[0.2em] text-[11px] text-secondary">Shop</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
                 {FOOTER_SHOP_LINKS.map((cat) => (
                   <li key={cat.href}>
-                    <Link href={cat.href} className="hover:text-white transition-colors">{cat.label}</Link>
+                    <Link href={cat.href} className="hover:text-foreground transition-colors">{cat.label}</Link>
                   </li>
                 ))}
-                <li><Link href="/menu" className="hover:text-white transition-colors">All Products</Link></li>
+                <li><Link href="/menu" className="hover:text-foreground transition-colors">All Products</Link></li>
               </ul>
             </div>
 
             <div>
-              <h4 className="font-bold mb-5 uppercase tracking-[0.2em] text-[11px] text-primary">Information</h4>
-              <ul className="space-y-3 text-sm text-white/50">
-                <li><Link href="/" className="hover:text-white transition-colors">Home</Link></li>
-                <li><Link href="/menu?deals=true" className="hover:text-white transition-colors">Deals &amp; Offers</Link></li>
-                <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
-                <li><Link href="/cart" className="hover:text-white transition-colors">Cart</Link></li>
+              <h4 className="font-bold mb-5 uppercase tracking-[0.2em] text-[11px] text-secondary">Information</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li><Link href="/" className="hover:text-foreground transition-colors">Home</Link></li>
+                <li><Link href="/menu?deals=true" className="hover:text-foreground transition-colors">Deals &amp; Offers</Link></li>
+                <li><Link href="/blog" className="hover:text-foreground transition-colors">Blog</Link></li>
+                <li><Link href="/cart" className="hover:text-foreground transition-colors">Cart</Link></li>
               </ul>
             </div>
 
             <div>
-              <h4 className="font-bold mb-5 uppercase tracking-[0.2em] text-[11px] text-primary">Contact Us</h4>
-              <ul className="space-y-3 text-sm text-white/50">
+              <h4 className="font-bold mb-5 uppercase tracking-[0.2em] text-[11px] text-secondary">Contact Us</h4>
+              <ul className="space-y-3 text-sm text-muted-foreground">
                 <li>
-                  <a href="mailto:info@happyfineke.co.ke" className="hover:text-white transition-colors">
+                  <a href="mailto:info@happyfineke.co.ke" className="hover:text-foreground transition-colors">
                     info@happyfineke.co.ke
                   </a>
                 </li>
                 <li>
-                  <a href="tel:+254700000000" className="hover:text-white transition-colors">+254 700 000 000</a>
+                  <a href="tel:+254700000000" className="hover:text-foreground transition-colors">+254 700 000 000</a>
                 </li>
                 <li>
                   <a
                     href="https://wa.me/254700000000?text=Hi!%20I%27m%20interested%20in%20your%20products."
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:text-white transition-colors"
+                    className="hover:text-foreground transition-colors"
                   >
                     WhatsApp us
                   </a>
                 </li>
-                <li className="text-white/35 text-xs leading-relaxed pt-1">
+                <li className="text-muted-foreground/60 text-xs leading-relaxed pt-1">
                   Mombasa, Kenya<br />Mon–Sat: 8am – 7pm
                 </li>
               </ul>
             </div>
           </div>
 
-          <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-white/30">
+          <div className="border-t border-border pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-muted-foreground/60">
             <span>&copy; {new Date().getFullYear()} HAPPYFINE_KE Wholesalers. All rights reserved.</span>
             <div className="flex items-center gap-6">
-              <span className="italic text-white/25">Soft life ambassador</span>
-              <Link href="/login" className="hover:text-white/55 transition-colors">Staff login</Link>
+              <span className="italic text-muted-foreground/40">Soft life ambassador</span>
+              <Link href="/login" className="hover:text-foreground transition-colors">Staff login</Link>
             </div>
           </div>
         </div>
