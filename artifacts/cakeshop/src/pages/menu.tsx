@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useListCakes, useListCategories } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Search, ChevronDown, Plus, Check, SlidersHorizontal, X, ArrowUpDown } from "lucide-react";
+import { type LucideIcon, Search, ChevronDown, Plus, Check, SlidersHorizontal, X, ArrowUpDown, UtensilsCrossed, Microwave, Dumbbell, Tv, Wind, Sparkles, BedDouble, Sofa, Package, Laptop, Volume2, Wifi } from "lucide-react";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
 import { useCart } from "@/lib/cart-context";
@@ -56,6 +56,37 @@ const CATEGORY_PILLS = [
   { key: "fitness",     label: "Fitness",             href: "/menu?category=fitness" },
   { key: "electronics", label: "Electronics",         href: "/menu?category=electronics" },
 ];
+
+const CATEGORY_SUBCATEGORIES: Record<string, { label: string; href: string; Icon: LucideIcon }[]> = {
+  kitchen: [
+    { label: "Kitchen Appliances", href: "/menu?category=kitchen",          Icon: UtensilsCrossed },
+    { label: "Personal Care",      href: "/menu?category=personal-care",    Icon: Sparkles },
+    { label: "Bedroom",            href: "/menu?category=bedroom",          Icon: BedDouble },
+    { label: "Living Room",        href: "/menu?category=living-room",      Icon: Sofa },
+    { label: "Small Appliances",   href: "/menu?category=small-appliances", Icon: Microwave },
+  ],
+  appliances: [
+    { label: "Refrigerators",     href: "/menu?category=refrigerators",    Icon: Wind },
+    { label: "Washing Machines",  href: "/menu?category=washing-machines", Icon: Package },
+    { label: "ACs & Fans",        href: "/menu?category=ac-fans",          Icon: Wind },
+    { label: "Cookers & Ovens",   href: "/menu?category=cookers",          Icon: Microwave },
+    { label: "Microwaves",        href: "/menu?category=microwaves",       Icon: Microwave },
+  ],
+  fitness: [
+    { label: "Treadmills",        href: "/menu?category=treadmills",       Icon: Dumbbell },
+    { label: "Exercise Bikes",    href: "/menu?category=exercise-bikes",   Icon: Dumbbell },
+    { label: "Weights",           href: "/menu?category=weights",          Icon: Dumbbell },
+    { label: "Gym Benches",       href: "/menu?category=benches",          Icon: Dumbbell },
+    { label: "Cardio Equipment",  href: "/menu?category=cardio",           Icon: Dumbbell },
+  ],
+  electronics: [
+    { label: "TVs & Entertainment", href: "/menu?category=tvs",            Icon: Tv },
+    { label: "Sound Systems",       href: "/menu?category=sound",          Icon: Volume2 },
+    { label: "Smart Home",          href: "/menu?category=smart-home",     Icon: Wifi },
+    { label: "Home Office",         href: "/menu?category=home-office",    Icon: Laptop },
+    { label: "Accessories",         href: "/menu?category=accessories",    Icon: Package },
+  ],
+};
 
 const SORT_LABELS: Record<SortOption, string> = {
   "default":    "Relevance",
@@ -159,7 +190,7 @@ export default function Menu() {
     <div className="bg-background min-h-screen">
       {/* Page hero — dynamic per category */}
       {hero ? (
-        <div className="py-12 sm:py-16 transition-colors duration-300" style={{ backgroundColor: hero.bg }}>
+        <div className="py-16 sm:py-24 transition-colors duration-300" style={{ backgroundColor: hero.bg }}>
           <div className="container mx-auto px-4 text-center">
             <p className="text-[10px] font-bold uppercase tracking-[0.28em] mb-3" style={{ color: hero.accent, opacity: 0.7 }}>
               HAPPYFINE_KE Wholesalers
@@ -189,7 +220,7 @@ export default function Menu() {
           </div>
         </div>
       ) : (
-        <div className="bg-[#F7F7F7] py-10 sm:py-12">
+        <div className="bg-[#F7F7F7] py-12 sm:py-16">
           <div className="container mx-auto px-4 text-center">
             <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-secondary/50 mb-2">
               HAPPYFINE_KE Wholesalers
@@ -208,6 +239,29 @@ export default function Menu() {
                   className="text-xs font-semibold px-4 py-2 rounded-full border border-secondary/25 text-secondary hover:bg-secondary hover:text-white hover:border-secondary transition-all duration-200"
                 >
                   {pill.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Subcategory browse tiles — shown when viewing a main category */}
+      {heroKey && CATEGORY_SUBCATEGORIES[heroKey] && (
+        <div className="bg-white border-b border-border">
+          <div className="container mx-auto px-4 py-8 sm:py-10">
+            <div className="flex items-start justify-center gap-5 sm:gap-10 flex-wrap">
+              {CATEGORY_SUBCATEGORIES[heroKey].map(({ label, href, Icon }) => (
+                <Link key={href} href={href} className="flex flex-col items-center gap-2.5 group w-[72px] sm:w-24">
+                  <div
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center border-2 border-transparent group-hover:border-secondary/20 transition-all duration-200"
+                    style={{ backgroundColor: "#e8ede8" }}
+                  >
+                    <Icon className="w-7 h-7 sm:w-8 sm:h-8 text-secondary" />
+                  </div>
+                  <span className="text-xs font-medium text-foreground/65 group-hover:text-foreground transition-colors text-center leading-tight">
+                    {label}
+                  </span>
                 </Link>
               ))}
             </div>
