@@ -12,7 +12,7 @@ import { RevealImage } from "@/components/reveal-image";
 const CATEGORY_NAV_GROUPS = [
   {
     label: "Kitchen & Lifestyle",
-    href: "/menu?category=kitchen",
+    href: "/category/kitchen",
     items: [
       { label: "Kitchen Appliances",      href: "/menu?category=kitchen" },
       { label: "Personal Care",           href: "/menu?category=personal-care" },
@@ -23,7 +23,7 @@ const CATEGORY_NAV_GROUPS = [
   },
   {
     label: "Appliances",
-    href: "/menu?category=appliances",
+    href: "/category/appliances",
     items: [
       { label: "Refrigerators",           href: "/menu?category=refrigerators" },
       { label: "Washing Machines",        href: "/menu?category=washing-machines" },
@@ -34,7 +34,7 @@ const CATEGORY_NAV_GROUPS = [
   },
   {
     label: "Fitness",
-    href: "/menu?category=fitness",
+    href: "/category/fitness",
     items: [
       { label: "Treadmills",              href: "/menu?category=treadmills" },
       { label: "Exercise Bikes",          href: "/menu?category=exercise-bikes" },
@@ -45,7 +45,7 @@ const CATEGORY_NAV_GROUPS = [
   },
   {
     label: "Electronics",
-    href: "/menu?category=electronics",
+    href: "/category/electronics",
     items: [
       { label: "TVs & Entertainment",     href: "/menu?category=tvs" },
       { label: "Sound Systems",           href: "/menu?category=sound" },
