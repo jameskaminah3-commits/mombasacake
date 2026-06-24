@@ -20,6 +20,7 @@ import Checkout from "@/pages/checkout";
 import OrderSuccess from "@/pages/order";
 import Blog from "@/pages/blog";
 import BlogPost from "@/pages/blog-post";
+import CategoryPage from "@/pages/category";
 import Login from "@/pages/login";
 
 // Admin Pages
@@ -84,6 +85,7 @@ function Router() {
           <Switch>
             <Route path="/" component={Home} />
             <Route path="/menu" component={Menu} />
+            <Route path="/category/:slug" component={CategoryPage} />
             <Route path="/cake/:id" component={CakeDetail} />
             <Route path="/cart" component={Cart} />
             <Route path="/checkout" component={Checkout} />
