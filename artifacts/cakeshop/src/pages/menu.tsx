@@ -3,7 +3,12 @@ import { Link, useLocation } from "wouter";
 import { useListCakes, useListCategories } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { type LucideIcon, Search, ChevronDown, Plus, Check, SlidersHorizontal, X, ArrowUpDown, UtensilsCrossed, Microwave, Dumbbell, Tv, Wind, Sparkles, BedDouble, Sofa, Package, Laptop, Volume2, Wifi } from "lucide-react";
+import {
+  type LucideIcon,
+  Search, ChevronDown, Plus, Check, SlidersHorizontal, X, ArrowUpDown,
+  UtensilsCrossed, Microwave, Dumbbell, Tv, Wind, Sparkles,
+  BedDouble, Sofa, Package, Laptop, Volume2, Wifi,
+} from "lucide-react";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
 import { useCart } from "@/lib/cart-context";
@@ -188,93 +193,79 @@ export default function Menu() {
 
   return (
     <div className="bg-background min-h-screen">
-      {/* Page hero — dynamic per category */}
+
+      {/* Page hero — full width, title at bottom-left */}
       {hero ? (
-        <div className="py-16 sm:py-24 transition-colors duration-300" style={{ backgroundColor: hero.bg }}>
-          <div className="container mx-auto px-4 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-[0.28em] mb-3" style={{ color: hero.accent, opacity: 0.7 }}>
+        <div
+          className="w-full flex items-end"
+          style={{ backgroundColor: hero.bg, minHeight: "320px" }}
+        >
+          <div className="container mx-auto px-4 pb-10 sm:pb-14">
+            <p
+              className="text-[10px] font-bold uppercase tracking-[0.28em] mb-3"
+              style={{ color: hero.accent, opacity: 0.7 }}
+            >
               HAPPYFINE_KE Wholesalers
             </p>
-            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold mb-3" style={{ color: hero.fg }}>
+            <h1
+              className="font-serif text-4xl sm:text-5xl md:text-6xl font-bold"
+              style={{ color: hero.fg }}
+            >
               {hero.title}
             </h1>
-            <p className="text-base max-w-lg mx-auto mb-7" style={{ color: hero.fgMuted }}>
+            <p className="mt-3 text-base max-w-md" style={{ color: hero.fgMuted }}>
               {hero.tagline}
             </p>
-            <div className="flex items-center justify-center gap-2 flex-wrap">
-              {CATEGORY_PILLS.map((pill) => (
-                <Link
-                  key={pill.key}
-                  href={pill.href}
-                  className={`text-xs font-semibold px-4 py-2 rounded-full border transition-all duration-200 ${
-                    heroKey === pill.key
-                      ? "bg-white text-foreground border-white shadow-sm"
-                      : "border-current hover:bg-white/10"
-                  }`}
-                  style={{ color: heroKey === pill.key ? undefined : hero.fgMuted }}
-                >
-                  {pill.label}
-                </Link>
-              ))}
-            </div>
           </div>
         </div>
       ) : (
-        <div className="bg-[#F7F7F7] py-12 sm:py-16">
-          <div className="container mx-auto px-4 text-center">
-            <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-secondary/50 mb-2">
-              HAPPYFINE_KE Wholesalers
-            </p>
-            <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3">
+        <div
+          className="w-full flex items-end bg-[#F7F7F7]"
+          style={{ minHeight: "220px" }}
+        >
+          <div className="container mx-auto px-4 pb-10 sm:pb-12">
+            <h1 className="font-serif text-4xl sm:text-5xl font-bold text-foreground">
               All Products
             </h1>
-            <p className="text-muted-foreground text-base max-w-lg mx-auto mb-7">
+            <p className="mt-2 text-muted-foreground text-base max-w-lg">
               Premium home appliances, kitchen essentials, fitness equipment — wholesale prices in Mombasa.
             </p>
-            <div className="flex items-center justify-center gap-2 flex-wrap">
-              {CATEGORY_PILLS.map((pill) => (
-                <Link
-                  key={pill.key}
-                  href={pill.href}
-                  className="text-xs font-semibold px-4 py-2 rounded-full border border-secondary/25 text-secondary hover:bg-secondary hover:text-white hover:border-secondary transition-all duration-200"
-                >
-                  {pill.label}
-                </Link>
-              ))}
-            </div>
           </div>
         </div>
       )}
 
-      {/* Subcategory browse tiles — shown when viewing a main category */}
-      {heroKey && CATEGORY_SUBCATEGORIES[heroKey] && (
-        <div className="bg-white border-b border-border">
-          <div className="container mx-auto px-4 py-8 sm:py-10">
-            <div className="flex items-start justify-center gap-5 sm:gap-10 flex-wrap">
-              {CATEGORY_SUBCATEGORIES[heroKey].map(({ label, href, Icon }) => (
-                <Link key={href} href={href} className="flex flex-col items-center gap-2.5 group w-[72px] sm:w-24">
-                  <div
-                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center border-2 border-transparent group-hover:border-secondary/20 transition-all duration-200"
-                    style={{ backgroundColor: "#e8ede8" }}
-                  >
-                    <Icon className="w-7 h-7 sm:w-8 sm:h-8 text-secondary" />
-                  </div>
-                  <span className="text-xs font-medium text-foreground/65 group-hover:text-foreground transition-colors text-center leading-tight">
-                    {label}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </div>
+      {/* Category nav strip */}
+      <div className="bg-white border-b border-border">
+        <div className="container mx-auto px-4 h-11 flex items-center gap-0 overflow-x-auto">
+          <Link
+            href="/menu"
+            className={`text-xs font-semibold px-4 h-11 flex items-center whitespace-nowrap border-b-2 transition-colors ${
+              !heroKey ? "border-secondary text-secondary" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All
+          </Link>
+          {CATEGORY_PILLS.map((pill) => (
+            <Link
+              key={pill.key}
+              href={pill.href}
+              className={`text-xs font-semibold px-4 h-11 flex items-center whitespace-nowrap border-b-2 transition-colors ${
+                heroKey === pill.key
+                  ? "border-secondary text-secondary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {pill.label}
+            </Link>
+          ))}
         </div>
-      )}
+      </div>
 
       <div className="container mx-auto px-4 py-10">
 
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-3 flex-wrap">
-            {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
@@ -286,19 +277,15 @@ export default function Menu() {
               />
             </div>
 
-            {/* Mobile filter toggle */}
             <button
               onClick={() => setFiltersOpen(!filtersOpen)}
               className="md:hidden flex items-center gap-2 h-10 px-4 border border-border bg-white text-sm font-medium hover:border-secondary transition-colors"
             >
               <SlidersHorizontal className="w-4 h-4" />
               Filters
-              {hasActiveFilters && (
-                <span className="w-2 h-2 rounded-full bg-primary" />
-              )}
+              {hasActiveFilters && <span className="w-2 h-2 rounded-full bg-primary" />}
             </button>
 
-            {/* Active filter chips */}
             {selectedCatName && (
               <span className="flex items-center gap-1.5 bg-secondary text-white text-xs font-semibold px-3 py-1.5">
                 {selectedCatName}
@@ -314,13 +301,10 @@ export default function Menu() {
             )}
           </div>
 
-          {/* Right: results count + sort */}
           <div className="flex items-center gap-3 ml-auto">
             <span className="text-sm text-muted-foreground hidden sm:inline">
               {loadingCakes ? "Loading…" : `${processedCakes.length} product${processedCakes.length !== 1 ? "s" : ""}`}
             </span>
-
-            {/* Sort dropdown */}
             <div className="relative">
               <button
                 onClick={() => setSortOpen(!sortOpen)}
@@ -351,10 +335,9 @@ export default function Menu() {
 
         <div className="flex gap-8 items-start">
 
-          {/* ── SIDEBAR FILTERS ─────────────────────────────── */}
+          {/* ── SIDEBAR ─────────────────────────────────────── */}
           <aside className={`w-64 shrink-0 space-y-6 ${filtersOpen ? "block" : "hidden md:block"} sticky top-[128px]`}>
 
-            {/* Categories */}
             <div className="border border-border bg-white">
               <button
                 className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold uppercase tracking-widest"
@@ -396,7 +379,6 @@ export default function Menu() {
               </div>
             </div>
 
-            {/* Price range */}
             <div className="border border-border bg-white">
               <div className="px-4 py-3 border-b border-border">
                 <p className="text-sm font-bold uppercase tracking-widest">Price Range</p>
@@ -406,10 +388,7 @@ export default function Menu() {
                   <div>
                     <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">Min (KES)</label>
                     <input
-                      type="number"
-                      min={0}
-                      placeholder="0"
-                      value={minPrice}
+                      type="number" min={0} placeholder="0" value={minPrice}
                       onChange={(e) => setMinPrice(e.target.value)}
                       className="w-full h-9 border border-border px-3 text-sm focus:outline-none focus:border-secondary bg-white rounded-none"
                     />
@@ -417,10 +396,7 @@ export default function Menu() {
                   <div>
                     <label className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-1 block">Max (KES)</label>
                     <input
-                      type="number"
-                      min={0}
-                      placeholder="Any"
-                      value={maxPrice}
+                      type="number" min={0} placeholder="Any" value={maxPrice}
                       onChange={(e) => setMaxPrice(e.target.value)}
                       className="w-full h-9 border border-border px-3 text-sm focus:outline-none focus:border-secondary bg-white rounded-none"
                     />
@@ -437,7 +413,6 @@ export default function Menu() {
               </div>
             </div>
 
-            {/* Availability */}
             <div className="border border-border bg-white">
               <div className="px-4 py-3 border-b border-border">
                 <p className="text-sm font-bold uppercase tracking-widest">Availability</p>
@@ -459,7 +434,6 @@ export default function Menu() {
               </div>
             </div>
 
-            {/* Clear all */}
             {hasActiveFilters && (
               <Button variant="outline" className="w-full rounded-none border-border" onClick={clearFilters}>
                 Clear All Filters
@@ -467,18 +441,38 @@ export default function Menu() {
             )}
           </aside>
 
-          {/* ── PRODUCT GRID ────────────────────────────────── */}
+          {/* ── MAIN CONTENT ────────────────────────────────── */}
           <main className="flex-1 min-w-0">
+
+            {/* Subcategory circular tiles — inside content column */}
+            {heroKey && CATEGORY_SUBCATEGORIES[heroKey] && (
+              <div className="mb-10 pb-10 border-b border-border">
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5">
+                  {CATEGORY_SUBCATEGORIES[heroKey].map(({ label, href, Icon }) => (
+                    <Link key={href} href={href} className="flex flex-col items-center gap-2.5 group">
+                      <div
+                        className="w-full aspect-square rounded-full flex items-center justify-center border-2 border-transparent group-hover:border-secondary/25 transition-all duration-200"
+                        style={{ backgroundColor: "#e8ede8" }}
+                      >
+                        <Icon className="w-8 h-8 sm:w-10 sm:h-10 text-secondary" />
+                      </div>
+                      <span className="text-xs font-medium text-foreground/65 group-hover:text-foreground transition-colors text-center leading-tight">
+                        {label}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Product grid — circular cards */}
             {loadingCakes ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-8">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
-                  <div key={i} className="overflow-hidden border border-border bg-white">
-                    <Skeleton className="h-[260px] w-full" />
-                    <div className="p-4">
-                      <Skeleton className="h-5 w-2/3 mb-2" />
-                      <Skeleton className="h-4 w-1/3 mb-4" />
-                      <Skeleton className="h-9 w-full" />
-                    </div>
+                  <div key={i} className="flex flex-col items-center gap-3">
+                    <Skeleton className="w-full aspect-square rounded-full" />
+                    <Skeleton className="h-4 w-2/3" />
+                    <Skeleton className="h-4 w-1/3" />
                   </div>
                 ))}
               </div>
@@ -493,84 +487,80 @@ export default function Menu() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-6 sm:gap-8">
                   {processedCakes.map((cake) => (
-                    <Link key={cake.id} href={`/cake/${cake.id}`}>
-                      <div className="group overflow-hidden border border-border bg-white hover:shadow-lg transition-all duration-300 cursor-pointer h-full flex flex-col">
-
-                        {/* Image */}
-                        <div className="aspect-square overflow-hidden bg-gray-50 relative">
-                          <RevealImage
-                            src={cake.imageUrl || DEFAULT_CAKE_IMAGE_URL}
-                            alt={cake.name}
-                            className={`object-cover group-hover:scale-105 transition-transform duration-500 ${!cake.available ? "opacity-50 grayscale" : ""}`}
-                            fallbackSrc={DEFAULT_CAKE_IMAGE_URL}
-                            timeoutMs={2500}
-                          />
-                          {!cake.available && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <span className="bg-black/75 text-white font-bold px-4 py-2 text-xs uppercase tracking-wider">
-                                Out of Stock
-                              </span>
-                            </div>
-                          )}
-                          {cake.available && cake.categoryName && (
-                            <span className="absolute top-3 left-3 bg-secondary text-white text-[9px] font-bold uppercase tracking-[0.18em] px-2.5 py-1">
-                              {cake.categoryName}
+                    <Link
+                      key={cake.id}
+                      href={`/cake/${cake.id}`}
+                      className="flex flex-col items-center gap-3 group cursor-pointer"
+                    >
+                      {/* Circular image */}
+                      <div className="w-full aspect-square rounded-full overflow-hidden bg-gray-50 border-2 border-transparent group-hover:border-secondary/20 transition-all duration-300 relative">
+                        <RevealImage
+                          src={cake.imageUrl || DEFAULT_CAKE_IMAGE_URL}
+                          alt={cake.name}
+                          className={`object-cover group-hover:scale-105 transition-transform duration-500 ${!cake.available ? "opacity-50 grayscale" : ""}`}
+                          fallbackSrc={DEFAULT_CAKE_IMAGE_URL}
+                          timeoutMs={2500}
+                        />
+                        {!cake.available && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="bg-black/70 text-white font-bold px-3 py-1 text-[10px] uppercase tracking-wider rounded-full">
+                              Out of Stock
                             </span>
-                          )}
-                        </div>
+                          </div>
+                        )}
+                      </div>
 
-                        {/* Details */}
-                        <div className="p-4 flex-1 flex flex-col">
-                          <h3 className="font-semibold text-sm mb-1 leading-snug group-hover:text-primary transition-colors line-clamp-2 flex-1">
-                            {cake.name}
-                          </h3>
-                          <div className="mt-3 flex items-center justify-between gap-2">
-                            <p className="font-bold text-primary text-sm">
-                              {cake.variants && cake.variants.length > 0
-                                ? `From KES ${Math.min(...cake.variants.map((v) => v.price)).toLocaleString()}`
-                                : `KES ${cake.price.toLocaleString()}`}
-                            </p>
-                            {cake.available && (
-                              cake.variants && cake.variants.length > 0 ? (
-                                <Link
-                                  href={`/cake/${cake.id}`}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="text-xs font-semibold px-3 py-1.5 bg-secondary/10 text-secondary hover:bg-secondary hover:text-white transition-all duration-200 whitespace-nowrap"
-                                >
-                                  View Options
-                                </Link>
-                              ) : (
-                                <button
-                                  onClick={(e) => handleQuickAdd(e, cake)}
-                                  aria-label={`Add ${cake.name} to cart`}
-                                  className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 transition-all duration-200 whitespace-nowrap ${
-                                    addedIds.has(cake.id)
-                                      ? "bg-green-100 text-green-700"
-                                      : items.find((i) => i.cake.id === cake.id)
-                                      ? "bg-primary text-white"
-                                      : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
-                                  }`}
-                                >
-                                  {addedIds.has(cake.id) ? (
-                                    <><Check className="w-3 h-3" /> Added</>
-                                  ) : items.find((i) => i.cake.id === cake.id) ? (
-                                    <>{items.find((i) => i.cake.id === cake.id)!.quantity} in cart</>
-                                  ) : (
-                                    <><Plus className="w-3 h-3" /> Add to Cart</>
-                                  )}
-                                </button>
-                              )
+                      {/* Details below circle */}
+                      <div className="text-center px-1 w-full">
+                        <h3 className="font-medium text-sm text-foreground leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+                          {cake.name}
+                        </h3>
+                        <p className="text-sm font-bold text-primary mt-1">
+                          {cake.variants && cake.variants.length > 0
+                            ? `From KES ${Math.min(...cake.variants.map((v) => v.price)).toLocaleString()}`
+                            : `KES ${cake.price.toLocaleString()}`}
+                        </p>
+                        {cake.available && (
+                          <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                            {cake.variants && cake.variants.length > 0 ? (
+                              <Link
+                                href={`/cake/${cake.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs font-semibold text-secondary hover:text-primary transition-colors"
+                              >
+                                View Options
+                              </Link>
+                            ) : (
+                              <button
+                                onClick={(e) => handleQuickAdd(e, cake)}
+                                aria-label={`Add ${cake.name} to cart`}
+                                className={`text-xs font-semibold px-3 py-1 rounded-full transition-all duration-200 ${
+                                  addedIds.has(cake.id)
+                                    ? "bg-green-100 text-green-700"
+                                    : items.find((i) => i.cake.id === cake.id)
+                                    ? "bg-primary text-white"
+                                    : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                                }`}
+                              >
+                                {addedIds.has(cake.id) ? (
+                                  <><Check className="w-3 h-3 inline -mt-0.5 mr-0.5" />Added</>
+                                ) : items.find((i) => i.cake.id === cake.id) ? (
+                                  <>{items.find((i) => i.cake.id === cake.id)!.quantity} in cart</>
+                                ) : (
+                                  <><Plus className="w-3 h-3 inline -mt-0.5 mr-0.5" />Add</>
+                                )}
+                              </button>
                             )}
                           </div>
-                        </div>
+                        )}
                       </div>
                     </Link>
                   ))}
                 </div>
 
-                <p className="mt-8 text-center text-sm text-muted-foreground">
+                <p className="mt-10 text-center text-sm text-muted-foreground">
                   Showing {processedCakes.length} product{processedCakes.length !== 1 ? "s" : ""}
                   {selectedCatName ? ` in ${selectedCatName}` : ""}
                 </p>
