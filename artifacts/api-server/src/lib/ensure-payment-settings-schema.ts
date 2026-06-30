@@ -13,6 +13,7 @@ export function ensurePaymentSettingsSchema(): Promise<void> {
           provider text NOT NULL DEFAULT 'mpesa',
           display_name text NOT NULL DEFAULT 'MPesa',
           business_short_code text NOT NULL DEFAULT '174379',
+          till_number text NOT NULL DEFAULT '',
           transaction_type text NOT NULL DEFAULT 'CustomerPayBillOnline',
           account_reference_prefix text NOT NULL DEFAULT 'Order',
           instructions text NOT NULL DEFAULT 'You will receive an MPesa prompt on your phone after clicking Pay. If the prompt does not arrive, use the business shortcode and order reference shown in the checkout screen.',
@@ -25,6 +26,7 @@ export function ensurePaymentSettingsSchema(): Promise<void> {
       await db.execute(sql`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS provider text NOT NULL DEFAULT 'mpesa'`);
       await db.execute(sql`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS display_name text NOT NULL DEFAULT 'MPesa'`);
       await db.execute(sql`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS business_short_code text NOT NULL DEFAULT '174379'`);
+      await db.execute(sql`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS till_number text NOT NULL DEFAULT ''`);
       await db.execute(sql`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS transaction_type text NOT NULL DEFAULT 'CustomerPayBillOnline'`);
       await db.execute(sql`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS account_reference_prefix text NOT NULL DEFAULT 'Order'`);
       await db.execute(sql`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS instructions text NOT NULL DEFAULT 'You will receive an MPesa prompt on your phone after clicking Pay. If the prompt does not arrive, use the business shortcode and order reference shown in the checkout screen.'`);
@@ -35,6 +37,7 @@ export function ensurePaymentSettingsSchema(): Promise<void> {
       await db.execute(sql`ALTER TABLE payment_settings ALTER COLUMN provider SET DEFAULT 'mpesa'`);
       await db.execute(sql`ALTER TABLE payment_settings ALTER COLUMN display_name SET DEFAULT 'MPesa'`);
       await db.execute(sql`ALTER TABLE payment_settings ALTER COLUMN business_short_code SET DEFAULT '174379'`);
+      await db.execute(sql`ALTER TABLE payment_settings ALTER COLUMN till_number SET DEFAULT ''`);
       await db.execute(sql`ALTER TABLE payment_settings ALTER COLUMN transaction_type SET DEFAULT 'CustomerPayBillOnline'`);
       await db.execute(sql`ALTER TABLE payment_settings ALTER COLUMN account_reference_prefix SET DEFAULT 'Order'`);
       await db.execute(sql`ALTER TABLE payment_settings ALTER COLUMN instructions SET DEFAULT 'You will receive an MPesa prompt on your phone after clicking Pay. If the prompt does not arrive, use the business shortcode and order reference shown in the checkout screen.'`);
