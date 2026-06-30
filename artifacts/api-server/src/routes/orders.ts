@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, and } from "drizzle-orm";
 import { ensureOrdersSchema } from "../lib/ensure-orders-schema";
-import { db, ordersTable, orderItemsTable, cakesTable, promotionsTable, customersTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, cakesTable, promotionsTable, customersTable, paymentsTable } from "@workspace/db";
 import { requireAdmin } from "../lib/auth-middleware";
 import { logger } from "../lib/logger";
 import { sendNewOrderNotification } from "../lib/order-notifications";
@@ -186,6 +186,45 @@ router.patch("/orders/:id/status", requireAdmin, async (req, res): Promise<void>
     res.status(404).json({ error: "Order not found" });
     return;
   }
+  const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
+  res.json(formatOrder(order, items));
+});
+
+// Manually confirm a payment (e.g. customer paid the till by hand and the
+// owner is reconciling from the M-Pesa SMS). Optionally records the receipt.
+router.patch("/orders/:id/mark-paid", requireAdmin, async (req, res): Promise<void> => {
+  const params = GetOrderParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const receipt =
+    typeof req.body?.mpesaReceiptNo === "string" ? req.body.mpesaReceiptNo.trim() : "";
+
+  const setValues: { paymentStatus: string; status: string; mpesaReceiptNo?: string } = {
+    paymentStatus: "paid",
+    status: "confirmed",
+  };
+  if (receipt) setValues.mpesaReceiptNo = receipt;
+
+  const [order] = await db
+    .update(ordersTable)
+    .set(setValues)
+    .where(eq(ordersTable.id, params.data.id))
+    .returning();
+  if (!order) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+
+  await db.insert(paymentsTable).values({
+    orderId: order.id,
+    amount: order.total,
+    method: "mpesa",
+    status: "completed",
+    mpesaReceiptNo: receipt || undefined,
+  });
+
   const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
   res.json(formatOrder(order, items));
 });
