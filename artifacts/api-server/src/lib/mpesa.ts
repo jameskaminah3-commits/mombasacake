@@ -26,6 +26,34 @@ async function getAccessToken(): Promise<string> {
   return response.data.access_token;
 }
 
+// One-time registration of the C2B Validation/Confirmation URLs with Safaricom
+// so that EVERY payment to the till (including ones the customer makes manually
+// via Buy Goods, not just app-initiated STK pushes) is POSTed to our server.
+export async function registerC2bUrls(): Promise<unknown> {
+  const shortcode = process.env.MPESA_SHORTCODE || "174379";
+  const base =
+    process.env.PUBLIC_APP_URL?.replace(/\/+$/, "") || "https://example.com";
+
+  const token = await getAccessToken();
+  const response = await axios.post(
+    `${MPESA_BASE_URL}/mpesa/c2b/v1/registerurl`,
+    {
+      ShortCode: shortcode,
+      ResponseType: "Completed",
+      ConfirmationURL: `${base}/api/payments/mpesa/c2b/confirmation`,
+      ValidationURL: `${base}/api/payments/mpesa/c2b/validation`,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  return response.data;
+}
+
 export interface StkPushParams {
   phone: string;
   amount: number;
