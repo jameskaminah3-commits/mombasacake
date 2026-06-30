@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
+import { DEFAULT_PAYMENT_SETTINGS, fetchPaymentSettings } from "@/lib/payment-settings";
 
 const tomorrow = () => {
   const d = new Date();
@@ -59,6 +61,12 @@ export default function Checkout() {
   const createOrder = useCreateOrder();
   const initiatePayment = useInitiateMpesaPayment();
   const { data: promotions } = useListPromotions();
+  const { data: paymentSettings } = useQuery({
+    queryKey: ["payment-settings"],
+    queryFn: fetchPaymentSettings,
+    placeholderData: DEFAULT_PAYMENT_SETTINGS,
+  });
+  const isBuyGoods = paymentSettings?.transactionType === "CustomerBuyGoodsOnline";
 
   // Polling logic when payment is prompted
   const { data: orderData } = useGetOrder(activeOrderId as number, {
@@ -108,19 +116,25 @@ export default function Checkout() {
       <p className="text-sm font-bold text-[#52B44B] uppercase tracking-wide mb-3">M-Pesa Payment Details</p>
       <div className="space-y-2 text-sm">
         <div className="flex justify-between">
-          <span className="text-muted-foreground">Paybill Number</span>
+          <span className="text-muted-foreground">{isBuyGoods ? "Till Number (Buy Goods)" : "Paybill Number"}</span>
           <span className="font-bold text-foreground">{paymentDetails.shortCode}</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Account Number</span>
-          <span className="font-bold text-foreground">Order-{activeOrderId}</span>
-        </div>
+        {!isBuyGoods && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Account Number</span>
+            <span className="font-bold text-foreground">Order-{activeOrderId}</span>
+          </div>
+        )}
         <div className="flex justify-between">
           <span className="text-muted-foreground">Amount</span>
           <span className="font-bold text-foreground">KES {Math.ceil(paymentDetails.amount).toLocaleString()}</span>
         </div>
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">Use the details above to pay manually via M-Pesa if the prompt doesn't appear.</p>
+      <p className="mt-3 text-xs text-muted-foreground">
+        {isBuyGoods
+          ? "Use Lipa na M-Pesa → Buy Goods and Services with the till number above if the prompt doesn't appear."
+          : "Use the details above to pay manually via M-Pesa if the prompt doesn't appear."}
+      </p>
     </div>
   ) : null;
 
