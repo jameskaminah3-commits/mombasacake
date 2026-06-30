@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
 import { db, paymentsTable, ordersTable, paymentSettingsTable } from "@workspace/db";
 import { InitiateMpesaPaymentBody, GetPaymentParams } from "@workspace/api-zod";
-import { initiateStkPush } from "../lib/mpesa";
+import { initiateStkPush, registerC2bUrls } from "../lib/mpesa";
 import { ensurePaymentSettingsSchema } from "../lib/ensure-payment-settings-schema";
 import { logger } from "../lib/logger";
 import { requireAdmin } from "../lib/auth-middleware";
@@ -135,6 +135,76 @@ router.post("/payments/mpesa/callback", async (req, res): Promise<void> => {
   } catch (err) {
     logger.error({ err }, "Error processing MPesa callback");
     res.json({ received: true });
+  }
+});
+
+// Safaricom calls this to validate an incoming C2B payment. We accept all.
+router.post("/payments/mpesa/c2b/validation", (_req, res): void => {
+  res.json({ ResultCode: 0, ResultDesc: "Accepted" });
+});
+
+// Safaricom calls this for EVERY completed payment to the till, including ones
+// the customer made manually via Buy Goods. Auto-reconcile when exactly one
+// pending order matches the amount and payer phone; otherwise leave it for the
+// owner to confirm via "Mark as paid".
+router.post("/payments/mpesa/c2b/confirmation", async (req, res): Promise<void> => {
+  const body = req.body;
+  req.log.info({ body }, "MPesa C2B confirmation received");
+
+  try {
+    const amount = Math.ceil(Number(body?.TransAmount));
+    const receipt = typeof body?.TransID === "string" ? body.TransID : undefined;
+    const last9 = String(body?.MSISDN ?? "").replace(/\D/g, "").slice(-9);
+
+    if (receipt && amount > 0 && last9) {
+      const pending = await db
+        .select()
+        .from(ordersTable)
+        .where(eq(ordersTable.paymentStatus, "pending"));
+
+      const matches = pending.filter(
+        (o) =>
+          Math.ceil(Number(o.total)) === amount &&
+          o.customerPhone.replace(/\D/g, "").slice(-9) === last9
+      );
+
+      if (matches.length === 1) {
+        const order = matches[0];
+        await db
+          .update(ordersTable)
+          .set({ paymentStatus: "paid", status: "confirmed", mpesaReceiptNo: receipt })
+          .where(eq(ordersTable.id, order.id));
+        await db.insert(paymentsTable).values({
+          orderId: order.id,
+          amount: String(amount),
+          method: "mpesa",
+          status: "completed",
+          mpesaReceiptNo: receipt,
+          rawCallback: JSON.stringify(body),
+        });
+        logger.info({ orderId: order.id, receipt }, "C2B payment auto-reconciled");
+      } else {
+        logger.warn(
+          { receipt, amount, last9, matchCount: matches.length },
+          "C2B payment needs manual confirmation"
+        );
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, "Error processing C2B confirmation");
+  }
+
+  res.json({ ResultCode: 0, ResultDesc: "Accepted" });
+});
+
+// Admin-triggered one-time registration of the C2B URLs with Safaricom.
+router.post("/payments/mpesa/c2b/register", requireAdmin, async (_req, res): Promise<void> => {
+  try {
+    const data = await registerC2bUrls();
+    res.json({ ok: true, data });
+  } catch (err) {
+    logger.error({ err }, "C2B URL registration failed");
+    res.status(502).json({ ok: false, error: "Failed to register C2B URLs" });
   }
 });
 
