@@ -48,7 +48,11 @@ router.post("/payments/mpesa/initiate", async (req, res): Promise<void> => {
     checkoutRequestId: result.checkoutRequestId,
     merchantRequestId: result.merchantRequestId ?? null,
     responseDescription: result.responseDescription,
-        businessShortCode: process.env.MPESA_SHORTCODE || "174379",
+    businessShortCode:
+      process.env.MPESA_TRANSACTION_TYPE === "CustomerBuyGoodsOnline" &&
+      process.env.MPESA_TILL_NUMBER
+        ? process.env.MPESA_TILL_NUMBER
+        : process.env.MPESA_SHORTCODE || "174379",
   });
 });
 
