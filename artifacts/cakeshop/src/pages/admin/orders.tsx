@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { 
-  useListOrders, 
+import {
+  useListOrders,
   useUpdateOrderStatus,
-  getListOrdersQueryKey
+  getListOrdersQueryKey,
+  customFetch
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { getApiBaseUrl } from "@/lib/api-base";
 import {
   Table,
   TableBody,
@@ -69,6 +71,24 @@ export default function AdminOrders() {
       toast({ title: "Order status updated" });
     } catch (error) {
       toast({ title: "Failed to update status", variant: "destructive" });
+    }
+  };
+
+  const handleMarkPaid = async (orderId: number) => {
+    const receipt = window.prompt(
+      "Enter the M-Pesa receipt code from the payment SMS (optional):"
+    );
+    if (receipt === null) return; // cancelled
+    try {
+      await customFetch(`${getApiBaseUrl()}/api/orders/${orderId}/mark-paid`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mpesaReceiptNo: receipt.trim() || undefined }),
+      });
+      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+      toast({ title: "Payment marked as paid" });
+    } catch (error) {
+      toast({ title: "Failed to mark as paid", variant: "destructive" });
     }
   };
 
@@ -222,12 +242,23 @@ export default function AdminOrders() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-full ${
-                      order.paymentStatus === 'paid' ? 'bg-[#52B44B]/10 text-[#52B44B]' : 
-                      order.paymentStatus === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {order.paymentStatus}
-                    </span>
+                    <div className="flex flex-col items-start gap-1">
+                      <span className={`text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-full ${
+                        order.paymentStatus === 'paid' ? 'bg-[#52B44B]/10 text-[#52B44B]' :
+                        order.paymentStatus === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {order.paymentStatus}
+                      </span>
+                      {order.paymentStatus !== 'paid' && (
+                        <button
+                          type="button"
+                          onClick={() => handleMarkPaid(order.id)}
+                          className="text-xs font-medium text-[#52B44B] underline underline-offset-2 hover:text-[#52B44B]/80"
+                        >
+                          Mark paid
+                        </button>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="font-bold">
                     KES {order.total.toLocaleString()}
