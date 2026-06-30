@@ -84,6 +84,8 @@ export default function AdminPayments() {
     saveSettingsMutation.mutate(draftSettings);
   };
 
+  const isBuyGoods = draftSettings.transactionType === "CustomerBuyGoodsOnline";
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -133,13 +135,46 @@ export default function AdminPayments() {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium">Business shortcode (Paybill / Till)</label>
+            <label className="text-sm font-medium">Payment type</label>
+            <Select
+              value={draftSettings.transactionType}
+              onValueChange={(value) => updateSetting("transactionType", value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select payment type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="CustomerPayBillOnline">Paybill</SelectItem>
+                <SelectItem value="CustomerBuyGoodsOnline">Buy Goods (Till)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {isBuyGoods ? "Store / Head office number" : "Paybill number"}
+            </label>
             <Input
               value={draftSettings.businessShortCode}
               onChange={(event) => updateSetting("businessShortCode", event.target.value)}
               placeholder="174379"
             />
+            <p className="text-xs text-muted-foreground">
+              {isBuyGoods
+                ? "The store / head office number that signs API requests. Must match your Daraja credentials."
+                : "The Paybill number customers pay to."}
+            </p>
           </div>
+          {isBuyGoods && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Till number</label>
+              <Input
+                value={draftSettings.tillNumber}
+                onChange={(event) => updateSetting("tillNumber", event.target.value)}
+                placeholder="4756527"
+              />
+              <p className="text-xs text-muted-foreground">The customer-facing Buy Goods till number.</p>
+            </div>
+          )}
           <div className="space-y-2 md:col-span-2">
             <label className="text-sm font-medium">Order reference prefix</label>
             <Input
