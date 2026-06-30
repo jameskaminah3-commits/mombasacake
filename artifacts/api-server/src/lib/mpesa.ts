@@ -31,6 +31,11 @@ export interface StkPushParams {
   amount: number;
   orderId: number;
   callbackUrl?: string;
+  // Operational config, normally sourced from the admin payment settings.
+  // Falls back to env vars, then to sandbox defaults.
+  shortcode?: string;
+  transactionType?: string;
+  tillNumber?: string;
 }
 
 export interface StkPushResult {
@@ -46,15 +51,13 @@ export async function initiateStkPush(params: StkPushParams): Promise<StkPushRes
   // to authenticate and sign the password, while PartyB is the customer-facing
   // Till number. Set MPESA_TRANSACTION_TYPE=CustomerBuyGoodsOnline and
   // MPESA_TILL_NUMBER to operate against a Till.
-  const shortcode = process.env.MPESA_SHORTCODE || "174379";
+  const shortcode = params.shortcode || process.env.MPESA_SHORTCODE || "174379";
   const passkey = process.env.MPESA_PASSKEY || "";
   const transactionType =
-    process.env.MPESA_TRANSACTION_TYPE || "CustomerPayBillOnline";
+    params.transactionType || process.env.MPESA_TRANSACTION_TYPE || "CustomerPayBillOnline";
+  const tillNumber = params.tillNumber || process.env.MPESA_TILL_NUMBER || "";
   const isBuyGoods = transactionType === "CustomerBuyGoodsOnline";
-  const partyB =
-    isBuyGoods && process.env.MPESA_TILL_NUMBER
-      ? process.env.MPESA_TILL_NUMBER
-      : shortcode;
+  const partyB = isBuyGoods && tillNumber ? tillNumber : shortcode;
 
   const timestamp = new Date()
     .toISOString()
