@@ -1,8 +1,9 @@
 import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
-import { db, paymentsTable, ordersTable } from "@workspace/db";
+import { db, paymentsTable, ordersTable, paymentSettingsTable } from "@workspace/db";
 import { InitiateMpesaPaymentBody, GetPaymentParams } from "@workspace/api-zod";
 import { initiateStkPush } from "../lib/mpesa";
+import { ensurePaymentSettingsSchema } from "../lib/ensure-payment-settings-schema";
 import { logger } from "../lib/logger";
 import { requireAdmin } from "../lib/auth-middleware";
 
@@ -32,7 +33,23 @@ router.post("/payments/mpesa/initiate", async (req, res): Promise<void> => {
     return;
   }
 
-  const result = await initiateStkPush({ orderId, phone, amount });
+  // Load operational config saved from the admin payment settings.
+  await ensurePaymentSettingsSchema();
+  const [settings] = await db
+    .select()
+    .from(paymentSettingsTable)
+    .where(eq(paymentSettingsTable.settingsKey, "default"))
+    .orderBy(desc(paymentSettingsTable.createdAt))
+    .limit(1);
+
+  const result = await initiateStkPush({
+    orderId,
+    phone,
+    amount,
+    shortcode: settings?.businessShortCode,
+    transactionType: settings?.transactionType,
+    tillNumber: settings?.tillNumber,
+  });
 
   // Record pending payment
   await db.insert(paymentsTable).values({
@@ -44,15 +61,18 @@ router.post("/payments/mpesa/initiate", async (req, res): Promise<void> => {
     merchantRequestId: result.merchantRequestId,
   });
 
+  const isBuyGoods = settings?.transactionType === "CustomerBuyGoodsOnline";
+  const customerFacingNumber =
+    isBuyGoods && settings?.tillNumber
+      ? settings.tillNumber
+      : settings?.businessShortCode || process.env.MPESA_SHORTCODE || "174379";
+
   res.json({
     checkoutRequestId: result.checkoutRequestId,
     merchantRequestId: result.merchantRequestId ?? null,
     responseDescription: result.responseDescription,
-    businessShortCode:
-      process.env.MPESA_TRANSACTION_TYPE === "CustomerBuyGoodsOnline" &&
-      process.env.MPESA_TILL_NUMBER
-        ? process.env.MPESA_TILL_NUMBER
-        : process.env.MPESA_SHORTCODE || "174379",
+    businessShortCode: customerFacingNumber,
+    transactionType: settings?.transactionType || "CustomerPayBillOnline",
   });
 });
 
