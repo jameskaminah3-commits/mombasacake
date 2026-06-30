@@ -37,6 +37,12 @@ export default function OrderSuccess() {
     );
   }
 
+  const isBuyGoods = paymentDetails?.transactionType === "CustomerBuyGoodsOnline";
+  const payNumber = isBuyGoods
+    ? paymentDetails?.tillNumber || DEFAULT_PAYMENT_DETAILS.tillNumber
+    : paymentDetails?.businessShortCode || DEFAULT_PAYMENT_DETAILS.businessShortCode;
+  const payReference = `${paymentDetails?.accountReferencePrefix || DEFAULT_PAYMENT_DETAILS.accountReferencePrefix}-${order.id}`;
+
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
       <div className="bg-card border border-border rounded-3xl p-8 md:p-12 shadow-sm text-center mb-8 relative overflow-hidden">
@@ -56,7 +62,34 @@ export default function OrderSuccess() {
             ? "Your order has been confirmed and is being prepared."
             : "Your order is pending payment confirmation. Please complete payment using the MPesa details below."}
         </p>
-        
+
+        {order.paymentStatus !== "paid" && (
+          <div className="mx-auto mb-8 max-w-sm rounded-2xl border border-[#52B44B]/30 bg-[#52B44B]/10 p-5 text-left">
+            <p className="mb-3 text-center text-sm font-bold uppercase tracking-wide text-[#52B44B]">M-Pesa Payment Details</p>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">{isBuyGoods ? "Till Number (Buy Goods)" : "Paybill Number"}</span>
+                <span className="font-bold text-foreground">{payNumber}</span>
+              </div>
+              {!isBuyGoods && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Account Number</span>
+                  <span className="font-bold text-foreground">{payReference}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Amount</span>
+                <span className="font-bold text-foreground">KES {order.total.toLocaleString()}</span>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              {isBuyGoods
+                ? "Lipa na M-Pesa → Buy Goods and Services, enter the till number above, then the amount."
+                : "Lipa na M-Pesa → Pay Bill, enter the paybill number and account number above."}
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left border-y border-border py-6 mb-8 bg-muted/30 rounded-xl px-6">
           <div>
             <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Order Number</p>
@@ -135,8 +168,10 @@ export default function OrderSuccess() {
               <div className="mt-4 rounded-xl border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground space-y-2">
                 <p className="font-medium text-foreground">Payment still pending</p>
                 <p>Use the MPesa prompt on your phone. If it does not arrive, use:</p>
-                <p><span className="font-medium text-foreground">Shortcode:</span> {paymentDetails?.businessShortCode || DEFAULT_PAYMENT_DETAILS.businessShortCode}</p>
-                <p><span className="font-medium text-foreground">Reference:</span> {`${paymentDetails?.accountReferencePrefix || DEFAULT_PAYMENT_DETAILS.accountReferencePrefix}-${order.id}`}</p>
+                <p><span className="font-medium text-foreground">{isBuyGoods ? "Till Number:" : "Shortcode:"}</span> {payNumber}</p>
+                {!isBuyGoods && (
+                  <p><span className="font-medium text-foreground">Reference:</span> {payReference}</p>
+                )}
               </div>
             )}
           </div>
