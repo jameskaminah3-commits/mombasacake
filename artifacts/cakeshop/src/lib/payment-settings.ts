@@ -5,6 +5,7 @@ export type PaymentSettings = {
   provider: "mpesa";
   displayName: string;
   businessShortCode: string;
+  tillNumber: string;
   transactionType: string;
   accountReferencePrefix: string;
   instructions: string;
@@ -14,6 +15,7 @@ export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
   provider: "mpesa",
   displayName: "MPesa",
   businessShortCode: "174379",
+  tillNumber: "",
   transactionType: "CustomerPayBillOnline",
   accountReferencePrefix: "Order",
   instructions:
