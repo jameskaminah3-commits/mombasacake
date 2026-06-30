@@ -41,8 +41,20 @@ export interface StkPushResult {
 }
 
 export async function initiateStkPush(params: StkPushParams): Promise<StkPushResult> {
+  // For a PayBill, the shortcode is the PayBill number and PartyB is the same.
+  // For a Till (Buy Goods), the shortcode is the Store / Head Office number used
+  // to authenticate and sign the password, while PartyB is the customer-facing
+  // Till number. Set MPESA_TRANSACTION_TYPE=CustomerBuyGoodsOnline and
+  // MPESA_TILL_NUMBER to operate against a Till.
   const shortcode = process.env.MPESA_SHORTCODE || "174379";
   const passkey = process.env.MPESA_PASSKEY || "";
+  const transactionType =
+    process.env.MPESA_TRANSACTION_TYPE || "CustomerPayBillOnline";
+  const isBuyGoods = transactionType === "CustomerBuyGoodsOnline";
+  const partyB =
+    isBuyGoods && process.env.MPESA_TILL_NUMBER
+      ? process.env.MPESA_TILL_NUMBER
+      : shortcode;
 
   const timestamp = new Date()
     .toISOString()
@@ -71,10 +83,10 @@ export async function initiateStkPush(params: StkPushParams): Promise<StkPushRes
         BusinessShortCode: shortcode,
         Password: password,
         Timestamp: timestamp,
-        TransactionType: "CustomerPayBillOnline",
+        TransactionType: transactionType,
         Amount: Math.ceil(params.amount),
         PartyA: phone,
-        PartyB: shortcode,
+        PartyB: partyB,
         PhoneNumber: phone,
         CallBackURL: callbackUrl,
         AccountReference: `Order-${params.orderId}`,
