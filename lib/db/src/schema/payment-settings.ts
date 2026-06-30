@@ -8,6 +8,7 @@ export const paymentSettingsTable = pgTable("payment_settings", {
   provider: text("provider").notNull().default("mpesa"),
   displayName: text("display_name").notNull().default("MPesa"),
   businessShortCode: text("business_short_code").notNull().default("174379"),
+  tillNumber: text("till_number").notNull().default(""),
   transactionType: text("transaction_type").notNull().default("CustomerPayBillOnline"),
   accountReferencePrefix: text("account_reference_prefix").notNull().default("Order"),
   instructions: text("instructions").notNull().default(
