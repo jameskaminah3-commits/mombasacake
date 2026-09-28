@@ -1,4 +1,5 @@
 import express, { type Express } from "express";
+import compression from "compression";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { existsSync } from "node:fs";
@@ -37,12 +38,23 @@ app.use(
     },
   }),
 );
+// Gzip text responses (the storefront bundle and API JSON); images are left as they are.
+app.use(compression());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
-app.use(express.static(storefrontDist));
+app.use(
+  express.static(storefrontDist, {
+    setHeaders(res, filePath) {
+      // Built JS/CSS get a new hashed filename on every deploy, so browsers can keep them for a year.
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      }
+    },
+  }),
+);
 
 app.use((req, res, next) => {
   if (req.path.startsWith("/api")) {
