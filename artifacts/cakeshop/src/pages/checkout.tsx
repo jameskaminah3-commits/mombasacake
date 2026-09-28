@@ -341,6 +341,14 @@ export default function Checkout() {
               </div>
               {mpesaPaymentBlock}
             </div>
+          ) : paymentStatus === "processing" ? (
+            <div className="rounded-2xl border border-border bg-card p-12 text-center flex flex-col items-center justify-center min-h-[300px]">
+              <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+              <h2 className="text-xl font-extrabold mb-2">Placing your order…</h2>
+              <p className="text-muted-foreground text-sm max-w-xs">
+                Please wait while we send the M-Pesa prompt to your phone.
+              </p>
+            </div>
           ) : paymentStatus === "failed" && activeOrderId ? (
             <div className="rounded-2xl border border-amber-400/40 bg-card p-6 sm:p-8">
               <div className="text-center mb-6">
