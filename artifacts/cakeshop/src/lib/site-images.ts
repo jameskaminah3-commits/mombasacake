@@ -7,11 +7,11 @@ export type SiteImage = {
 
 const galleryImage = (path: string) => buildSupabaseMediaUrl(`gallery/${path}`);
 const imageAsset = (path: string) => buildSupabaseMediaUrl(`images/${path}`);
-const rootAsset = (path: string) => buildSupabaseMediaUrl(path);
 
 export const DEFAULT_CAKE_IMAGE_URL = imageAsset("cake1.png");
 export const DEFAULT_GALLERY_IMAGE_URL = galleryImage("cake-gold-butterfly.jpeg");
-export const DEFAULT_LOGO_IMAGE_URL = rootAsset("logo-clear.png");
+// Small copy bundled with the app (the full-size logo-clear.png is 350 KB); served directly, not via /api/media.
+export const DEFAULT_LOGO_IMAGE_URL = "/logo-192.png";
 
 export const SITE_IMAGE_OPTIONS: SiteImage[] = [
   { src: galleryImage("cake-lady-dress.jpeg"), label: "Lady in Blue" },

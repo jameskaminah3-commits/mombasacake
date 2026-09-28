@@ -1,4 +1,5 @@
-const CACHE_VERSION = "v2";
+// Bump when caching rules change: the activate step deletes caches from older versions.
+const CACHE_VERSION = "v3";
 const SHELL_CACHE = `channah-shell-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `channah-runtime-${CACHE_VERSION}`;
 const IMAGE_CACHE = `channah-images-${CACHE_VERSION}`;
@@ -7,7 +8,7 @@ const DATA_CACHE = `channah-data-${CACHE_VERSION}`;
 const CORE_ASSETS = [
   "/",
   "/index.html",
-  "/logo-clear.png"
+  "/logo-192.png"
 ];
 
 const OFFLINE_IMAGE = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
@@ -120,9 +121,20 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   const isSameOrigin = url.origin === self.location.origin;
 
+  // Pages are network-first so every deploy reaches returning customers straight away;
+  // the cached shell is only a fallback when they are offline.
   if (request.mode === "navigate") {
     event.respondWith(
-      caches.match(cacheUrl("/index.html")).then((cached) => cached || fetch(request).catch(() => caches.match(cacheUrl("/index.html")))),
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            // Clone before handing the response to the page, which consumes its body.
+            const copy = response.clone();
+            event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.put(cacheUrl("/index.html"), copy)));
+          }
+          return response;
+        })
+        .catch(async () => (await caches.match(cacheUrl("/index.html"))) || Response.error()),
     );
     return;
   }
