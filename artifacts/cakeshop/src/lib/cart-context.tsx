@@ -6,23 +6,29 @@ export interface CartItem {
   quantity: number;
   variantLabel?: string | null;
   variantPrice?: number | null;
+  flavour?: string | null;
+  secondFlavour?: string | null;
+  message?: string | null;
+}
+
+export type CartItemChoices = Pick<CartItem, "variantLabel" | "variantPrice" | "flavour" | "secondFlavour" | "message">;
+
+// The same cake with a different size, flavour or cake message is its own line in the cart.
+export function cartLineKey(item: Pick<CartItem, "cake" | "variantLabel" | "flavour" | "secondFlavour" | "message">) {
+  return JSON.stringify([item.cake.id, item.variantLabel || "", item.flavour || "", item.secondFlavour || "", item.message || ""]);
 }
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (cake: Cake, quantity: number, variantLabel?: string | null, variantPrice?: number | null) => void;
-  removeItem: (cakeId: number, variantLabel?: string | null) => void;
-  updateQty: (cakeId: number, quantity: number, variantLabel?: string | null) => void;
+  addItem: (cake: Cake, quantity: number, choices?: CartItemChoices) => void;
+  removeItem: (lineKey: string) => void;
+  updateQty: (lineKey: string, quantity: number) => void;
   clearCart: () => void;
   total: number;
   itemCount: number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
-
-function itemKey(cakeId: number, variantLabel?: string | null) {
-  return `${cakeId}:${variantLabel || ""}`;
-}
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(() => {
@@ -38,36 +44,39 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("creme-cart", JSON.stringify(items));
   }, [items]);
 
-  const addItem = (cake: Cake, quantity: number, variantLabel?: string | null, variantPrice?: number | null) => {
+  const addItem = (cake: Cake, quantity: number, choices: CartItemChoices = {}) => {
+    const line: CartItem = {
+      cake,
+      quantity,
+      variantLabel: choices.variantLabel ?? null,
+      variantPrice: choices.variantPrice ?? null,
+      flavour: choices.flavour?.trim() || null,
+      secondFlavour: choices.secondFlavour?.trim() || null,
+      message: choices.message?.trim() || null,
+    };
+    const key = cartLineKey(line);
     setItems((current) => {
-      const key = itemKey(cake.id, variantLabel);
-      const existing = current.find((item) => itemKey(item.cake.id, item.variantLabel) === key);
+      const existing = current.find((item) => cartLineKey(item) === key);
       if (existing) {
         return current.map((item) =>
-          itemKey(item.cake.id, item.variantLabel) === key
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
+          cartLineKey(item) === key ? { ...item, quantity: item.quantity + quantity } : item
         );
       }
-      return [...current, { cake, quantity, variantLabel: variantLabel ?? null, variantPrice: variantPrice ?? null }];
+      return [...current, line];
     });
   };
 
-  const removeItem = (cakeId: number, variantLabel?: string | null) => {
-    const key = itemKey(cakeId, variantLabel);
-    setItems((current) => current.filter((item) => itemKey(item.cake.id, item.variantLabel) !== key));
+  const removeItem = (lineKey: string) => {
+    setItems((current) => current.filter((item) => cartLineKey(item) !== lineKey));
   };
 
-  const updateQty = (cakeId: number, quantity: number, variantLabel?: string | null) => {
+  const updateQty = (lineKey: string, quantity: number) => {
     if (quantity <= 0) {
-      removeItem(cakeId, variantLabel);
+      removeItem(lineKey);
       return;
     }
-    const key = itemKey(cakeId, variantLabel);
     setItems((current) =>
-      current.map((item) =>
-        itemKey(item.cake.id, item.variantLabel) === key ? { ...item, quantity } : item
-      )
+      current.map((item) => (cartLineKey(item) === lineKey ? { ...item, quantity } : item))
     );
   };
 
@@ -103,4 +112,16 @@ export function useCart() {
     throw new Error("useCart must be used within a CartProvider");
   }
   return context;
+}
+
+// One line per cake for the order notes, so the baker sees each cake's flavour and message.
+export function describeCartLine(item: CartItem) {
+  return [
+    `${item.quantity}x ${item.cake.name}${item.variantLabel ? ` (${item.variantLabel})` : ""}`,
+    item.flavour ? `Flavour: ${item.flavour}` : null,
+    item.secondFlavour ? `Second flavour: ${item.secondFlavour}` : null,
+    item.message ? `Message on cake: "${item.message}"` : null,
+  ]
+    .filter(Boolean)
+    .join(" — ");
 }

@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -50,6 +51,7 @@ import { normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
 const categorySchema = z.object({
   name: z.string().min(2, "Name is required"),
   slug: z.string().min(2, "Slug is required"),
+  description: z.string().max(160, "Keep it under 160 characters").optional(),
   imageUrl: z.string().optional(),
 });
 
@@ -72,6 +74,7 @@ export default function AdminCategories() {
     defaultValues: {
       name: "",
       slug: "",
+      description: "",
       imageUrl: "",
     },
   });
@@ -112,6 +115,7 @@ export default function AdminCategories() {
     form.reset({
       name: category.name,
       slug: category.slug,
+      description: category.description || "",
       imageUrl: category.imageUrl || "",
     });
     setIsDialogOpen(true);
@@ -171,6 +175,25 @@ export default function AdminCategories() {
                       <FormLabel>Slug</FormLabel>
                       <FormControl>
                         <Input placeholder="wedding-cakes" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Short description (optional)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Shown under the category name in the shop, e.g. Fun themed cakes for kids' parties."
+                          rows={2}
+                          maxLength={160}
+                          className="resize-none"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -252,6 +275,9 @@ export default function AdminCategories() {
                   </TableCell>
                   <TableCell className="font-medium">
                     {category.name}
+                    {category.description && (
+                      <p className="max-w-xs truncate text-xs font-normal text-muted-foreground">{category.description}</p>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {category.slug}

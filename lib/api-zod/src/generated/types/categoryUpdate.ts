@@ -11,5 +11,6 @@ export interface CategoryUpdate {
   name?: string;
   /** @minLength 1 */
   slug?: string;
+  description?: string;
   imageUrl?: string;
 }

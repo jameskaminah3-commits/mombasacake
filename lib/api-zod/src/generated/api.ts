@@ -23,6 +23,7 @@ export const ListCategoriesResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "slug": zod.string(),
+  "description": zod.string().nullish(),
   "imageUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -39,6 +40,7 @@ export const ListCategoriesResponse = zod.array(ListCategoriesResponseItem)
 export const CreateCategoryBody = zod.object({
   "name": zod.string().min(1),
   "slug": zod.string().min(1),
+  "description": zod.string().optional(),
   "imageUrl": zod.string().optional()
 })
 
@@ -54,6 +56,7 @@ export const GetCategoryResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "slug": zod.string(),
+  "description": zod.string().nullish(),
   "imageUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })
@@ -73,6 +76,7 @@ export const UpdateCategoryParams = zod.object({
 export const UpdateCategoryBody = zod.object({
   "name": zod.string().min(1).optional(),
   "slug": zod.string().min(1).optional(),
+  "description": zod.string().optional(),
   "imageUrl": zod.string().optional()
 })
 
@@ -80,6 +84,7 @@ export const UpdateCategoryResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "slug": zod.string(),
+  "description": zod.string().nullish(),
   "imageUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })

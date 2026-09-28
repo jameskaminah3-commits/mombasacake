@@ -618,6 +618,9 @@ components:
           type: string
         slug:
           type: string
+        description:
+          type: string
+          nullable: true
         imageUrl:
           type: string
           nullable: true
@@ -635,6 +638,8 @@ components:
         slug:
           type: string
           minLength: 1
+        description:
+          type: string
         imageUrl:
           type: string
 
@@ -647,6 +652,8 @@ components:
         slug:
           type: string
           minLength: 1
+        description:
+          type: string
         imageUrl:
           type: string
 

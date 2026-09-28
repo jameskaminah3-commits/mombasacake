@@ -3,7 +3,8 @@ import {
   useListOrders,
   useUpdateOrderStatus,
   getListOrdersQueryKey,
-  customFetch
+  customFetch,
+  type Order,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +26,11 @@ import { Search } from "lucide-react";
 import { normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
 
 const STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
+
+// The API sends each order's delivery date (YYYY-MM-DD), though the generated Order type doesn't declare it.
+function deliveryDateOf(order: Order) {
+  return (order as Order & { deliveryDate?: string | null }).deliveryDate ?? null;
+}
 
 export default function AdminOrders() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -201,7 +207,7 @@ export default function AdminOrders() {
               filteredOrders?.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">
-                    <Link href={`/order/${order.id}`} className="hover:underline text-primary">
+                    <Link href={`~/order/${order.id}`} className="hover:underline text-primary">
                       #{order.id}
                     </Link>
                   </TableCell>
@@ -220,6 +226,11 @@ export default function AdminOrders() {
                           {order.deliveryAddress}
                         </span>
                       )}
+                      {deliveryDateOf(order) && (
+                        <span className="mt-1 text-xs font-semibold text-foreground">
+                          Deliver {format(new Date(`${deliveryDateOf(order)}T00:00:00`), "EEE d MMM")}
+                        </span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -233,11 +244,20 @@ export default function AdminOrders() {
                               className="h-8 w-8 rounded-md object-cover"
                             />
                           )}
-                          <span className="truncate">{item.quantity}x {item.cakeName}</span>
+                          <span className="truncate">
+                            {item.quantity}x {item.cakeName}
+                            {item.variantLabel ? ` (${item.variantLabel})` : ""}
+                          </span>
                         </div>
                       ))}
                       {order.items.length > 3 && (
                         <p className="text-xs text-muted-foreground">+{order.items.length - 3} more</p>
+                      )}
+                      {/* Flavours, cake messages and customer notes arrive in the order notes, one cake per line. */}
+                      {order.notes && (
+                        <p className="mt-2 whitespace-pre-line rounded-md bg-muted/60 p-2 text-xs leading-5 text-foreground">
+                          {order.notes}
+                        </p>
                       )}
                     </div>
                   </TableCell>

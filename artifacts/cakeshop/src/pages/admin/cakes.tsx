@@ -17,6 +17,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { AdminImageUpload } from "@/components/admin-image-upload";
+import { AdminCakeOptions } from "@/components/admin-cake-options";
 import {
   Table,
   TableBody,
@@ -436,6 +437,8 @@ export default function AdminCakes() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <AdminCakeOptions />
 
       <div className="flex items-center gap-2 max-w-sm mb-4">
         <Search className="w-4 h-4 text-muted-foreground" />

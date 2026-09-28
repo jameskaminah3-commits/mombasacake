@@ -1,11 +1,12 @@
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CartProvider } from "@/lib/cart-context";
 import { AuthProvider } from "@/lib/auth-context";
 import { AdminGuard } from "@/components/admin-guard";
+import { recordInAppNavigation } from "@/lib/navigation-history";
 
 // Layouts
 import { StorefrontLayout } from "@/components/storefront-layout";
@@ -65,7 +66,13 @@ function PrefetchShopPages() {
 
 function ScrollToTop() {
   const [location] = useLocation();
+  const isFirstPage = useRef(true);
   useEffect(() => {
+    if (isFirstPage.current) {
+      isFirstPage.current = false;
+    } else {
+      recordInAppNavigation();
+    }
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [location]);
   return null;

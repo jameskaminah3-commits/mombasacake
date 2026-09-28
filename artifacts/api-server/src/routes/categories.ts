@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
 import { db, categoriesTable } from "@workspace/db";
 import { requireAdmin } from "../lib/auth-middleware";
+import { ensureCategoriesSchema } from "../lib/ensure-categories-schema";
 import { normalizeSupabaseMediaUrl } from "../lib/media-urls";
 import {
   CreateCategoryBody,
@@ -14,6 +15,7 @@ import {
 const router: IRouter = Router();
 
 router.get("/categories", async (_req, res): Promise<void> => {
+  await ensureCategoriesSchema();
   const categories = await db
     .select()
     .from(categoriesTable)
@@ -27,8 +29,10 @@ router.post("/categories", requireAdmin, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  await ensureCategoriesSchema();
   const [cat] = await db.insert(categoriesTable).values({
     ...parsed.data,
+    description: parsed.data.description?.trim() || null,
     imageUrl: normalizeSupabaseMediaUrl(parsed.data.imageUrl) || undefined,
   }).returning();
   res.status(201).json(formatCategory(cat));
@@ -40,6 +44,7 @@ router.get("/categories/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
+  await ensureCategoriesSchema();
   const [cat] = await db
     .select()
     .from(categoriesTable)
@@ -62,10 +67,13 @@ router.patch("/categories/:id", requireAdmin, async (req, res): Promise<void> =>
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  await ensureCategoriesSchema();
   const [cat] = await db
     .update(categoriesTable)
     .set({
       ...parsed.data,
+      // An empty description clears it; leaving the field out keeps the current one.
+      description: parsed.data.description === undefined ? undefined : parsed.data.description.trim() || null,
       imageUrl: normalizeSupabaseMediaUrl(parsed.data.imageUrl) || undefined,
     })
     .where(eq(categoriesTable.id, params.data.id))
@@ -92,6 +100,7 @@ function formatCategory(cat: typeof categoriesTable.$inferSelect) {
     id: cat.id,
     name: cat.name,
     slug: cat.slug,
+    description: cat.description ?? null,
     imageUrl: normalizeSupabaseMediaUrl(cat.imageUrl) ?? null,
     createdAt: cat.createdAt.toISOString(),
   };

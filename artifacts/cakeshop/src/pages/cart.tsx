@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useCart } from "@/lib/cart-context";
+import { cartLineKey, useCart } from "@/lib/cart-context";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, Trash2 } from "lucide-react";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
@@ -43,7 +43,7 @@ export default function Cart() {
       <ul className="mt-5 divide-y divide-border rounded-2xl border border-border">
         {items.map((item) => {
           const price = item.variantPrice ?? item.cake.price;
-          const key = `${item.cake.id}:${item.variantLabel || ""}`;
+          const key = cartLineKey(item);
           return (
             <li key={key} className="flex gap-3 p-3 sm:gap-4 sm:p-4">
               <Link href={`/cake/${item.cake.id}`} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted sm:h-24 sm:w-24">
@@ -64,10 +64,13 @@ export default function Cart() {
                       {item.variantLabel ? `${item.variantLabel} · ` : ""}
                       {formatKes(price)}
                     </p>
+                    {item.flavour && <p className="mt-0.5 text-xs text-muted-foreground">Flavour: {item.flavour}</p>}
+                    {item.secondFlavour && <p className="text-xs text-muted-foreground">Second flavour: {item.secondFlavour}</p>}
+                    {item.message && <p className="mt-0.5 text-xs text-muted-foreground">Message: “{item.message}”</p>}
                   </div>
                   <button
                     type="button"
-                    onClick={() => removeItem(item.cake.id, item.variantLabel)}
+                    onClick={() => removeItem(key)}
                     aria-label={`Remove ${item.cake.name} from cart`}
                     className="-mr-2 -mt-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
                   >
@@ -79,8 +82,8 @@ export default function Cart() {
                     size="sm"
                     quantity={item.quantity}
                     itemName={item.cake.name}
-                    onDecrease={() => updateQty(item.cake.id, item.quantity - 1, item.variantLabel)}
-                    onIncrease={() => updateQty(item.cake.id, item.quantity + 1, item.variantLabel)}
+                    onDecrease={() => updateQty(key, item.quantity - 1)}
+                    onIncrease={() => updateQty(key, item.quantity + 1)}
                   />
                   <p className="text-sm font-bold">{formatKes(price * item.quantity)}</p>
                 </div>
@@ -106,7 +109,7 @@ export default function Cart() {
       </div>
 
       {/* Sticky on mobile, inline on larger screens */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:static md:mt-6 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:static md:mt-6 md:border-0 md:bg-transparent md:p-0">
         <Button size="lg" className="h-12 w-full rounded-full text-base font-semibold" onClick={() => setLocation("/checkout")}>
           Checkout · {formatKes(total)}
         </Button>

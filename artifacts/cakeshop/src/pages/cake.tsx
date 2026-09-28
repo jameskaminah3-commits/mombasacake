@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useParams, Link, useLocation } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   useGetCake,
+  useListCakes,
   getGetCakeQueryKey,
   getGetPopularCakesQueryKey,
   getListCakesQueryKey,
@@ -13,17 +14,22 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToastAction } from "@/components/ui/toast";
-import { ChevronLeft, Star, ZoomIn, X, ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronLeft, Star, ZoomIn, X, ChevronDown, ChevronUp, Share2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getApiBaseUrl } from "@/lib/api-base";
+import { DEFAULT_CAKE_OPTIONS, fetchCakeOptions, offersSecondFlavour } from "@/lib/cake-options";
+import { hasInAppHistory } from "@/lib/navigation-history";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
+import { ProductCard } from "@/components/product-card";
 import { QuantityStepper } from "@/components/quantity-stepper";
 import { cn, formatKes } from "@/lib/utils";
 import { normalizeKenyanPhone } from "@/lib/phone";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+
+const CAKE_MESSAGE_MAX_LENGTH = 60;
 
 interface Review {
   id: number;
@@ -69,6 +75,89 @@ function ReviewCard({ review }: { review: Review }) {
   );
 }
 
+// A plain list of radio rows, like the option groups on the Take App product page.
+function OptionGroup({
+  id,
+  label,
+  ariaLabel,
+  hint,
+  required,
+  error,
+  options,
+  value,
+  onChange,
+  onClear,
+}: {
+  id: string;
+  label?: string;
+  // Names the group for screen readers when there is no visible label.
+  ariaLabel?: string;
+  hint?: string;
+  required?: boolean;
+  error?: string | null;
+  options: { value: string; label: string; price?: string }[];
+  value: string | null;
+  onChange: (value: string) => void;
+  onClear?: () => void;
+}) {
+  return (
+    <div
+      id={id}
+      role="radiogroup"
+      aria-labelledby={label ? `${id}-label` : undefined}
+      aria-label={label ? undefined : ariaLabel}
+      aria-required={required || undefined}
+      className="scroll-mt-24"
+    >
+      {label && (
+        <p id={`${id}-label`} className="mb-2 text-sm font-bold">
+          {label}
+          {required && <span className="ml-0.5 text-destructive">*</span>}
+        </p>
+      )}
+      {hint && <p className="-mt-1.5 mb-2 text-xs text-muted-foreground">{hint}</p>}
+      {error && <p className="mb-2 text-sm font-medium text-destructive">{error}</p>}
+      <div className="-mx-2">
+        {options.map((option) => {
+          const selected = option.value === value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onChange(option.value)}
+              className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left text-sm transition-colors hover:bg-muted/70"
+            >
+              <span
+                className={cn(
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
+                  selected ? "border-foreground" : "border-muted-foreground/40",
+                )}
+              >
+                {selected && <span className="h-2.5 w-2.5 rounded-full bg-foreground" />}
+              </span>
+              <span className="flex-1 leading-snug">{option.label}</span>
+              {option.price && <span className="shrink-0 font-semibold">{option.price}</span>}
+            </button>
+          );
+        })}
+      </div>
+      {onClear && value && (
+        <div className="mt-1 flex justify-end">
+          <button
+            type="button"
+            onClick={onClear}
+            className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CakeDetail() {
   const { id } = useParams();
   const cakeId = Number(id);
@@ -84,13 +173,27 @@ export default function CakeDetail() {
   const { data: cake, isLoading } = useGetCake(cakeId, {
     query: { enabled: !!cakeId, queryKey: getGetCakeQueryKey(cakeId), placeholderData: cakeFromShopPage }
   });
+  const { data: allCakes } = useListCakes();
+  const { data: cakeOptions } = useQuery({
+    queryKey: ["cake-options"],
+    queryFn: fetchCakeOptions,
+    placeholderData: DEFAULT_CAKE_OPTIONS,
+  });
+  const flavours = cakeOptions?.flavours ?? [];
 
   const { addItem } = useCart();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [quantity, setQuantity] = useState(1);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [selectedVariant, setSelectedVariant] = useState<{ label: string; price: number } | null>(null);
+  const [selectedSizeLabel, setSelectedSizeLabel] = useState<string | null>(null);
+  const [flavour, setFlavour] = useState<string | null>(null);
+  const [secondFlavour, setSecondFlavour] = useState<string | null>(null);
+  const [flavourError, setFlavourError] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [descriptionClamped, setDescriptionClamped] = useState(false);
+  const descriptionRef = useRef<HTMLParagraphElement>(null);
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
@@ -103,8 +206,20 @@ export default function CakeDetail() {
   const [reviewPhone, setReviewPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Opening another cake (e.g. from "You may also like") starts with fresh choices.
+  useEffect(() => {
+    setQuantity(1);
+    setSelectedSizeLabel(null);
+    setFlavour(null);
+    setSecondFlavour(null);
+    setFlavourError(null);
+    setMessage("");
+    setDescriptionExpanded(false);
+  }, [cakeId]);
+
   useEffect(() => {
     if (!cakeId) return;
+    setReviewsLoading(true);
     fetch(`${getApiBaseUrl()}/api/reviews/cake/${cakeId}`)
       .then((r) => r.json())
       .then((data) => {
@@ -114,16 +229,82 @@ export default function CakeDetail() {
       .catch(() => setReviewsLoading(false));
   }, [cakeId]);
 
-  const hasVariants = !!cake?.variants && cake.variants.length > 0;
-  const effectivePrice = selectedVariant?.price ?? cake?.price ?? 0;
+  // Only offer "Show more" when the description is actually cut off.
+  useLayoutEffect(() => {
+    const element = descriptionRef.current;
+    if (element && !descriptionExpanded) {
+      setDescriptionClamped(element.scrollHeight > element.clientHeight + 1);
+    }
+  }, [cake?.description, descriptionExpanded]);
+
+  const variants = cake?.variants ?? [];
+  const hasVariants = variants.length > 0;
+  // Like the sample shop, the first size is chosen until the customer picks another.
+  const selectedVariant = hasVariants ? variants.find((v) => v.label === selectedSizeLabel) ?? variants[0] : null;
+  const unitPrice = selectedVariant?.price ?? cake?.price ?? 0;
+  const needsFlavour = flavours.length > 0;
+  const readyToAdd = !needsFlavour || !!flavour;
+  const flavourOptions = flavours.map((f) => ({ value: f.name, label: f.description ? `${f.name} — ${f.description}` : f.name }));
+  // Bigger cakes (e.g. tiered ones) can have a second flavour when the shop allows it for the chosen size.
+  const showSecondFlavour = !!cakeOptions && offersSecondFlavour(cakeOptions, selectedVariant?.label);
+
+  const priceText = hasVariants
+    ? (() => {
+        const prices = variants.map((v) => v.price);
+        const low = Math.min(...prices);
+        const high = Math.max(...prices);
+        return low === high ? formatKes(low) : `${formatKes(low)} – ${formatKes(high)}`;
+      })()
+    : formatKes(cake?.price ?? 0);
+
+  const relatedCakes = (() => {
+    if (!cake || !allCakes) return [];
+    const others = allCakes.filter((other) => other.id !== cake.id && other.available);
+    const sameCategory = others.filter((other) => other.categoryId != null && other.categoryId === cake.categoryId);
+    return [...sameCategory, ...others.filter((other) => !sameCategory.includes(other))].slice(0, 4);
+  })();
+
+  const goBack = () => {
+    if (hasInAppHistory()) {
+      window.history.back();
+    } else {
+      setLocation("/");
+    }
+  };
+
+  const handleShare = async () => {
+    if (!cake) return;
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: cake.name, url });
+      } catch {
+        // Closing the share sheet rejects; nothing to do.
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Link copied", description: "Send it to friends and family." });
+    } catch {
+      toast({ title: "Share this link", description: url });
+    }
+  };
 
   const handleAddToCart = () => {
     if (!cake) return;
-    if (hasVariants && !selectedVariant) {
-      toast({ title: "Please choose a size", description: "Select a size before adding to cart.", variant: "destructive" });
+    if (needsFlavour && !flavour) {
+      setFlavourError("Please choose a flavour");
+      document.getElementById("flavour-options")?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-    addItem(cake, quantity, selectedVariant?.label ?? null, selectedVariant?.price ?? null);
+    addItem(cake, quantity, {
+      variantLabel: selectedVariant?.label ?? null,
+      variantPrice: selectedVariant?.price ?? null,
+      flavour,
+      secondFlavour: showSecondFlavour ? secondFlavour : null,
+      message,
+    });
     toast({
       title: "Added to cart",
       description: `${quantity}x ${cake.name}${selectedVariant ? ` (${selectedVariant.label})` : ""} added to your cart.`,
@@ -175,12 +356,13 @@ export default function CakeDetail() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto w-full max-w-5xl md:px-4 md:py-8">
-        <div className="grid md:grid-cols-2 md:gap-10">
-          <Skeleton className="aspect-square w-full rounded-none md:rounded-2xl" />
-          <div className="space-y-4 px-4 pt-5 md:px-0 md:pt-0">
+      <div className="mx-auto w-full max-w-4xl px-3 pt-3 sm:px-4 md:pt-6">
+        <Skeleton className="h-5 w-16" />
+        <div className="mt-3 grid gap-6 md:grid-cols-2 md:gap-10">
+          <Skeleton className="aspect-square w-full rounded-2xl" />
+          <div className="space-y-4">
             <Skeleton className="h-8 w-3/4" />
-            <Skeleton className="h-6 w-1/4" />
+            <Skeleton className="h-6 w-1/3" />
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-12 w-full rounded-full" />
           </div>
@@ -199,56 +381,43 @@ export default function CakeDetail() {
     );
   }
 
-  const quantityStepper = (
-    <QuantityStepper
-      quantity={quantity}
-      itemName={cake.name}
-      disableDecrease={quantity <= 1}
-      onDecrease={() => setQuantity(Math.max(1, quantity - 1))}
-      onIncrease={() => setQuantity(quantity + 1)}
-    />
-  );
-  const addToCartLabel = hasVariants && !selectedVariant ? "Choose a size" : `Add to cart · ${formatKes(effectivePrice * quantity)}`;
+  const imageUrl = cake.imageUrl || DEFAULT_CAKE_IMAGE_URL;
+  const addLabel = `Add · ${formatKes(unitPrice * quantity)}`;
+  const addButtonClass = cn("h-12 w-full rounded-xl text-base font-semibold", !readyToAdd && "opacity-60");
 
   return (
-    <div className="mx-auto w-full max-w-5xl pb-10 md:px-4 md:pt-6">
-      <Link href="/" className="mb-4 hidden items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground md:inline-flex">
-        <ChevronLeft className="mr-1 h-4 w-4" /> Back to shop
-      </Link>
+    <div className="mx-auto w-full max-w-4xl px-3 pb-10 pt-3 sm:px-4 md:pt-6">
+      <button type="button" onClick={goBack} className="inline-flex items-center gap-1 rounded-lg py-2 pr-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
+        <ChevronLeft className="h-4 w-4" /> Back
+      </button>
 
-      <div className="grid items-start md:grid-cols-2 md:gap-10">
-        {/* Image — click/tap to open lightbox */}
-        <div className="relative">
+      <div className="mt-1 grid items-start gap-6 md:grid-cols-2 md:gap-8">
+        {/* Photo — tap to open full size */}
+        <div>
           <div
             role="button"
             tabIndex={0}
             aria-label={`View ${cake.name} full size`}
-            className="group relative aspect-square cursor-zoom-in overflow-hidden bg-muted md:rounded-2xl"
+            className="group relative aspect-square cursor-zoom-in overflow-hidden rounded-2xl border border-border/60 bg-muted"
             onClick={() => setLightboxOpen(true)}
             onKeyDown={(e) => e.key === "Enter" && setLightboxOpen(true)}
           >
-            <RevealImage
-              src={cake.imageUrl || DEFAULT_CAKE_IMAGE_URL}
-              alt={cake.name}
-              className="object-cover"
-              fallbackSrc={DEFAULT_CAKE_IMAGE_URL}
-              placeholderClassName="bg-muted"
-              eager
-              timeoutMs={3000}
-            />
-            {/* Zoom hint: always visible on mobile, shows on hover on desktop */}
+            <RevealImage src={imageUrl} alt={cake.name} className="object-cover" fallbackSrc={DEFAULT_CAKE_IMAGE_URL} placeholderClassName="bg-muted" eager timeoutMs={3000} />
             <div className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition-opacity md:opacity-0 md:group-hover:opacity-100">
               <ZoomIn className="h-3.5 w-3.5 shrink-0" />
               <span>Tap to zoom</span>
             </div>
           </div>
-          <Link
-            href="/"
-            aria-label="Back to shop"
-            className="absolute left-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-sm md:hidden"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(true)}
+              aria-label="View photo"
+              className="h-16 w-16 overflow-hidden rounded-xl border-2 border-foreground bg-muted"
+            >
+              <RevealImage src={imageUrl} alt="" className="object-cover" fallbackSrc={DEFAULT_CAKE_IMAGE_URL} placeholderClassName="bg-muted" />
+            </button>
+          </div>
         </div>
 
         {/* Lightbox */}
@@ -261,7 +430,7 @@ export default function CakeDetail() {
             >
               <DialogPrimitive.Title className="sr-only">{cake.name} — full size image</DialogPrimitive.Title>
               <img
-                src={cake.imageUrl || DEFAULT_CAKE_IMAGE_URL}
+                src={imageUrl}
                 alt={cake.name}
                 className="rounded-2xl object-contain"
                 style={{ maxWidth: "100%", maxHeight: "calc(100dvh - 80px)" }}
@@ -274,12 +443,20 @@ export default function CakeDetail() {
           </DialogPrimitive.Portal>
         </DialogPrimitive.Root>
 
-        {/* Details */}
-        <div className="flex flex-col px-4 pt-5 md:px-0 md:pt-0">
-          {cake.categoryName && (
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary">{cake.categoryName}</p>
-          )}
-          <h1 className="mt-1 text-2xl font-extrabold tracking-tight md:text-3xl">{cake.name}</h1>
+        {/* Details and choices */}
+        <div className="flex flex-col">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-lg font-bold tracking-tight md:text-xl">{cake.name}</h1>
+            <button
+              type="button"
+              onClick={handleShare}
+              aria-label="Share this cake"
+              className="-mr-2 -mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Share2 className="h-5 w-5" />
+            </button>
+          </div>
+          <p className="mt-1 font-bold">{priceText}</p>
 
           {avgRating !== null && (
             <div className="mt-2 flex items-center gap-2">
@@ -290,74 +467,105 @@ export default function CakeDetail() {
             </div>
           )}
 
-          <p className="mt-3 text-xl font-bold">
-            {hasVariants && !selectedVariant
-              ? `From ${formatKes(Math.min(...cake.variants!.map((v) => v.price)))}`
-              : formatKes(effectivePrice)}
-            {selectedVariant && (
-              <span className="ml-2 text-sm font-medium text-muted-foreground">({selectedVariant.label})</span>
-            )}
-          </p>
-
-          <p className="mt-4 text-sm leading-6 text-muted-foreground">
+          <p ref={descriptionRef} className={cn("mt-3 whitespace-pre-line text-sm leading-6 text-muted-foreground", !descriptionExpanded && "line-clamp-3")}>
             {cake.description || "A delicious creation from Channah Cakes."}
           </p>
+          {(descriptionClamped || descriptionExpanded) && (
+            <button
+              type="button"
+              onClick={() => setDescriptionExpanded(!descriptionExpanded)}
+              className="mt-1 self-start text-sm font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              {descriptionExpanded ? "Show less" : "Show more"}
+            </button>
+          )}
 
           {cake.available ? (
             <>
-              {/* Size / variant selector */}
               {hasVariants && (
-                <div className="mt-6" role="radiogroup" aria-labelledby="size-label">
-                  <div className="flex items-center gap-2">
-                    <p id="size-label" className="text-sm font-bold">Choose a size</p>
-                    <span className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground">Required</span>
-                  </div>
-                  <div className="mt-3 space-y-2">
-                    {cake.variants!.map((v) => {
-                      const selected = selectedVariant?.label === v.label;
-                      return (
-                        <button
-                          key={v.label}
-                          type="button"
-                          role="radio"
-                          aria-checked={selected}
-                          onClick={() => setSelectedVariant(v)}
-                          className={cn(
-                            "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors",
-                            selected ? "border-primary bg-accent" : "border-border hover:border-primary/50",
-                          )}
-                        >
-                          <span className="flex items-center gap-3">
-                            <span
-                              className={cn(
-                                "flex h-5 w-5 items-center justify-center rounded-full border-2",
-                                selected ? "border-primary" : "border-muted-foreground/40",
-                              )}
-                            >
-                              {selected && <span className="h-2.5 w-2.5 rounded-full bg-primary" />}
-                            </span>
-                            <span className="font-medium">{v.label}</span>
-                          </span>
-                          <span className="font-semibold">{formatKes(v.price)}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <>
+                  <hr className="my-5 border-border" />
+                  <OptionGroup
+                    id="size-options"
+                    ariaLabel="Size"
+                    options={variants.map((v) => ({ value: v.label, label: v.label, price: formatKes(v.price) }))}
+                    value={selectedVariant?.label ?? null}
+                    onChange={setSelectedSizeLabel}
+                  />
+                </>
               )}
 
-              {/* Desktop: inline add row. Mobile uses the sticky bar below. */}
-              <div className="mt-6 hidden items-center gap-3 md:flex">
-                {quantityStepper}
-                <Button
-                  size="lg"
-                  className="h-12 flex-1 rounded-full text-base font-semibold"
-                  onClick={handleAddToCart}
-                  data-testid="button-add-to-cart"
-                >
-                  {addToCartLabel}
-                </Button>
+              {needsFlavour && (
+                <>
+                  <hr className="my-5 border-border" />
+                  <OptionGroup
+                    id="flavour-options"
+                    label="Choose your cake flavour"
+                    required
+                    error={flavourError}
+                    options={flavourOptions}
+                    value={flavour}
+                    onChange={(value) => {
+                      setFlavour(value);
+                      setFlavourError(null);
+                    }}
+                  />
+                </>
+              )}
+
+              {showSecondFlavour && (
+                <>
+                  <hr className="my-5 border-border" />
+                  <OptionGroup
+                    id="second-flavour-options"
+                    label="Choose your second cake flavour"
+                    hint={`Optional · for cakes of ${cakeOptions?.secondFlavourMinKg} kg and above`}
+                    options={flavourOptions}
+                    value={secondFlavour}
+                    onChange={setSecondFlavour}
+                    onClear={() => setSecondFlavour(null)}
+                  />
+                </>
+              )}
+
+              <hr className="my-5 border-border" />
+              <div>
+                <div className="mb-2 flex items-baseline justify-between gap-3">
+                  <Label htmlFor="cake-message" className="text-sm font-bold">
+                    Cake message <span className="font-normal text-muted-foreground">(optional)</span>
+                  </Label>
+                  <span className="text-xs text-muted-foreground">
+                    {message.length}/{CAKE_MESSAGE_MAX_LENGTH}
+                  </span>
+                </div>
+                <Input
+                  id="cake-message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value.slice(0, CAKE_MESSAGE_MAX_LENGTH))}
+                  placeholder="e.g. Happy 30th Birthday, Amina"
+                  maxLength={CAKE_MESSAGE_MAX_LENGTH}
+                  autoComplete="off"
+                  className="h-11 rounded-xl"
+                />
               </div>
+
+              <hr className="my-5 border-border" />
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-bold">Quantity</span>
+                <QuantityStepper
+                  quantity={quantity}
+                  itemName={cake.name}
+                  disableDecrease={quantity <= 1}
+                  onDecrease={() => setQuantity(Math.max(1, quantity - 1))}
+                  onIncrease={() => setQuantity(quantity + 1)}
+                />
+              </div>
+
+              {/* Desktop: inline button. Phones use the bar pinned to the bottom of the screen. */}
+              <hr className="my-5 hidden border-border md:block" />
+              <Button size="lg" className={cn(addButtonClass, "hidden md:flex")} onClick={handleAddToCart} data-testid="button-add-to-cart">
+                {addLabel}
+              </Button>
             </>
           ) : (
             <div className="mt-6 rounded-xl bg-muted px-4 py-3 text-center text-sm font-semibold text-muted-foreground">
@@ -368,18 +576,28 @@ export default function CakeDetail() {
       </div>
 
       {cake.available && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden">
-          <div className="flex items-center gap-3">
-            {quantityStepper}
-            <Button className="h-12 flex-1 rounded-full text-base font-semibold" onClick={handleAddToCart}>
-              {addToCartLabel}
-            </Button>
-          </div>
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:hidden">
+          <Button size="lg" className={addButtonClass} onClick={handleAddToCart}>
+            {addLabel}
+          </Button>
         </div>
       )}
 
+      {relatedCakes.length > 0 && (
+        <section aria-labelledby="related-title" className="mt-10">
+          <h2 id="related-title" className="text-base font-bold tracking-tight">
+            You may also like
+          </h2>
+          <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-4">
+            {relatedCakes.map((related) => (
+              <ProductCard key={related.id} cake={related} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ── REVIEWS ─────────────────────────────────── */}
-      <div className="mx-4 mt-10 border-t border-border pt-8 md:mx-0">
+      <div className="mt-10 border-t border-border pt-8">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold tracking-tight">Customer reviews</h2>

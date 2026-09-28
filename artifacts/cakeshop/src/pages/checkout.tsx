@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useCart } from "@/lib/cart-context";
+import { cartLineKey, describeCartLine, useCart } from "@/lib/cart-context";
 import {
   getGetOrderQueryKey,
   useCreateOrder,
@@ -161,9 +161,17 @@ export default function Checkout() {
         variantLabel: item.variantLabel || undefined,
       }));
 
+      // Each cake's flavour and message goes into the order notes so the baker sees them with the order.
+      const cakeDetails = items.filter((item) => item.flavour || item.secondFlavour || item.message).map(describeCartLine);
+      const customerNote = values.notes?.trim();
+      const notes = cakeDetails.length
+        ? [...cakeDetails, customerNote ? `Customer note: ${customerNote}` : null].filter(Boolean).join("\n")
+        : customerNote || undefined;
+
       const order = await createOrder.mutateAsync({
         data: {
           ...values,
+          notes,
           deliveryDate: values.deliveryDate || undefined,
           promoCode: values.promoCode?.trim() || undefined,
           items: orderItems,
@@ -299,7 +307,7 @@ export default function Checkout() {
                       <FormItem>
                         <FormLabel>Special Instructions (Optional)</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="E.g., Happy Birthday written on the cake" {...field} className="bg-background resize-none" />
+                          <Textarea placeholder="E.g., best delivery time or a nearby landmark" {...field} className="bg-background resize-none" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -410,7 +418,7 @@ export default function Checkout() {
             <div className="space-y-4 mb-6">
               {items.map((item) => {
                 const price = item.variantPrice ?? item.cake.price;
-                const key = `${item.cake.id}:${item.variantLabel || ""}`;
+                const key = cartLineKey(item);
                 return (
                 <div key={key} className="flex items-center gap-4">
                   <div className="relative">
@@ -432,6 +440,9 @@ export default function Checkout() {
                     {item.variantLabel && (
                       <p className="text-primary text-xs font-medium">{item.variantLabel}</p>
                     )}
+                    {item.flavour && <p className="text-muted-foreground text-xs">Flavour: {item.flavour}</p>}
+                    {item.secondFlavour && <p className="text-muted-foreground text-xs">Second flavour: {item.secondFlavour}</p>}
+                    {item.message && <p className="text-muted-foreground text-xs line-clamp-2">Message: “{item.message}”</p>}
                     <p className="text-muted-foreground text-xs">KES {price.toLocaleString()}</p>
                   </div>
                   <div className="font-medium text-sm">KES {(price * item.quantity).toLocaleString()}</div>

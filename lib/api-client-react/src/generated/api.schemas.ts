@@ -13,6 +13,7 @@ export interface Category {
   id: number;
   name: string;
   slug: string;
+  description?: string | null;
   imageUrl?: string | null;
   createdAt: string;
 }
@@ -22,6 +23,7 @@ export interface CategoryInput {
   name: string;
   /** @minLength 1 */
   slug: string;
+  description?: string;
   imageUrl?: string;
 }
 
@@ -30,6 +32,7 @@ export interface CategoryUpdate {
   name?: string;
   /** @minLength 1 */
   slug?: string;
+  description?: string;
   imageUrl?: string;
 }
 
