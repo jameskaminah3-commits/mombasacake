@@ -47,7 +47,7 @@ export default function BlogPost() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-12 max-w-3xl">
+      <div className="mx-auto w-full max-w-2xl px-4 pb-12 pt-6">
         <Skeleton className="h-8 w-32 mb-8" />
         <Skeleton className="h-12 w-full mb-4" />
         <Skeleton className="h-64 w-full rounded-2xl mb-8" />
@@ -60,22 +60,22 @@ export default function BlogPost() {
 
   if (notFound || !post) {
     return (
-      <div className="container mx-auto px-4 py-24 text-center">
-        <h1 className="text-2xl font-bold mb-4">Post not found</h1>
-        <Button asChild><Link href="/blog">Back to Blog</Link></Button>
+      <div className="mx-auto max-w-md px-4 py-24 text-center">
+        <h1 className="text-2xl font-extrabold tracking-tight mb-4">Post not found</h1>
+        <Button asChild className="rounded-full px-6"><Link href="/blog">Back to blog</Link></Button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-12 max-w-3xl">
-        <Link href="/blog" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground mb-8 transition-colors">
-          <ChevronLeft className="w-4 h-4 mr-1" /> Back to Journal
+    <div className="bg-background">
+      <div className="mx-auto w-full max-w-2xl px-4 pb-12 pt-6">
+        <Link href="/blog" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground mb-6 transition-colors">
+          <ChevronLeft className="w-4 h-4 mr-1" /> Back to blog
         </Link>
 
         {post.coverImageUrl && (
-          <div className="aspect-[16/9] rounded-2xl overflow-hidden mb-8 shadow-md">
+          <div className="aspect-[16/9] rounded-2xl overflow-hidden mb-6 bg-muted">
             <RevealImage
               src={post.coverImageUrl}
               alt={post.title}
@@ -92,12 +92,12 @@ export default function BlogPost() {
           </div>
         )}
 
-        <h1 className="font-serif text-4xl md:text-5xl font-bold mb-8 text-foreground leading-tight">
+        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-6 text-foreground leading-tight">
           {post.title}
         </h1>
 
         <div
-          className="prose prose-lg prose-headings:font-serif prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary max-w-none"
+          className="prose prose-headings:font-bold prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary max-w-none"
           dangerouslySetInnerHTML={{ __html: post.content.replace(/\n/g, "<br/>") }}
         />
       </div>

@@ -22,17 +22,17 @@ export default function OrderSuccess() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-24 max-w-3xl">
-        <Skeleton className="h-64 w-full rounded-3xl" />
+      <div className="mx-auto w-full max-w-2xl px-4 py-12">
+        <Skeleton className="h-64 w-full rounded-2xl" />
       </div>
     );
   }
 
   if (!order) {
     return (
-      <div className="container mx-auto px-4 py-24 text-center">
-        <h1 className="text-2xl font-bold mb-4">Order not found</h1>
-        <Button asChild><Link href="/">Go Home</Link></Button>
+      <div className="mx-auto max-w-md px-4 py-24 text-center">
+        <h1 className="text-2xl font-extrabold tracking-tight mb-4">Order not found</h1>
+        <Button asChild className="rounded-full px-6"><Link href="/">Back to shop</Link></Button>
       </div>
     );
   }
@@ -44,8 +44,8 @@ export default function OrderSuccess() {
   const payReference = `${paymentDetails?.accountReferencePrefix || DEFAULT_PAYMENT_DETAILS.accountReferencePrefix}-${order.id}`;
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-3xl">
-      <div className="bg-card border border-border rounded-3xl p-8 md:p-12 shadow-sm text-center mb-8 relative overflow-hidden">
+    <div className="mx-auto w-full max-w-2xl px-4 pb-12 pt-6">
+      <div className="relative mb-6 overflow-hidden rounded-2xl border border-border bg-card p-6 text-center md:p-10">
         <div className="absolute top-0 left-0 w-full h-2 bg-primary"></div>
         <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${order.paymentStatus === "paid" ? "bg-primary/10" : "bg-yellow-100"}`}>
           {order.paymentStatus === "paid" ? (
@@ -54,10 +54,10 @@ export default function OrderSuccess() {
             <Clock3 className="w-10 h-10 text-yellow-700" />
           )}
         </div>
-        <h1 className="font-serif text-4xl font-bold mb-2">
+        <h1 className="text-2xl font-extrabold tracking-tight mb-2">
           {order.paymentStatus === "paid" ? "Thank You!" : "Order Received"}
         </h1>
-        <p className="text-muted-foreground text-lg mb-8">
+        <p className="text-muted-foreground mb-8">
           {order.paymentStatus === "paid"
             ? "Your order has been confirmed and is being prepared."
             : "Your order is pending payment confirmation. Please complete payment using the MPesa details below."}
@@ -112,13 +112,13 @@ export default function OrderSuccess() {
         </div>
 
         <Button asChild className="rounded-full bg-foreground hover:bg-foreground/90 px-8">
-          <Link href="/menu">Continue Shopping</Link>
+          <Link href="/">Continue shopping</Link>
         </Button>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-          <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border border-border bg-card p-5">
+          <h3 className="text-base font-bold mb-4 flex items-center gap-2">
             <Package className="w-5 h-5 text-muted-foreground" /> Order Items
           </h3>
           <div className="space-y-4">
@@ -134,9 +134,9 @@ export default function OrderSuccess() {
           </div>
         </div>
 
-        <div className="space-y-8">
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <h3 className="text-base font-bold mb-4 flex items-center gap-2">
               <MapPin className="w-5 h-5 text-muted-foreground" /> Delivery Details
             </h3>
             <p className="font-medium text-sm mb-1">{order.customerName}</p>
@@ -144,8 +144,8 @@ export default function OrderSuccess() {
             <p className="flex items-center text-sm text-muted-foreground"><Phone className="w-4 h-4 mr-2" /> {order.customerPhone}</p>
           </div>
 
-          <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-            <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <h3 className="text-base font-bold mb-4 flex items-center gap-2">
               <Receipt className="w-5 h-5 text-muted-foreground" /> Payment Info
             </h3>
             <div className="flex justify-between text-sm mb-2">

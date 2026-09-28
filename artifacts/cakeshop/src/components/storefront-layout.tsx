@@ -1,216 +1,205 @@
 import { Link, useLocation } from "wouter";
 import { useCart } from "@/lib/cart-context";
-import { ShoppingBag, Menu, X } from "lucide-react";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { SiFacebook, SiInstagram, SiTiktok, SiYoutube, SiWhatsapp } from "react-icons/si";
+import { ShoppingBag } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import { DEFAULT_LOGO_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
+import {
+  STORE_EMAIL,
+  STORE_HOURS,
+  STORE_LOCATION,
+  STORE_NAME,
+  STORE_PHONE,
+  STORE_PHONE_DISPLAY,
+  STORE_SOCIALS,
+  WHATSAPP_ORDER_URL,
+  WHATSAPP_URL,
+} from "@/lib/store-info";
+import { cn, formatKes } from "@/lib/utils";
 
-const SOCIALS = [
-  { icon: SiFacebook, href: "https://www.facebook.com/Channah-cakes-1412705188869989/", label: "Facebook" },
-  { icon: SiInstagram, href: "https://instagram.com/channahcakes001?igshid=1783kk7yjr97i", label: "Instagram" },
-  { icon: SiTiktok, href: "https://tiktok.com/@channahcakes", label: "TikTok" },
-  { icon: SiYoutube, href: "https://www.youtube.com/channel/UCDW0CaXYw7CuE-8Y13PIcOQ", label: "YouTube" },
-  { icon: SiWhatsapp, href: "https://wa.me/254721868212", label: "WhatsApp" },
-];
+// Pages that have their own checkout flow, so the floating "View cart" bar would only get in the way.
+const CART_BAR_HIDDEN_PREFIXES = ["/cart", "/checkout", "/order", "/cake/"];
 
 export function StorefrontLayout({ children }: { children: React.ReactNode }) {
   const { itemCount, total } = useCart();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [location] = useLocation();
 
-  const closeMenu = () => setIsMobileMenuOpen(false);
+  const showCartBar = itemCount > 0 && !CART_BAR_HIDDEN_PREFIXES.some((prefix) => location.startsWith(prefix));
+  // The product and cart pages pin their own action bar to the bottom of the screen on mobile.
+  const pageHasMobileActionBar = location.startsWith("/cake/") || (location === "/cart" && itemCount > 0);
+  // Keep the checkout form clear of floating buttons; the footer still links to WhatsApp.
+  const showWhatsAppButton = !location.startsWith("/checkout");
 
   const navLink = (href: string, label: string) => (
     <Link
       href={href}
-      onClick={closeMenu}
-      className={`transition-colors hover:text-primary ${location === href ? "text-primary font-semibold" : "text-foreground/80"}`}
+      className={cn(
+        "rounded-full px-3 py-2 text-sm font-semibold transition-colors hover:bg-muted",
+        location === href ? "text-foreground" : "text-muted-foreground",
+      )}
     >
       {label}
     </Link>
   );
 
   return (
-    <div className="min-h-[100dvh] flex flex-col font-sans">
-      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4 h-20 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center" onClick={closeMenu} aria-label="Channah Cakes home">
-            <div className="h-14 w-28 sm:h-16 sm:w-32">
+    <div className="flex min-h-[100dvh] flex-col bg-background font-sans">
+      <header className="sticky top-0 z-40 w-full border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4">
+          <Link href="/" className="flex min-w-0 items-center gap-2.5" aria-label="Channah Cakes home">
+            <span className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-border bg-white">
               <RevealImage
                 src={DEFAULT_LOGO_IMAGE_URL}
-                alt="Channah Cakes"
-                className="object-contain"
+                alt=""
+                className="object-contain p-0.5"
                 eager
                 placeholderClassName="bg-transparent"
                 timeoutMs={2000}
               />
-            </div>
+            </span>
+            <span className="truncate text-[15px] font-bold tracking-tight">Channah Cakes</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
-            {navLink("/", "Home")}
-            {navLink("/menu", "Menu")}
-            {navLink("/blog", "Blog")}
-            <Link href="/cart" className="relative group">
-              <ShoppingBag className="w-5 h-5 text-foreground/80 group-hover:text-primary transition-colors" />
+          <nav className="flex items-center gap-1">
+            <div className="hidden items-center gap-1 sm:flex">
+              {navLink("/", "Shop")}
+              {navLink("/blog", "Blog")}
+            </div>
+            <Link
+              href="/cart"
+              aria-label={itemCount > 0 ? `Cart, ${itemCount} ${itemCount === 1 ? "item" : "items"}` : "Cart"}
+              className="relative inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-muted"
+            >
+              <ShoppingBag className="h-5 w-5" />
               {itemCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                <span className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
                   {itemCount}
                 </span>
               )}
             </Link>
           </nav>
-
-          <div className="md:hidden flex items-center gap-4">
-            <Link href="/cart" className="relative group" onClick={closeMenu}>
-              <ShoppingBag className="w-6 h-6 text-foreground/80" />
-              {itemCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-                  {itemCount}
-                </span>
-              )}
-            </Link>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-foreground"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </Button>
-          </div>
         </div>
       </header>
 
-      {isMobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-40 bg-background pt-20">
-          <nav className="flex flex-col items-center gap-6 p-8 text-base font-medium text-center">
-            <Link href="/" onClick={closeMenu} className={`${location === "/" ? "text-primary font-bold" : "text-foreground/80"}`}>Home</Link>
-            <Link href="/menu" onClick={closeMenu} className={`${location === "/menu" ? "text-primary font-bold" : "text-foreground/80"}`}>Menu</Link>
-            <Link href="/blog" onClick={closeMenu} className={`${location === "/blog" ? "text-primary font-bold" : "text-foreground/80"}`}>Blog</Link>
-            <Link href="/cart" onClick={closeMenu} className={`${location === "/cart" ? "text-primary font-bold" : "text-foreground/80"}`}>Cart</Link>
-          </nav>
-        </div>
-      )}
+      <main className="flex flex-1 flex-col">{children}</main>
 
-      <main className="flex-1 flex flex-col">{children}</main>
-
-      <footer className="bg-[#1a0d12] text-white">
-        <div className="container mx-auto px-4 pt-16 pb-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
-            {/* Brand */}
-            <div className="md:col-span-1">
-              <div className="flex items-center mb-4">
-                <div className="h-[4.5rem] w-32">
+      <footer
+        className={cn(
+          "border-t border-border bg-muted/50",
+          showCartBar ? "pb-24" : pageHasMobileActionBar && "pb-24 md:pb-0",
+        )}
+      >
+        <div className="mx-auto max-w-5xl px-4 py-10">
+          <div className="grid gap-8 sm:grid-cols-3">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <span className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-border bg-white">
                   <RevealImage
                     src={DEFAULT_LOGO_IMAGE_URL}
-                    alt="Channah Cakes"
-                    className="object-contain"
-                    eager
+                    alt=""
+                    className="object-contain p-0.5"
                     placeholderClassName="bg-transparent"
                     timeoutMs={2000}
                   />
-                </div>
+                </span>
+                <p className="font-bold">{STORE_NAME}</p>
               </div>
-              <p className="text-white/60 text-sm leading-7 max-w-xs">
+              <p className="mt-3 max-w-xs text-sm leading-6 text-muted-foreground">
                 Premium artisan celebration cakes, custom creations, and everyday indulgences — handcrafted in Mombasa, Kenya.
               </p>
-              {/* Socials */}
-              <div className="mt-6">
-                <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/40">Follow us</p>
-                <div className="flex items-center gap-3">
-                  {SOCIALS.map(({ icon: Icon, href, label }) => (
-                    <a
-                      key={label}
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={label}
-                      className="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 hover:bg-[#E0187A] transition-colors"
-                    >
-                      <Icon className="w-4 h-4" />
-                    </a>
-                  ))}
-                </div>
+              <div className="mt-4 flex items-center gap-2">
+                {STORE_SOCIALS.map(({ icon: Icon, href, label }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-foreground/80 transition-colors hover:border-primary hover:text-primary"
+                  >
+                    <Icon className="h-4 w-4" />
+                  </a>
+                ))}
               </div>
             </div>
 
-            {/* Explore */}
             <div>
-              <h4 className="font-semibold mb-5 uppercase tracking-widest text-[11px] text-[#E0187A]">Explore</h4>
-              <ul className="space-y-3 text-sm leading-7 text-white/60">
-                <li><Link href="/" className="hover:text-white transition-colors">Home</Link></li>
-                <li><Link href="/menu" className="hover:text-white transition-colors">Our Menu</Link></li>
-                <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
-                <li><Link href="/cart" className="hover:text-white transition-colors">Cart</Link></li>
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Opening hours</h2>
+              <ul className="mt-3 space-y-1.5 text-sm">
+                {STORE_HOURS.map(({ days, hours }) => (
+                  <li key={days} className="flex justify-between gap-4 sm:max-w-[14rem]">
+                    <span>{days}</span>
+                    <span className="text-muted-foreground">{hours}</span>
+                  </li>
+                ))}
+                <li className="pt-1 text-muted-foreground">{STORE_LOCATION}</li>
               </ul>
             </div>
 
-            {/* Visit */}
             <div>
-              <h4 className="font-semibold mb-5 uppercase tracking-widest text-[11px] text-[#E0187A]">Visit Us</h4>
-              <ul className="space-y-3 text-sm leading-7 text-white/60">
-                <li>Mombasa, Kenya</li>
-                <li>Mon – Sat: 8am – 7pm</li>
-                <li>Sun: 9am – 5pm</li>
-              </ul>
-            </div>
-
-            {/* Contact */}
-            <div>
-              <h4 className="font-semibold mb-5 uppercase tracking-widest text-[11px] text-[#E0187A]">Contact</h4>
-              <ul className="space-y-3 text-sm leading-7 text-white/60">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact</h2>
+              <ul className="mt-3 space-y-1.5 text-sm">
                 <li>
-                  <a href="mailto:channahcakes@gmail.com" className="hover:text-white transition-colors">
-                    channahcakes@gmail.com
+                  <a href={`tel:${STORE_PHONE}`} className="transition-colors hover:text-primary">
+                    {STORE_PHONE_DISPLAY}
                   </a>
                 </li>
                 <li>
-                  <a href="tel:+254721868212" className="hover:text-white transition-colors">
-                    +254 721 868 212
-                  </a>
-                </li>
-                <li>
-                  <a href="https://wa.me/254721868212" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+                  <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-primary">
                     WhatsApp us
+                  </a>
+                </li>
+                <li>
+                  <a href={`mailto:${STORE_EMAIL}`} className="transition-colors hover:text-primary">
+                    {STORE_EMAIL}
                   </a>
                 </li>
               </ul>
             </div>
           </div>
 
-          <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-white/40">
+          <div className="mt-8 flex flex-col gap-3 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
             <span>&copy; {new Date().getFullYear()} Channah Cakes. All rights reserved.</span>
-            <Link href="/login" className="hover:text-white/60 transition-colors">Staff login</Link>
+            <div className="flex items-center gap-4">
+              <Link href="/blog" className="transition-colors hover:text-foreground">Blog</Link>
+              <Link href="/login" className="transition-colors hover:text-foreground">Staff login</Link>
+            </div>
           </div>
         </div>
       </footer>
 
-      {/* WhatsApp sticky CTA — all pages, all screen sizes */}
-      <a
-        href="https://wa.me/254721868212?text=Hi!%20I%27m%20interested%20in%20ordering%20a%20cake%20from%20Channah%20Cake%20House."
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Chat with us on WhatsApp"
-        className="fixed bottom-6 left-4 z-50 flex items-center gap-2 bg-[#25D366] text-white p-3.5 sm:pl-3.5 sm:pr-5 sm:py-3 rounded-full shadow-lg shadow-green-500/25 hover:bg-green-500 active:scale-95 transition-all"
-      >
-        <SiWhatsapp className="w-5 h-5 shrink-0" />
-        <span className="hidden sm:inline text-sm font-semibold">Chat with us</span>
-      </a>
+      {showCartBar && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <Link
+            href="/cart"
+            className="pointer-events-auto mx-auto flex max-w-md items-center justify-between gap-3 rounded-2xl bg-primary px-4 py-3.5 text-primary-foreground shadow-xl shadow-primary/25 transition-transform active:scale-[0.98]"
+          >
+            <span className="flex items-center gap-3">
+              <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-white/20 px-2 text-sm font-bold">
+                {itemCount}
+              </span>
+              <span className="font-semibold">View cart</span>
+            </span>
+            <span className="font-bold">{formatKes(total)}</span>
+          </Link>
+        </div>
+      )}
 
-      {/* Floating cart pill — mobile only, hidden on cart/checkout/order pages */}
-      {itemCount > 0 && location !== "/cart" && !location.startsWith("/checkout") && !location.startsWith("/order") && (
-        <Link
-          href="/cart"
-          aria-label={`View cart — ${itemCount} ${itemCount === 1 ? "item" : "items"}`}
-          className="md:hidden fixed bottom-6 right-4 z-50 flex items-center gap-2 bg-primary text-white pl-4 pr-5 py-3.5 rounded-full shadow-lg shadow-primary/30 hover:bg-primary/90 active:scale-95 transition-all"
+      {showWhatsAppButton && (
+        <a
+          href={WHATSAPP_ORDER_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Chat with us on WhatsApp"
+          className={cn(
+            // Bottom-left so it never covers the "+" buttons on the right of product cards.
+            "fixed left-4 z-40 flex items-center gap-2 rounded-full bg-[#25D366] p-3.5 text-white shadow-lg shadow-black/15 transition-all hover:bg-[#1fb958] active:scale-95 sm:py-3 sm:pl-3.5 sm:pr-5",
+            showCartBar ? "bottom-24" : pageHasMobileActionBar ? "bottom-24 md:bottom-5" : "bottom-5",
+          )}
         >
-          <ShoppingBag className="w-5 h-5 shrink-0" />
-          <span className="font-semibold text-sm">{itemCount} {itemCount === 1 ? "item" : "items"}</span>
-          <span className="text-sm text-white/75">· KES {total.toLocaleString()}</span>
-        </Link>
+          <SiWhatsapp className="h-5 w-5 shrink-0" />
+          <span className="hidden text-sm font-semibold sm:inline">Chat with us</span>
+        </a>
       )}
     </div>
   );

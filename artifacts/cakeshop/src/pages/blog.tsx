@@ -39,19 +39,14 @@ export default function Blog() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <section className="bg-secondary text-white py-20">
-        <div className="container mx-auto px-4 text-center">
-          <p className="uppercase tracking-widest text-white/70 text-sm font-medium mb-4">From Our Kitchen</p>
-          <h1 className="font-serif text-5xl md:text-6xl font-bold mb-4">The Crème Journal</h1>
-          <p className="text-white/80 text-lg max-w-xl mx-auto">
-            Baking tips, occasion inspiration, and stories from our Mombasa patisserie.
-          </p>
-        </div>
-      </section>
+    <div className="bg-background">
+      <div className="mx-auto w-full max-w-5xl px-4 pb-12 pt-6">
+        <p className="text-xs font-semibold uppercase tracking-wider text-primary">From our kitchen</p>
+        <h1 className="mt-1 text-2xl font-extrabold tracking-tight">The Crème Journal</h1>
+        <p className="mt-1 mb-6 text-sm text-muted-foreground">
+          Baking tips, occasion inspiration, and stories from our Mombasa patisserie.
+        </p>
 
-      <div className="container mx-auto px-4 py-16">
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[1, 2, 3].map((i) => (
@@ -66,7 +61,7 @@ export default function Blog() {
         ) : posts.length === 0 ? (
           <div className="text-center py-24">
             <BookOpen className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h2 className="font-serif text-2xl font-bold mb-2 text-foreground">Coming Soon</h2>
+            <h2 className="text-lg font-bold mb-2 text-foreground">Coming soon</h2>
             <p className="text-muted-foreground max-w-md mx-auto">
               We are working on some delicious stories to share. Check back soon.
             </p>
@@ -75,7 +70,7 @@ export default function Blog() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {posts.map((post) => (
               <Link key={post.id} href={`/blog/${post.slug}`}>
-                <article className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer border border-border/40">
+                <article className="group h-full cursor-pointer overflow-hidden rounded-2xl border border-border bg-card transition-colors hover:border-primary/40">
                   <div className="aspect-[16/9] overflow-hidden bg-muted">
                     {post.coverImageUrl ? (
                       <RevealImage
@@ -90,14 +85,14 @@ export default function Blog() {
                       </div>
                     )}
                   </div>
-                  <div className="p-6">
+                  <div className="p-5">
                     {post.publishedAt && (
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
                         <Calendar className="w-3 h-3" />
                         <span>{formatDate(post.publishedAt)}</span>
                       </div>
                     )}
-                    <h2 className="font-serif text-xl font-bold mb-2 group-hover:text-primary transition-colors leading-snug">
+                    <h2 className="text-base font-bold mb-2 group-hover:text-primary transition-colors leading-snug">
                       {post.title}
                     </h2>
                     {post.excerpt && (
@@ -105,7 +100,7 @@ export default function Blog() {
                         {post.excerpt}
                       </p>
                     )}
-                    <p className="mt-4 text-primary text-sm font-medium">Read more &rarr;</p>
+                    <p className="mt-4 text-primary text-sm font-semibold">Read more &rarr;</p>
                   </div>
                 </article>
               </Link>

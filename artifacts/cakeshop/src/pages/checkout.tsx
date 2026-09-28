@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
@@ -55,6 +55,7 @@ export default function Checkout() {
   const [, setLocation] = useLocation();
 
   const [activeOrderId, setActiveOrderId] = useState<number | null>(null);
+  const statusPanelRef = useRef<HTMLDivElement>(null);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "prompted" | "success" | "failed">("idle");
   const [paymentDetails, setPaymentDetails] = useState<{ shortCode: string; amount: number } | null>(null);
 
@@ -93,6 +94,14 @@ export default function Checkout() {
   const promoCode = form.watch("promoCode");
   const promotionPreview = resolvePromotionPreview(promotions ?? [], items, total, promoCode);
   const discountedTotal = Math.max(total - promotionPreview.discountAmount, 0);
+
+  // The form is much taller than the status cards that replace it, so bring each new state into view
+  // (on mobile the order summary sits above it).
+  useEffect(() => {
+    if (paymentStatus !== "idle") {
+      statusPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [paymentStatus]);
 
   useEffect(() => {
     if (orderData?.paymentStatus === "paid") {
@@ -179,14 +188,14 @@ export default function Checkout() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-5xl">
-      <h1 className="font-serif text-4xl font-bold mb-8">Checkout</h1>
+    <div className="mx-auto w-full max-w-5xl px-4 pb-12 pt-6">
+      <h1 className="mb-5 text-2xl font-extrabold tracking-tight">Checkout</h1>
 
-      <div className="grid lg:grid-cols-2 gap-12">
-        <div>
+      <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:gap-8">
+        <div ref={statusPanelRef} className="scroll-mt-20">
           {paymentStatus === "idle" || (paymentStatus === "failed" && !activeOrderId) ? (
-            <div className="bg-card border border-border p-6 rounded-2xl shadow-sm">
-              <h2 className="font-bold text-xl mb-6">Delivery Details</h2>
+            <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
+              <h2 className="mb-5 text-base font-bold">Delivery details</h2>
               {paymentStatus === "failed" && (
                 <div className="bg-destructive/10 text-destructive p-4 rounded-lg mb-6 text-sm font-medium border border-destructive/20">
                   Something went wrong. Please check your details and try again.
@@ -304,7 +313,7 @@ export default function Checkout() {
                   <Button
                     type="submit"
                     size="lg"
-                    className="w-full h-14 rounded-full bg-[#52B44B] hover:bg-[#52B44B]/90 text-white font-bold text-base"
+                    className="w-full h-12 rounded-full bg-[#52B44B] hover:bg-[#52B44B]/90 text-white font-bold text-base"
                     disabled={createOrder.isPending || initiatePayment.isPending}
                   >
                     {createOrder.isPending || initiatePayment.isPending ? (
@@ -319,12 +328,12 @@ export default function Checkout() {
               </Form>
             </div>
           ) : paymentStatus === "prompted" ? (
-            <div className="bg-card border border-[#52B44B]/30 p-8 rounded-2xl shadow-sm">
+            <div className="rounded-2xl border border-[#52B44B]/30 bg-card p-6 sm:p-8">
               <div className="text-center mb-6">
                 <div className="w-20 h-20 bg-[#52B44B]/10 rounded-full flex items-center justify-center mb-4 mx-auto">
                   <Loader2 className="h-10 w-10 text-[#52B44B] animate-spin" />
                 </div>
-                <h2 className="font-serif text-2xl font-bold mb-2 text-[#52B44B]">Check your phone</h2>
+                <h2 className="text-xl font-extrabold mb-2 text-[#52B44B]">Check your phone</h2>
                 <p className="text-muted-foreground text-base max-w-xs mx-auto">
                   An M-Pesa STK push has been sent to your phone. Enter your PIN to complete payment of{" "}
                   <strong>KES {discountedTotal.toLocaleString()}</strong>.
@@ -333,14 +342,14 @@ export default function Checkout() {
               {mpesaPaymentBlock}
             </div>
           ) : paymentStatus === "failed" && activeOrderId ? (
-            <div className="bg-card border border-amber-400/40 p-8 rounded-2xl shadow-sm">
+            <div className="rounded-2xl border border-amber-400/40 bg-card p-6 sm:p-8">
               <div className="text-center mb-6">
                 <div className="w-20 h-20 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mb-4 mx-auto">
                   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-amber-500">
                     <path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                   </svg>
                 </div>
-                <h2 className="font-serif text-2xl font-bold mb-2 text-amber-600 dark:text-amber-400">Payment Not Confirmed</h2>
+                <h2 className="text-xl font-extrabold mb-2 text-amber-600 dark:text-amber-400">Payment Not Confirmed</h2>
                 <p className="text-muted-foreground text-sm max-w-xs mx-auto">
                   Your order <strong>#{activeOrderId}</strong> has been saved and is in <strong>pending orders</strong>. Complete payment using the details below and we'll confirm your order.
                 </p>
@@ -363,21 +372,22 @@ export default function Checkout() {
               </div>
             </div>
           ) : (
-            <div className="bg-card border border-[#52B44B]/30 p-12 rounded-2xl shadow-sm text-center flex flex-col items-center justify-center min-h-[400px]">
+            <div className="rounded-2xl border border-[#52B44B]/30 bg-card p-12 text-center flex flex-col items-center justify-center min-h-[400px]">
               <div className="w-20 h-20 bg-[#52B44B] rounded-full flex items-center justify-center mb-6">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
               </div>
-              <h2 className="font-serif text-2xl font-bold mb-4 text-[#52B44B]">Payment Successful</h2>
+              <h2 className="text-xl font-extrabold mb-4 text-[#52B44B]">Payment Successful</h2>
               <p className="text-muted-foreground text-lg">Redirecting to your receipt...</p>
             </div>
           )}
         </div>
 
-        <div>
-          <div className="bg-card border border-border p-6 rounded-2xl shadow-sm sticky top-24">
-            <h2 className="font-bold text-xl mb-6">Order Summary</h2>
+        {/* Summary first on mobile, so customers see what they're paying for before the form */}
+        <div className="order-first lg:order-last">
+          <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 lg:sticky lg:top-20">
+            <h2 className="mb-4 text-base font-bold">Order summary</h2>
             <div className="space-y-4 mb-6">
               {items.map((item) => {
                 const price = item.variantPrice ?? item.cake.price;
@@ -394,7 +404,7 @@ export default function Checkout() {
                         timeoutMs={2500}
                       />
                     </div>
-                    <span className="absolute -top-2 -right-2 bg-secondary text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                    <span className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
                       {item.quantity}
                     </span>
                   </div>
