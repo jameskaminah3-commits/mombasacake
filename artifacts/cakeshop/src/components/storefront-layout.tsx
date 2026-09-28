@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useCart } from "@/lib/cart-context";
 import { ShoppingBag } from "lucide-react";
@@ -27,8 +28,20 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
   const showCartBar = itemCount > 0 && !CART_BAR_HIDDEN_PREFIXES.some((prefix) => location.startsWith(prefix));
   // The product and cart pages pin their own action bar to the bottom of the screen on mobile.
   const pageHasMobileActionBar = location.startsWith("/cake/") || (location === "/cart" && itemCount > 0);
-  // Keep the checkout form clear of floating buttons; the footer still links to WhatsApp.
-  const showWhatsAppButton = !location.startsWith("/checkout");
+  // Hide the floating WhatsApp button while a page's own WhatsApp button is on screen (the shop header),
+  // and on checkout so the form stays clear; the footer still links to WhatsApp.
+  const [inlineWhatsAppVisible, setInlineWhatsAppVisible] = useState(false);
+  useEffect(() => {
+    const inlineButton = document.querySelector("[data-inline-whatsapp]");
+    if (!inlineButton) {
+      setInlineWhatsAppVisible(false);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => setInlineWhatsAppVisible(entry.isIntersecting));
+    observer.observe(inlineButton);
+    return () => observer.disconnect();
+  }, [location]);
+  const showWhatsAppButton = !location.startsWith("/checkout") && !inlineWhatsAppVisible;
 
   const navLink = (href: string, label: string) => (
     <Link

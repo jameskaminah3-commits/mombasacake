@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AnimatePresence, motion } from "framer-motion";
 import { CalendarClock, Clock, MapPin, Phone, Search, Share2, ShieldCheck, Star, Tag, Truck } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import {
@@ -34,7 +33,7 @@ const STORE_HIGHLIGHTS = [
 ];
 
 const actionButtonClass =
-  "inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-sm font-semibold transition-colors hover:bg-muted sm:px-5 [&_svg]:shrink-0";
+  "inline-flex h-11 min-w-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-border text-sm font-semibold transition-colors hover:bg-muted sm:px-5 [&_svg]:shrink-0";
 
 type CakeReview = {
   id: number;
@@ -207,7 +206,7 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
 
       {activePromotions.length > 0 && <OffersRow promotions={activePromotions} cakeNameBySlug={cakeNameBySlug} />}
 
-      <section ref={catalogRef} id="menu" aria-label="Menu" className="pt-4">
+      <section ref={catalogRef} id="menu" aria-label="Menu" className="pt-3">
         <div className="sticky top-14 z-30 border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
           <div className="mx-auto flex h-14 max-w-5xl items-center gap-2 px-4">
             {searchOpen ? (
@@ -222,7 +221,7 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
                     placeholder="Search cakes"
                     aria-label="Search cakes"
                     autoFocus
-                    className="h-10 w-full rounded-full bg-muted pl-10 pr-4 text-sm outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+                    className="h-10 w-full rounded-full bg-muted pl-10 pr-4 text-base outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring sm:text-sm"
                   />
                 </div>
                 <button
@@ -239,13 +238,13 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
                   type="button"
                   onClick={() => setSearchOpen(true)}
                   aria-label="Search cakes"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted transition-colors hover:bg-muted/70"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted transition-colors hover:bg-muted/70"
                 >
                   <Search className="h-4 w-4" />
                 </button>
                 <div ref={chipScrollerRef} className="no-scrollbar relative flex flex-1 gap-2 overflow-x-auto">
                   {loading
-                    ? [1, 2, 3].map((i) => <span key={i} className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-muted" />)
+                    ? [1, 2, 3].map((i) => <span key={i} className="h-10 w-24 shrink-0 animate-pulse rounded-full bg-muted" />)
                     : sections.map((section) => (
                         <button
                           key={section.id}
@@ -254,7 +253,7 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
                           onClick={() => scrollToSection(section.id)}
                           aria-current={activeSection === section.id ? "true" : undefined}
                           className={cn(
-                            "h-9 shrink-0 whitespace-nowrap rounded-full px-4 text-sm font-semibold transition-colors",
+                            "h-10 shrink-0 whitespace-nowrap rounded-full px-4 text-sm font-semibold transition-colors",
                             activeSection === section.id
                               ? "bg-primary text-primary-foreground"
                               : "bg-muted text-foreground/80 hover:bg-muted/70",
@@ -312,7 +311,7 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
             </div>
           ) : (
             sections.map((section) => (
-              <section key={section.id} id={section.id} aria-labelledby={`${section.id}-title`} className="pt-7">
+              <section key={section.id} id={section.id} aria-labelledby={`${section.id}-title`} className="pt-6">
                 <div className="mb-3 flex items-baseline justify-between gap-3">
                   <h2 id={`${section.id}-title`} className="text-lg font-bold tracking-tight">
                     {section.title}
@@ -367,19 +366,29 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
 function StoreHeader({ hero }: { hero: HomepageHeroContent }) {
   const { toast } = useToast();
   const slides = hero.slides.length > 0 ? hero.slides : DEFAULT_HOMEPAGE_HERO.slides;
-  const [activeSlide, setActiveSlide] = useState(0);
-  const slide = slides[activeSlide % slides.length];
+  // The previous photo stays underneath while the new one fades in on top (a CSS cross-fade).
+  const [cover, setCover] = useState<{ active: number; previous: number | null }>({ active: 0, previous: null });
+  const activeSlide = cover.active % slides.length;
+  const slide = slides[activeSlide];
+  const previousSlide = cover.previous === null ? null : slides[cover.previous % slides.length];
+  const showSlide = (index: number) => setCover((current) => ({ active: index, previous: current.active }));
 
-  useEffect(() => {
-    slides.forEach((item) => {
-      const image = new Image();
-      image.src = item.imageUrl;
-    });
-  }, [slides]);
-
+  // Fetch only the next cover photo (not all of them up front) so first visits on mobile data stay light.
   useEffect(() => {
     if (slides.length <= 1) return;
-    const timer = window.setInterval(() => setActiveSlide((current) => (current + 1) % slides.length), COVER_ROTATION_MS);
+    const timer = window.setTimeout(() => {
+      const next = new Image();
+      next.src = slides[(activeSlide + 1) % slides.length].imageUrl;
+    }, COVER_ROTATION_MS / 2);
+    return () => window.clearTimeout(timer);
+  }, [slides, activeSlide]);
+
+  useEffect(() => {
+    if (slides.length <= 1 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setInterval(
+      () => setCover((current) => ({ active: (current.active + 1) % slides.length, previous: current.active })),
+      COVER_ROTATION_MS,
+    );
     return () => window.clearInterval(timer);
   }, [slides.length]);
 
@@ -403,82 +412,97 @@ function StoreHeader({ hero }: { hero: HomepageHeroContent }) {
 
   return (
     <section className="mx-auto w-full max-w-5xl sm:px-4 sm:pt-4">
-      <div className="relative h-44 overflow-hidden bg-muted sm:h-64 sm:rounded-2xl md:h-72">
-        <AnimatePresence initial={false}>
-          <motion.img
-            key={slide.imageUrl}
-            src={slide.imageUrl}
-            alt={slide.title}
-            className="absolute inset-0 h-full w-full object-cover"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            loading="eager"
-            decoding="async"
-          />
-        </AnimatePresence>
+      <div className="relative h-32 overflow-hidden bg-muted sm:h-64 sm:rounded-2xl md:h-72">
+        {previousSlide && previousSlide.imageUrl !== slide.imageUrl && (
+          <img src={previousSlide.imageUrl} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full object-cover" />
+        )}
+        <img
+          key={slide.imageUrl}
+          src={slide.imageUrl}
+          alt={slide.title}
+          className={cn("absolute inset-0 h-full w-full object-cover", previousSlide && "animate-in fade-in duration-700")}
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
         {slides.length > 1 && (
-          <div className="absolute bottom-3 right-3 flex gap-1.5 sm:bottom-4 sm:right-4">
-            {slides.map((item, index) => (
-              <button
-                key={item.imageUrl}
-                type="button"
-                onClick={() => setActiveSlide(index)}
-                aria-label={`Show ${item.label}`}
-                aria-pressed={index === activeSlide % slides.length}
-                className={cn(
-                  "h-1.5 rounded-full transition-all",
-                  index === activeSlide % slides.length ? "w-5 bg-white" : "w-1.5 bg-white/60 hover:bg-white/80",
-                )}
-              />
-            ))}
+          <div className="absolute bottom-1.5 right-2 flex sm:bottom-2.5 sm:right-3">
+            {slides.map((item, index) => {
+              const active = index === activeSlide;
+              return (
+                <button
+                  key={item.imageUrl}
+                  type="button"
+                  onClick={() => showSlide(index)}
+                  aria-label={`Show ${item.label}`}
+                  aria-pressed={active}
+                  className="group flex h-6 min-w-6 items-center justify-center"
+                >
+                  <span
+                    className={cn(
+                      "block h-1.5 rounded-full transition-all",
+                      active ? "w-5 bg-white" : "w-1.5 bg-white/60 group-hover:bg-white/80",
+                    )}
+                  />
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
 
       <div className="px-4 sm:px-6">
-        <div className="relative -mt-10 h-20 w-20 overflow-hidden rounded-2xl border-4 border-background bg-white shadow-md sm:-mt-12 sm:h-24 sm:w-24">
-          <RevealImage
-            src={DEFAULT_LOGO_IMAGE_URL}
-            alt="Channah Cakes logo"
-            className="object-contain p-1"
-            eager
-            placeholderClassName="bg-transparent"
-            timeoutMs={2000}
-          />
+        <div className="flex items-start justify-between gap-3">
+          <div className="relative -mt-9 h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-2xl border-4 border-background bg-white shadow-md sm:-mt-12 sm:h-24 sm:w-24">
+            <RevealImage
+              src={DEFAULT_LOGO_IMAGE_URL}
+              alt="Channah Cakes logo"
+              className="object-contain p-1"
+              eager
+              placeholderClassName="bg-transparent"
+              timeoutMs={2000}
+            />
+          </div>
+          <div className="mt-3 flex gap-2">
+            <a
+              href={WHATSAPP_ORDER_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Chat on WhatsApp"
+              data-inline-whatsapp
+              className={cn(actionButtonClass, "border-transparent bg-[#25D366] text-white hover:bg-[#1fb958]")}
+            >
+              <SiWhatsapp className="h-5 w-5" />
+              <span className="hidden sm:inline">WhatsApp</span>
+            </a>
+            <a href={`tel:${STORE_PHONE}`} aria-label="Call us" className={actionButtonClass}>
+              <Phone className="h-5 w-5" />
+              <span className="hidden sm:inline">Call</span>
+            </a>
+            <button type="button" onClick={handleShare} aria-label="Share this shop" className={actionButtonClass}>
+              <Share2 className="h-5 w-5" />
+              <span className="hidden sm:inline">Share</span>
+            </button>
+          </div>
         </div>
 
-        <h1 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">{hero.brandLine}</h1>
-        <p className="mt-1 text-sm font-semibold text-primary">{hero.headline}</p>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{hero.description}</p>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">{hero.brandLine}</h1>
+        <p className="mt-0.5 text-sm font-semibold text-primary">{hero.headline}</p>
+        <p className="mt-1.5 line-clamp-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:line-clamp-none">{hero.description}</p>
 
-        <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] leading-5 text-foreground/80 sm:flex sm:flex-wrap sm:gap-x-6">
+        {/* One swipeable line on phones so the menu starts on the first screen */}
+        <ul className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
           {STORE_HIGHLIGHTS.map(({ icon: Icon, label }) => (
-            <li key={label} className="flex items-start gap-1.5">
-              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <span>{label}</span>
+            <li
+              key={label}
+              className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-foreground/80"
+            >
+              <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+              {label}
             </li>
           ))}
         </ul>
-
-        <div className="mt-5 grid grid-cols-[1.4fr_1fr_1fr] gap-2 sm:flex sm:flex-wrap">
-          <a
-            href={WHATSAPP_ORDER_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(actionButtonClass, "border-transparent bg-[#25D366] text-white hover:bg-[#1fb958]")}
-          >
-            <SiWhatsapp className="h-4 w-4" /> WhatsApp
-          </a>
-          <a href={`tel:${STORE_PHONE}`} className={actionButtonClass}>
-            <Phone className="h-4 w-4" /> Call
-          </a>
-          <button type="button" onClick={handleShare} className={actionButtonClass}>
-            <Share2 className="h-4 w-4" /> Share
-          </button>
-        </div>
       </div>
     </section>
   );
@@ -486,17 +510,14 @@ function StoreHeader({ hero }: { hero: HomepageHeroContent }) {
 
 function OffersRow({ promotions, cakeNameBySlug }: { promotions: Promotion[]; cakeNameBySlug: Map<string, string> }) {
   return (
-    <section aria-labelledby="offers-title" className="mx-auto w-full max-w-5xl px-4 pt-7">
-      <h2 id="offers-title" className="text-lg font-bold tracking-tight">
-        Offers
-      </h2>
-      <div className="no-scrollbar -mx-4 mt-3 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4 pb-1">
+    <section aria-label="Offers" className="mx-auto w-full max-w-5xl px-4 pt-4">
+      <div className="no-scrollbar -mx-4 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4">
         {promotions.map((promo) => (
           <div
             key={promo.id}
-            className="flex w-[18rem] shrink-0 snap-start items-center gap-3 rounded-2xl border border-primary/15 bg-accent p-3"
+            className="flex w-[min(20rem,85vw)] shrink-0 snap-start items-center gap-3 rounded-2xl border border-primary/15 bg-accent p-2.5"
           >
-            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-primary/10">
+            <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-primary/10">
               {promo.bannerUrl ? (
                 <RevealImage src={promo.bannerUrl} alt="" className="object-cover" fallbackSrc={DEFAULT_GALLERY_IMAGE_URL} timeoutMs={2500} />
               ) : (
@@ -506,15 +527,15 @@ function OffersRow({ promotions, cakeNameBySlug }: { promotions: Promotion[]; ca
               )}
             </div>
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-bold">{promo.title}</p>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <p className="text-sm font-bold">{promo.title}</p>
                 {promo.code && (
                   <span className="shrink-0 rounded-md border border-dashed border-primary/40 bg-background px-1.5 py-0.5 text-[11px] font-bold tracking-wide text-primary">
                     {promo.code}
                   </span>
                 )}
               </div>
-              <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted-foreground">{describePromotion(promo, cakeNameBySlug)}</p>
+              <p className="line-clamp-2 text-xs leading-4 text-muted-foreground">{describePromotion(promo, cakeNameBySlug)}</p>
             </div>
           </div>
         ))}

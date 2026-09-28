@@ -22,7 +22,7 @@ export function QuantityStepper({
   disableDecrease = false,
   className,
 }: QuantityStepperProps) {
-  const buttonSize = size === "sm" ? "h-8 w-8" : "h-10 w-10";
+  const buttonSize = size === "sm" ? "h-9 w-9" : "h-10 w-10";
   const iconSize = size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4";
 
   return (
@@ -39,7 +39,7 @@ export function QuantityStepper({
         disabled={disableDecrease}
         aria-label={`Remove one ${itemName}`}
         className={cn(
-          "flex items-center justify-center rounded-full transition-colors disabled:opacity-40",
+          "relative flex items-center justify-center rounded-full transition-colors after:absolute after:-inset-1 disabled:opacity-40",
           variant === "filled" ? "hover:bg-black/10" : "hover:bg-muted",
           buttonSize,
         )}
@@ -54,7 +54,7 @@ export function QuantityStepper({
         onClick={onIncrease}
         aria-label={`Add one more ${itemName}`}
         className={cn(
-          "flex items-center justify-center rounded-full transition-colors",
+          "relative flex items-center justify-center rounded-full transition-colors after:absolute after:-inset-1",
           variant === "filled" ? "hover:bg-black/10" : "hover:bg-muted",
           buttonSize,
         )}

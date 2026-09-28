@@ -9,7 +9,7 @@ import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { cn, formatKes } from "@/lib/utils";
 
 const addButtonClass =
-  "flex h-9 w-9 items-center justify-center rounded-full bg-white text-primary shadow-md ring-1 ring-black/5 transition-transform hover:scale-105 active:scale-95";
+  "relative flex h-10 w-10 items-center justify-center rounded-full bg-white text-primary shadow-md ring-1 ring-black/5 transition-transform after:absolute after:-inset-1 hover:scale-105 active:scale-95";
 
 export function cakePriceLabel(cake: Cake) {
   if (cake.variants && cake.variants.length > 0) {

@@ -69,7 +69,7 @@ export default function Cart() {
                     type="button"
                     onClick={() => removeItem(item.cake.id, item.variantLabel)}
                     aria-label={`Remove ${item.cake.name} from cart`}
-                    className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+                    className="-mr-2 -mt-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>

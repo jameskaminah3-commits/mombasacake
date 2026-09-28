@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useLocation } from "wouter";
-import { useGetCake, getGetCakeQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetCake,
+  getGetCakeQueryKey,
+  getGetPopularCakesQueryKey,
+  getListCakesQueryKey,
+  type Cake,
+} from "@workspace/api-client-react";
 import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -15,6 +22,7 @@ import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
 import { QuantityStepper } from "@/components/quantity-stepper";
 import { cn, formatKes } from "@/lib/utils";
+import { normalizeKenyanPhone } from "@/lib/phone";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 interface Review {
@@ -64,8 +72,17 @@ function ReviewCard({ review }: { review: Review }) {
 export default function CakeDetail() {
   const { id } = useParams();
   const cakeId = Number(id);
+  const queryClient = useQueryClient();
+  // The shop page has already loaded this cake, so show it straight away while fresh data loads.
+  const cakeFromShopPage = () =>
+    [
+      ...queryClient.getQueriesData<Cake[]>({ queryKey: getListCakesQueryKey() }),
+      ...queryClient.getQueriesData<Cake[]>({ queryKey: getGetPopularCakesQueryKey() }),
+    ]
+      .flatMap(([, cakes]) => cakes ?? [])
+      .find((listedCake) => listedCake.id === cakeId);
   const { data: cake, isLoading } = useGetCake(cakeId, {
-    query: { enabled: !!cakeId, queryKey: getGetCakeQueryKey(cakeId) }
+    query: { enabled: !!cakeId, queryKey: getGetCakeQueryKey(cakeId), placeholderData: cakeFromShopPage }
   });
 
   const { addItem } = useCart();
@@ -132,7 +149,7 @@ export default function CakeDetail() {
           body: reviewBody,
           rating: reviewRating,
           orderId: Number(reviewOrderId),
-          customerPhone: reviewPhone,
+          customerPhone: normalizeKenyanPhone(reviewPhone),
         }),
       });
       if (!res.ok) throw new Error("Failed to submit review");
@@ -414,6 +431,9 @@ export default function CakeDetail() {
                   value={reviewPhone}
                   onChange={(e) => setReviewPhone(e.target.value)}
                   placeholder="e.g. 07xx xxx xxx"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
                   required
                   className="rounded-xl"
                   data-testid="input-review-phone"

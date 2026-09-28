@@ -21,6 +21,7 @@ import { Loader2 } from "lucide-react";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
 import { DEFAULT_PAYMENT_SETTINGS, fetchPaymentSettings } from "@/lib/payment-settings";
+import { isValidKenyanMobile, normalizeKenyanPhone } from "@/lib/phone";
 
 const tomorrow = () => {
   const d = new Date();
@@ -30,7 +31,10 @@ const tomorrow = () => {
 
 const checkoutSchema = z.object({
   customerName: z.string().min(2, "Name is required"),
-  customerPhone: z.string().regex(/^254\d{9}$/, "Must be a valid Safaricom number (254XXXXXXXXX)"),
+  customerPhone: z
+    .string()
+    .transform(normalizeKenyanPhone)
+    .refine(isValidKenyanMobile, "Enter your M-Pesa number, e.g. 0712 345 678"),
   customerEmail: z.string().email("Valid email required").optional().or(z.literal("")),
   deliveryAddress: z.string().min(5, "Delivery address is required"),
   deliveryDate: z.string().min(1, "Please select a delivery date").refine(
@@ -82,7 +86,7 @@ export default function Checkout() {
     resolver: zodResolver(checkoutSchema),
     defaultValues: {
       customerName: "",
-      customerPhone: "254",
+      customerPhone: "",
       customerEmail: "",
       deliveryAddress: "",
       deliveryDate: "",
@@ -211,7 +215,7 @@ export default function Checkout() {
                       <FormItem>
                         <FormLabel>Full Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="Jane Doe" {...field} className="bg-background" />
+                          <Input placeholder="Jane Doe" autoComplete="name" {...field} className="bg-background" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -223,11 +227,18 @@ export default function Checkout() {
                     name="customerPhone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>MPesa Phone Number</FormLabel>
+                        <FormLabel>M-Pesa Phone Number</FormLabel>
                         <FormControl>
-                          <Input placeholder="254700000000" {...field} className="bg-background" />
+                          <Input
+                            type="tel"
+                            inputMode="tel"
+                            autoComplete="tel"
+                            placeholder="0712 345 678"
+                            {...field}
+                            className="bg-background"
+                          />
                         </FormControl>
-                        <p className="text-xs text-muted-foreground">Format: 254XXXXXXXXX</p>
+                        <p className="text-xs text-muted-foreground">This number receives the M-Pesa payment prompt.</p>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -240,7 +251,7 @@ export default function Checkout() {
                       <FormItem>
                         <FormLabel>Email (Optional)</FormLabel>
                         <FormControl>
-                          <Input placeholder="jane@example.com" {...field} className="bg-background" />
+                          <Input type="email" inputMode="email" autoComplete="email" placeholder="jane@example.com" {...field} className="bg-background" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -254,7 +265,7 @@ export default function Checkout() {
                       <FormItem>
                         <FormLabel>Delivery Address</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Apartment, Street, Area..." {...field} className="bg-background resize-none" />
+                          <Textarea placeholder="Apartment, Street, Area..." autoComplete="street-address" {...field} className="bg-background resize-none" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -272,7 +283,7 @@ export default function Checkout() {
                             type="date"
                             min={tomorrow()}
                             {...field}
-                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           />
                         </FormControl>
                         <p className="text-xs text-muted-foreground">We need at least 24 hours notice to prepare your cake.</p>
@@ -302,7 +313,7 @@ export default function Checkout() {
                       <FormItem>
                         <FormLabel>Promo Code (Optional)</FormLabel>
                         <FormControl>
-                          <Input placeholder="WEEKEND15" {...field} className="bg-background" />
+                          <Input placeholder="WEEKEND15" autoCapitalize="characters" autoCorrect="off" spellCheck={false} {...field} className="bg-background" />
                         </FormControl>
                         <p className="text-xs text-muted-foreground">Enter a checkout code if you have one. Automatic offers may still apply when your cart qualifies.</p>
                         <FormMessage />
