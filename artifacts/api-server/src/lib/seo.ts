@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import type { Request } from "express";
 import { and, eq } from "drizzle-orm";
 import { blogPostsTable, cakesTable, db } from "@workspace/db";
@@ -112,14 +112,15 @@ function setMeta(html: string, attribute: "name" | "property", key: string, valu
   return pattern.test(html) ? html.replace(pattern, tag) : html.replace("</head>", `  ${tag}\n  </head>`);
 }
 
-let cachedTemplate: string | null = null;
+let cachedTemplate: { mtimeMs: number; html: string } | null = null;
 
 function loadTemplate(templateFile: string) {
-  // Re-read outside production so a rebuilt shop is picked up without a restart.
-  if (cachedTemplate === null || process.env.NODE_ENV !== "production") {
-    cachedTemplate = readFileSync(templateFile, "utf8");
+  // Kept in memory, but re-read whenever the file changes (a rebuild renames the scripts it loads).
+  const { mtimeMs } = statSync(templateFile);
+  if (!cachedTemplate || cachedTemplate.mtimeMs !== mtimeMs) {
+    cachedTemplate = { mtimeMs, html: readFileSync(templateFile, "utf8") };
   }
-  return cachedTemplate;
+  return cachedTemplate.html;
 }
 
 // The shop's index.html with the right address, title, description and preview image for this page,
