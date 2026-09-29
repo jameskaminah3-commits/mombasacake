@@ -1,8 +1,8 @@
 import { Router, type IRouter, type Response } from "express";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import { ensureOrdersSchema } from "../lib/ensure-orders-schema";
-import { db, ordersTable, orderItemsTable, cakesTable, promotionsTable, customersTable, paymentsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, cakesTable, promotionsTable, customersTable, paymentsTable, referralsTable } from "@workspace/db";
 import { requireAdmin } from "../lib/auth-middleware";
 import { logger } from "../lib/logger";
 import { sendNewOrderNotification } from "../lib/order-notifications";
@@ -16,6 +16,19 @@ import {
 } from "@workspace/api-zod";
 import { ensurePromotionsSchema } from "../lib/ensure-promotions-schema";
 import { cakeSizes, readCakeOptions } from "../lib/cake-options";
+import { resolveCustomerFromRequest } from "../lib/customer-auth";
+import { emailCustomerAboutOrder } from "../lib/customer-notifications";
+import { canAccessOrder, newOrderAccessToken } from "../lib/order-access";
+import {
+  ReferralCodeError,
+  ensureReferralCode,
+  findCustomerByPhone,
+  readReferralSettings,
+  referralDiscountFor,
+  rewardReferralForPaidOrder,
+  undoRewardsForCancelledOrder,
+} from "../lib/referrals";
+import { siteUrl } from "../lib/seo";
 
 const router: IRouter = Router();
 
@@ -66,7 +79,7 @@ function firstIssue(error: z.ZodError) {
 }
 
 function sendOrderError(res: Response, err: unknown, logMessage: string) {
-  if (err instanceof OrderInputError) {
+  if (err instanceof OrderInputError || err instanceof ReferralCodeError) {
     res.status(400).json({ error: err.message });
     return;
   }
@@ -187,9 +200,8 @@ router.post("/orders", async (req, res): Promise<void> => {
     })
   );
     
-await ensureOrdersSchema();
-    
-    try {
+  await ensureOrdersSchema();
+  try {
     await ensurePromotionsSchema();
   } catch (err) {
     logger.error({ err }, "ensurePromotionsSchema failed, continuing without promotions");
@@ -200,57 +212,90 @@ await ensureOrdersSchema();
     .filter((promo) => isPromotionActive(promo))
     .filter((promo) => isPromotionEligible(promo, enrichedItems, orderSubtotal));
 
+  // One code per order: a promotion's code, or a friend's referral code on a first order.
   const requestedCode = parsed.data.promoCode?.trim() || null;
   const appliedPromotion = requestedCode
-    ? eligiblePromotions.find((promo) => promo.code?.toLowerCase() === requestedCode.toLowerCase())
+    ? eligiblePromotions.find((promo) => promo.code?.toLowerCase() === requestedCode.toLowerCase()) ?? null
     : eligiblePromotions
         .filter((promo) => !promo.code)
         .sort((a, b) => calculateDiscount(b, orderSubtotal, enrichedItems) - calculateDiscount(a, orderSubtotal, enrichedItems))[0] ?? null;
+  const referralSettings = await readReferralSettings();
+  const referral =
+    requestedCode && !appliedPromotion
+      ? await referralDiscountFor(requestedCode, parsed.data.customerPhone, referralSettings, orderSubtotal)
+      : null;
 
-  if (requestedCode && !appliedPromotion) {
+  if (requestedCode && !appliedPromotion && !referral) {
     res.status(400).json({ error: "That promo code is invalid or not eligible for this order" });
     return;
   }
 
-  const discountAmount = appliedPromotion ? calculateDiscount(appliedPromotion, orderSubtotal, enrichedItems) : 0;
-  const total = Math.max(orderSubtotal - discountAmount, 0);
-  const customerPayload = {
+  const discountAmount = appliedPromotion ? calculateDiscount(appliedPromotion, orderSubtotal, enrichedItems) : referral?.discount ?? 0;
+  // A signed-in customer's orders are linked to their account by its email address.
+  const account = await resolveCustomerFromRequest(req);
+  const customer = await resolveCustomer({
     name: parsed.data.customerName.trim(),
     phone: parsed.data.customerPhone.trim(),
-    email: parsed.data.customerEmail?.trim() || null,
-  };
-  const customerId = await resolveCustomerId(customerPayload);
+    email: parsed.data.customerEmail?.trim() || account?.email || null,
+  });
 
-  const [order] = await db
-    .insert(ordersTable)
-    .values({
-      customerId,
-      customerName: customerPayload.name,
-      customerPhone: customerPayload.phone,
-      customerEmail: customerPayload.email,
-      deliveryAddress: parsed.data.deliveryAddress,
-      deliveryDate: parsed.data.deliveryDate ? new Date(parsed.data.deliveryDate + "T00:00:00Z") : null,
-      notes: parsed.data.notes,
-      promoCode: appliedPromotion?.code ?? requestedCode,
-      discountAmount: String(discountAmount),
-      total: String(total),
-      status: "pending",
-      paymentStatus: "pending",
-    })
-    .returning();
+  const { order, items } = await db.transaction(async (tx) => {
+    // Referral rewards this customer has earned come off automatically.
+    let creditUsed = Math.min(parseFloat(customer.creditBalance), Math.max(orderSubtotal - discountAmount, 0));
+    if (creditUsed > 0) {
+      const [spent] = await tx
+        .update(customersTable)
+        .set({ creditBalance: sql`${customersTable.creditBalance} - ${creditUsed}` })
+        .where(and(eq(customersTable.id, customer.id), sql`${customersTable.creditBalance} >= ${creditUsed}`))
+        .returning({ id: customersTable.id });
+      if (!spent) creditUsed = 0;
+    }
 
-  const items = await db
-    .insert(orderItemsTable)
-    .values(enrichedItems.map((i) => ({ ...i, orderId: order.id })))
-    .returning();
+    const [order] = await tx
+      .insert(ordersTable)
+      .values({
+        customerId: customer.id,
+        customerName: parsed.data.customerName.trim(),
+        customerPhone: parsed.data.customerPhone.trim(),
+        customerEmail: customer.email,
+        deliveryAddress: parsed.data.deliveryAddress,
+        deliveryDate: parsed.data.deliveryDate ? new Date(parsed.data.deliveryDate + "T00:00:00Z") : null,
+        notes: parsed.data.notes,
+        promoCode: appliedPromotion?.code ?? requestedCode,
+        discountAmount: String(discountAmount),
+        creditUsed: String(creditUsed),
+        total: String(Math.max(orderSubtotal - discountAmount - creditUsed, 0)),
+        status: "pending",
+        paymentStatus: "pending",
+        accessToken: newOrderAccessToken(),
+      })
+      .returning();
+
+    const items = await tx
+      .insert(orderItemsTable)
+      .values(enrichedItems.map((i) => ({ ...i, orderId: order.id })))
+      .returning();
+
+    if (referral) {
+      await tx.insert(referralsTable).values({
+        code: referral.referrer.referralCode ?? requestedCode!,
+        referrerCustomerId: referral.referrer.id,
+        referredOrderId: order.id,
+        friendDiscount: String(discountAmount),
+        referrerReward: String(referralSettings.referrerReward),
+      });
+    }
+    return { order, items };
+  });
 
   try {
     await sendNewOrderNotification(order, items);
   } catch (err) {
     logger.error({ err, orderId: order.id }, "Failed to send new order email");
   }
+  await emailCustomerAboutOrder(order, items, "received", siteUrl(req));
 
-  res.status(201).json(formatOrder(order, items));
+  res.status(201).json({ ...formatOrder(order, items), referral: await referralInfoFor(order) });
   } catch (err) {
     sendOrderError(res, err, "Order creation failed");
   }
@@ -267,8 +312,12 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Order not found" });
     return;
   }
+  if (!(await canAccessOrder(req, order))) {
+    res.status(401).json({ error: "Enter the phone number you used for this order to see it.", needsPhone: true });
+    return;
+  }
   const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
-  res.json(formatOrder(order, items));
+  res.json({ ...formatOrder(order, items), referral: await referralInfoFor(order) });
 });
 
 router.patch("/orders/:id/status", requireAdmin, async (req, res): Promise<void> => {
@@ -283,16 +332,22 @@ router.patch("/orders/:id/status", requireAdmin, async (req, res): Promise<void>
     return;
   }
   await ensureOrdersSchema();
-  const [order] = await db
+  const [before] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
+  if (!before) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  let [order] = await db
     .update(ordersTable)
     .set({ status: parsed.data.status })
     .where(eq(ordersTable.id, params.data.id))
     .returning();
-  if (!order) {
-    res.status(404).json({ error: "Order not found" });
-    return;
+  if (order.status === "cancelled" && before.status !== "cancelled") {
+    await undoRewardsForCancelledOrder(order);
+    [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, order.id));
   }
   const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
+  if (order.status !== before.status) await emailCustomerAboutOrder(order, items, "status", siteUrl(req));
   res.json(formatOrder(order, items));
 });
 
@@ -314,6 +369,7 @@ router.patch("/orders/:id/mark-paid", requireAdmin, async (req, res): Promise<vo
   if (receipt) setValues.mpesaReceiptNo = receipt;
 
   await ensureOrdersSchema();
+  const [before] = await db.select({ paymentStatus: ordersTable.paymentStatus }).from(ordersTable).where(eq(ordersTable.id, params.data.id));
   const [order] = await db
     .update(ordersTable)
     .set(setValues)
@@ -331,8 +387,10 @@ router.patch("/orders/:id/mark-paid", requireAdmin, async (req, res): Promise<vo
     status: "completed",
     mpesaReceiptNo: receipt || undefined,
   });
+  await rewardReferralForPaidOrder(order.id);
 
   const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
+  if (before?.paymentStatus !== "paid") await emailCustomerAboutOrder(order, items, "paid", siteUrl(req));
   res.json(formatOrder(order, items));
 });
 
@@ -353,7 +411,7 @@ router.post("/orders/manual", requireAdmin, async (req, res): Promise<void> => {
       phone: parsed.data.customerPhone,
       email: cleanText(parsed.data.customerEmail, 200),
     };
-    const customerId = await resolveCustomerId(customer);
+    const customerId = (await resolveCustomer(customer)).id;
     const receipt = cleanText(parsed.data.mpesaReceiptNo, 40);
 
     const { order, items } = await db.transaction(async (tx) => {
@@ -372,6 +430,7 @@ router.post("/orders/manual", requireAdmin, async (req, res): Promise<void> => {
           status: parsed.data.status,
           paymentStatus: parsed.data.paid ? "paid" : "pending",
           mpesaReceiptNo: receipt,
+          accessToken: newOrderAccessToken(),
         })
         .returning();
       const items = await tx
@@ -392,6 +451,7 @@ router.post("/orders/manual", requireAdmin, async (req, res): Promise<void> => {
     });
 
     logger.info({ orderId: order.id }, "Manual order created");
+    await emailCustomerAboutOrder(order, items, "received", siteUrl(req));
     res.status(201).json(formatOrder(order, items));
   } catch (err) {
     sendOrderError(res, err, "Manual order creation failed");
@@ -427,7 +487,8 @@ router.put("/orders/:id", requireAdmin, async (req, res): Promise<void> => {
       phone: parsed.data.customerPhone,
       email: cleanText(parsed.data.customerEmail, 200),
     };
-    const customerId = await resolveCustomerId(customer);
+    const customerId = (await resolveCustomer(customer)).id;
+    const creditUsed = parseFloat(existing.creditUsed);
 
     const { order, items } = await db.transaction(async (tx) => {
       const [order] = await tx
@@ -441,7 +502,7 @@ router.put("/orders/:id", requireAdmin, async (req, res): Promise<void> => {
           deliveryDate: parsed.data.deliveryDate ? new Date(parsed.data.deliveryDate + "T00:00:00Z") : null,
           notes: cleanText(parsed.data.notes, 2000),
           discountAmount: String(discount),
-          total: String(subtotal - discount),
+          total: String(Math.max(subtotal - discount - creditUsed, 0)),
           status: parsed.data.status,
         })
         .where(eq(ordersTable.id, existing.id))
@@ -454,8 +515,15 @@ router.put("/orders/:id", requireAdmin, async (req, res): Promise<void> => {
       return { order, items };
     });
 
-    logger.info({ orderId: order.id }, "Order edited in admin");
-    res.json(formatOrder(order, items));
+    // Same as changing the status on its own: cancelling gives back referral credit, and the customer hears of it.
+    let saved = order;
+    if (saved.status === "cancelled" && existing.status !== "cancelled") {
+      await undoRewardsForCancelledOrder(saved);
+      [saved] = await db.select().from(ordersTable).where(eq(ordersTable.id, saved.id));
+    }
+    logger.info({ orderId: saved.id }, "Order edited in admin");
+    if (saved.status !== existing.status) await emailCustomerAboutOrder(saved, items, "status", siteUrl(req));
+    res.json(formatOrder(saved, items));
   } catch (err) {
     sendOrderError(res, err, "Order update failed");
   }
@@ -480,6 +548,8 @@ function formatOrder(
     paymentStatus: order.paymentStatus,
     total: parseFloat(order.total),
     mpesaReceiptNo: order.mpesaReceiptNo ?? null,
+    creditUsed: parseFloat(order.creditUsed),
+    accessToken: order.accessToken ?? null,
     items: items.map((i) => ({
       id: i.id,
       cakeId: i.cakeId,
@@ -570,28 +640,46 @@ function parseApplicableCakeSlugs(value: string | null) {
   }
 }
 
-async function resolveCustomerId(customer: { name: string; phone: string; email: string | null }) {
-  const [existing] = await db
-    .select()
-    .from(customersTable)
-    .where(eq(customersTable.phone, customer.phone))
-    .orderBy(desc(customersTable.createdAt))
-    .limit(1);
+// One customer record per phone number, however it was written (0712…, +254 712…); name and email follow
+// their latest order.
+async function resolveCustomer(customer: { name: string; phone: string; email: string | null }) {
+  const existing =
+    (await findCustomerByPhone(customer.phone)) ??
+    (await db.select().from(customersTable).where(eq(customersTable.phone, customer.phone)).limit(1))[0];
 
   if (existing) {
     const [updated] = await db
       .update(customersTable)
       .set({
         name: customer.name,
-        email: customer.email,
+        email: customer.email ?? existing.email,
       })
       .where(eq(customersTable.id, existing.id))
       .returning();
-    return updated.id;
+    return updated;
   }
 
   const [created] = await db.insert(customersTable).values(customer).returning();
-  return created.id;
+  return created;
+}
+
+// The customer's own code to share and their unspent reward credit, for their order page.
+async function referralInfoFor(order: typeof ordersTable.$inferSelect) {
+  try {
+    const settings = await readReferralSettings();
+    if (!settings.enabled || !order.customerId) return null;
+    const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, order.customerId));
+    if (!customer) return null;
+    return {
+      code: await ensureReferralCode(customer),
+      friendDiscount: settings.friendDiscount,
+      referrerReward: settings.referrerReward,
+      creditBalance: parseFloat(customer.creditBalance),
+    };
+  } catch (err) {
+    logger.error({ err, orderId: order.id }, "Referral details unavailable");
+    return null;
+  }
 }
 
 export default router;

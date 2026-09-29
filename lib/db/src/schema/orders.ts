@@ -17,6 +17,10 @@ export const ordersTable = pgTable("orders", {
   total: numeric("total", { precision: 10, scale: 2 }).notNull(),
   mpesaReceiptNo: text("mpesa_receipt_no"),
   deliveryDate: timestamp("delivery_date", { withTimezone: true }),
+  // Private code in the customer's order link. Orders from before it existed have none; their page asks for the phone number.
+  accessToken: text("access_token"),
+  // Referral reward credit taken off this order (on top of discountAmount).
+  creditUsed: numeric("credit_used", { precision: 10, scale: 2 }).notNull().default("0"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

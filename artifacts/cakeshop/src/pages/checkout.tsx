@@ -1,27 +1,43 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { cartLineKey, useCart } from "@/lib/cart-context";
 import {
+  createOrder,
   getGetOrderQueryKey,
-  useCreateOrder,
+  initiateMpesaPayment,
   useGetOrder,
-  useInitiateMpesaPayment,
   useListPromotions,
+  type Order,
   type Promotion,
 } from "@workspace/api-client-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  checkReferralCode,
+  clearReferralCode,
+  customerHeaders,
+  errorMessage,
+  loadReferralCode,
+  loadSavedDetails,
+  orderPath,
+  rememberOrder,
+  saveDetails,
+  useAccountOverview,
+  useCustomerSession,
+  useEmailLoginAvailable,
+} from "@/lib/customer";
 import { Loader2 } from "lucide-react";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
 import { DEFAULT_PAYMENT_SETTINGS, fetchPaymentSettings } from "@/lib/payment-settings";
-import { isValidKenyanMobile, normalizeKenyanPhone } from "@/lib/phone";
+import { displayKenyanPhone, isValidKenyanMobile, normalizeKenyanPhone, phoneKey } from "@/lib/phone";
 
 const tomorrow = () => {
   const d = new Date();
@@ -62,9 +78,14 @@ export default function Checkout() {
   const statusPanelRef = useRef<HTMLDivElement>(null);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "prompted" | "success" | "failed">("idle");
   const [paymentDetails, setPaymentDetails] = useState<{ shortCode: string; amount: number } | null>(null);
-
-  const createOrder = useCreateOrder();
-  const initiatePayment = useInitiateMpesaPayment();
+  // The order once it's placed: the cart is emptied then, and paying again reuses this order.
+  const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(true);
+  const session = useCustomerSession();
+  const { data: account } = useAccountOverview();
+  const loginAvailable = useEmailLoginAvailable();
   const { data: promotions } = useListPromotions();
   const { data: paymentSettings } = useQuery({
     queryKey: ["payment-settings"],
@@ -80,24 +101,59 @@ export default function Checkout() {
       queryKey: getGetOrderQueryKey(activeOrderId as number),
       refetchInterval: 3000,
     },
+    request: { headers: placedOrder?.accessToken ? { "X-Order-Token": placedOrder.accessToken } : {} },
   });
 
   const form = useForm<CheckoutFormValues>({
     resolver: zodResolver(checkoutSchema),
-    defaultValues: {
-      customerName: "",
-      customerPhone: "",
-      customerEmail: "",
-      deliveryAddress: "",
-      deliveryDate: "",
-      notes: "",
-      promoCode: "",
-    },
+    // Filled in from last time on this phone, and a friend's referral code from their link.
+    defaultValues: (() => {
+      const saved = loadSavedDetails();
+      return {
+        customerName: saved?.customerName ?? "",
+        customerPhone: saved?.customerPhone ? displayKenyanPhone(saved.customerPhone) : "",
+        customerEmail: saved?.customerEmail ?? "",
+        deliveryAddress: saved?.deliveryAddress ?? "",
+        deliveryDate: "",
+        notes: "",
+        promoCode: loadReferralCode() ?? "",
+      };
+    })(),
   });
+
+  // Signed-in customers get their saved details filled in (anything already typed stays).
+  useEffect(() => {
+    if (!account) return;
+    const fill = { customerName: account.account.name, customerPhone: account.account.phone ? displayKenyanPhone(account.account.phone) : "", customerEmail: account.account.email, deliveryAddress: account.account.address };
+    for (const [field, value] of Object.entries(fill) as [keyof typeof fill, string][]) {
+      if (value && !form.getValues(field)) form.setValue(field, value);
+    }
+  }, [account, form]);
 
   const promoCode = form.watch("promoCode");
   const promotionPreview = resolvePromotionPreview(promotions ?? [], items, total, promoCode);
-  const discountedTotal = Math.max(total - promotionPreview.discountAmount, 0);
+  // A code that isn't a promotion may be a friend's referral code (a first order gets money off).
+  const typedCode = promoCode?.trim() ?? "";
+  const isPromotionCode = !!promotionPreview.promotion?.code;
+  const { data: referralCheck } = useQuery({
+    queryKey: ["referral-check", typedCode.toUpperCase()],
+    queryFn: () => checkReferralCode(typedCode),
+    enabled: typedCode.length >= 4 && !isPromotionCode,
+    staleTime: 60_000,
+  });
+  const referralDiscount = !isPromotionCode && referralCheck?.valid ? Math.min(referralCheck.discount ?? 0, total) : 0;
+  const checkingCode = typedCode.length >= 4 && !isPromotionCode && !referralCheck;
+  const preview =
+    referralDiscount > 0
+      ? { discountAmount: referralDiscount, label: typedCode.toUpperCase(), message: `Friend's referral code: KES ${referralDiscount.toLocaleString()} off your first order.` }
+      : checkingCode
+        ? { ...promotionPreview, message: null }
+        : promotionPreview;
+  // A signed-in customer's referral reward comes off orders placed with the number it belongs to.
+  const rewardCredit = account?.referral?.creditBalance ?? 0;
+  const creditApplies = rewardCredit > 0 && !!account?.referral?.phone && phoneKey(form.watch("customerPhone") ?? "") === phoneKey(account.referral.phone);
+  const expectedCredit = creditApplies ? Math.min(rewardCredit, Math.max(total - preview.discountAmount, 0)) : 0;
+  const discountedTotal = Math.max(total - preview.discountAmount - expectedCredit, 0);
 
   // The form is much taller than the status cards that replace it, so bring each new state into view
   // (on mobile the order summary sits above it).
@@ -110,19 +166,48 @@ export default function Checkout() {
   useEffect(() => {
     if (orderData?.paymentStatus === "paid") {
       setPaymentStatus("success");
-      clearCart();
       setTimeout(() => {
-        setLocation(`/order/${orderData.id}`);
+        setLocation(orderPath({ id: orderData.id, accessToken: placedOrder?.accessToken }));
       }, 1500);
     } else if (orderData?.paymentStatus === "failed") {
       setPaymentStatus("failed");
     }
-  }, [orderData, setLocation, clearCart]);
+  }, [orderData, setLocation, placedOrder]);
 
-  if (items.length === 0 && paymentStatus === "idle") {
+  if (items.length === 0 && paymentStatus === "idle" && !placedOrder) {
     setLocation("/cart");
     return null;
   }
+
+  // What the summary shows: the cart, or the order once it's placed (the cart is empty by then).
+  const summaryLines = placedOrder
+    ? placedOrder.items.map((item) => ({
+        key: String(item.id),
+        name: item.cakeName,
+        image: item.cakeImage,
+        quantity: item.quantity,
+        variantLabel: item.variantLabel,
+        flavour: item.flavour,
+        secondFlavour: item.secondFlavour,
+        message: item.cakeMessage,
+        unitPrice: item.unitPrice,
+      }))
+    : items.map((item) => ({
+        key: cartLineKey(item),
+        name: item.cake.name,
+        image: item.cake.imageUrl,
+        quantity: item.quantity,
+        variantLabel: item.variantLabel,
+        flavour: item.flavour,
+        secondFlavour: item.secondFlavour,
+        message: item.message,
+        unitPrice: item.variantPrice ?? item.cake.price,
+      }));
+  const summarySubtotal = placedOrder ? placedOrder.items.reduce((sum, item) => sum + item.subtotal, 0) : total;
+  const summaryDiscount = placedOrder ? placedOrder.discountAmount : preview.discountAmount;
+  const summaryDiscountLabel = placedOrder ? placedOrder.promoCode : preview.label;
+  const summaryCredit = placedOrder ? (placedOrder.creditUsed ?? 0) : expectedCredit;
+  const summaryTotal = placedOrder ? placedOrder.total : discountedTotal;
 
   const mpesaPaymentBlock = paymentDetails && activeOrderId ? (
     <div className="mt-6 bg-[#52B44B]/10 border border-[#52B44B]/30 rounded-xl p-5 text-left">
@@ -151,49 +236,68 @@ export default function Checkout() {
     </div>
   ) : null;
 
-  const onSubmit = async (values: CheckoutFormValues) => {
+  // Sends the M-Pesa prompt for the placed order (again, when the first prompt didn't go through).
+  const startPayment = async (order: Order) => {
+    setPaymentStatus("processing");
+    const manualNumber = (isBuyGoods ? paymentSettings?.tillNumber : paymentSettings?.businessShortCode) || DEFAULT_PAYMENT_SETTINGS.businessShortCode;
     try {
-      setPaymentStatus("processing");
+      const payResult = await initiateMpesaPayment(
+        { orderId: order.id, phone: order.customerPhone, amount: order.total },
+        { headers: order.accessToken ? { "X-Order-Token": order.accessToken } : {} },
+      );
+      setPaymentDetails({ shortCode: payResult.businessShortCode || manualNumber, amount: order.total });
+      setPaymentStatus("prompted");
+    } catch (error) {
+      console.error(error);
+      setPaymentDetails({ shortCode: manualNumber, amount: order.total });
+      setPaymentStatus("failed");
+    }
+  };
 
-      // Each cake's size, flavours and message are saved with that cake, so admin and the order email show them per cake.
-      const orderItems = items.map((item) => ({
-        cakeId: item.cake.id,
-        quantity: item.quantity,
-        variantLabel: item.variantLabel || undefined,
-        flavour: item.flavour || undefined,
-        secondFlavour: item.secondFlavour || undefined,
-        cakeMessage: item.message || undefined,
-      }));
+  const onSubmit = async (values: CheckoutFormValues) => {
+    setSubmitting(true);
+    setSubmitError(null);
+    // Each cake's size, flavours and message are saved with that cake, so admin and the order email show them per cake.
+    const orderItems = items.map((item) => ({
+      cakeId: item.cake.id,
+      quantity: item.quantity,
+      variantLabel: item.variantLabel || undefined,
+      flavour: item.flavour || undefined,
+      secondFlavour: item.secondFlavour || undefined,
+      cakeMessage: item.message || undefined,
+    }));
 
-      const order = await createOrder.mutateAsync({
-        data: {
+    let order: Order;
+    try {
+      order = await createOrder(
+        {
           ...values,
           notes: values.notes?.trim() || undefined,
           deliveryDate: values.deliveryDate || undefined,
           promoCode: values.promoCode?.trim() || undefined,
           items: orderItems,
         },
-      });
-
-      setActiveOrderId(order.id);
-
-      const payResult = await initiatePayment.mutateAsync({
-        data: {
-          orderId: order.id,
-          phone: values.customerPhone,
-          amount: order.total,
-        },
-      });
-
-      setPaymentDetails({
-        shortCode: payResult.businessShortCode || "522522",
-        amount: order.total,
-      });
-      setPaymentStatus("prompted");
+        { headers: customerHeaders(session) },
+      );
     } catch (error) {
-      console.error(error);
-      setPaymentStatus("failed");
+      setSubmitting(false);
+      setSubmitError(errorMessage(error, "We couldn't place your order. Please check your details and try again."));
+      return;
     }
+
+    // The order is in: remember it on this phone, empty the cart, and ask for payment.
+    rememberOrder(order);
+    saveDetails(
+      rememberMe
+        ? { customerName: values.customerName, customerPhone: values.customerPhone, customerEmail: values.customerEmail ?? "", deliveryAddress: values.deliveryAddress }
+        : null,
+    );
+    if (values.promoCode?.trim()) clearReferralCode();
+    setPlacedOrder(order);
+    setActiveOrderId(order.id);
+    clearCart();
+    setSubmitting(false);
+    await startPayment(order);
   };
 
   return (
@@ -202,12 +306,21 @@ export default function Checkout() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_380px] lg:gap-8">
         <div ref={statusPanelRef} className="scroll-mt-20">
-          {paymentStatus === "idle" || (paymentStatus === "failed" && !activeOrderId) ? (
+          {paymentStatus === "idle" ? (
             <div className="rounded-2xl border border-border bg-card p-5 sm:p-6">
               <h2 className="mb-5 text-base font-bold">Delivery details</h2>
-              {paymentStatus === "failed" && (
-                <div className="bg-destructive/10 text-destructive p-4 rounded-lg mb-6 text-sm font-medium border border-destructive/20">
-                  Something went wrong. Please check your details and try again.
+              {!session && loginAvailable && (
+                <p className="mb-5 rounded-xl bg-muted/60 px-4 py-3 text-sm text-muted-foreground">
+                  Ordered before?{" "}
+                  <Link href="/account" className="font-semibold text-primary underline-offset-2 hover:underline">
+                    Sign in
+                  </Link>{" "}
+                  to fill this in and track your orders.
+                </p>
+              )}
+              {submitError && (
+                <div role="alert" className="bg-destructive/10 text-destructive p-4 rounded-lg mb-6 text-sm font-medium border border-destructive/20">
+                  {submitError}
                 </div>
               )}
 
@@ -316,23 +429,28 @@ export default function Checkout() {
                     name="promoCode"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Promo Code (Optional)</FormLabel>
+                        <FormLabel>Promo or referral code (optional)</FormLabel>
                         <FormControl>
                           <Input placeholder="WEEKEND15" autoCapitalize="characters" autoCorrect="off" spellCheck={false} {...field} className="bg-background" />
                         </FormControl>
-                        <p className="text-xs text-muted-foreground">Enter a checkout code if you have one. Automatic offers may still apply when your cart qualifies.</p>
+                        <p className="text-xs text-muted-foreground">A shop offer code, or a friend's code for money off your first order.</p>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
 
+                  <label className="flex items-start gap-3 text-sm text-muted-foreground">
+                    <Checkbox checked={rememberMe} onCheckedChange={(checked) => setRememberMe(checked === true)} className="mt-0.5" />
+                    <span>Remember my details on this phone for next time</span>
+                  </label>
+
                   <Button
                     type="submit"
                     size="lg"
                     className="w-full h-12 rounded-full bg-[#52B44B] hover:bg-[#52B44B]/90 text-white font-bold text-base"
-                    disabled={createOrder.isPending || initiatePayment.isPending}
+                    disabled={submitting}
                   >
-                    {createOrder.isPending || initiatePayment.isPending ? (
+                    {submitting ? (
                       <>
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
                       </>
@@ -352,7 +470,7 @@ export default function Checkout() {
                 <h2 className="text-xl font-extrabold mb-2 text-[#52B44B]">Check your phone</h2>
                 <p className="text-muted-foreground text-base max-w-xs mx-auto">
                   An M-Pesa STK push has been sent to your phone. Enter your PIN to complete payment of{" "}
-                  <strong>KES {discountedTotal.toLocaleString()}</strong>.
+                  <strong>KES {(placedOrder?.total ?? discountedTotal).toLocaleString()}</strong>.
                 </p>
               </div>
               {mpesaPaymentBlock}
@@ -382,16 +500,16 @@ export default function Checkout() {
               <div className="mt-6 flex flex-col gap-3">
                 <Button
                   className="w-full rounded-full bg-[#52B44B] hover:bg-[#52B44B]/90 text-white font-bold"
-                  onClick={() => setLocation(`/order/${activeOrderId}`)}
+                  onClick={() => placedOrder && startPayment(placedOrder)}
                 >
-                  View My Order
+                  Send the M-Pesa prompt again
                 </Button>
                 <Button
                   variant="outline"
                   className="w-full rounded-full"
-                  onClick={() => { setPaymentStatus("idle"); setActiveOrderId(null); setPaymentDetails(null); }}
+                  onClick={() => setLocation(orderPath({ id: activeOrderId, accessToken: placedOrder?.accessToken }))}
                 >
-                  Try Paying Again
+                  View my order
                 </Button>
               </div>
             </div>
@@ -413,16 +531,16 @@ export default function Checkout() {
           <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 lg:sticky lg:top-20">
             <h2 className="mb-4 text-base font-bold">Order summary</h2>
             <div className="space-y-4 mb-6">
-              {items.map((item) => {
-                const price = item.variantPrice ?? item.cake.price;
-                const key = cartLineKey(item);
+              {summaryLines.map((item) => {
+                const price = item.unitPrice;
+                const key = item.key;
                 return (
                 <div key={key} className="flex items-center gap-4">
                   <div className="relative">
                     <div className="w-16 h-16">
                       <RevealImage
-                        src={item.cake.imageUrl || DEFAULT_CAKE_IMAGE_URL}
-                        alt={item.cake.name}
+                        src={item.image || DEFAULT_CAKE_IMAGE_URL}
+                        alt={item.name}
                         className="object-cover rounded-lg bg-muted"
                         fallbackSrc={DEFAULT_CAKE_IMAGE_URL}
                         timeoutMs={2500}
@@ -433,7 +551,7 @@ export default function Checkout() {
                     </span>
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-sm line-clamp-1">{item.cake.name}</p>
+                    <p className="font-medium text-sm line-clamp-1">{item.name}</p>
                     {item.variantLabel && (
                       <p className="text-primary text-xs font-medium">{item.variantLabel}</p>
                     )}
@@ -451,19 +569,30 @@ export default function Checkout() {
             <div className="border-t border-border pt-4 space-y-2 text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
-                <span>KES {total.toLocaleString()}</span>
+                <span>KES {summarySubtotal.toLocaleString()}</span>
               </div>
-              {promotionPreview.discountAmount > 0 && (
+              {summaryDiscount > 0 && (
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Discount{promotionPreview.label ? ` (${promotionPreview.label})` : ""}</span>
-                  <span>- KES {promotionPreview.discountAmount.toLocaleString()}</span>
+                  <span>Discount{summaryDiscountLabel ? ` (${summaryDiscountLabel})` : ""}</span>
+                  <span>- KES {summaryDiscount.toLocaleString()}</span>
+                </div>
+              )}
+              {summaryCredit > 0 && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Your referral reward</span>
+                  <span>- KES {summaryCredit.toLocaleString()}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-lg text-foreground pt-2">
                 <span>Total</span>
-                <span>KES {discountedTotal.toLocaleString()}</span>
+                <span>KES {summaryTotal.toLocaleString()}</span>
               </div>
-              {promotionPreview.message && <p className="pt-2 text-xs leading-5 text-muted-foreground">{promotionPreview.message}</p>}
+              {!placedOrder && preview.message && <p className="pt-2 text-xs leading-5 text-muted-foreground">{preview.message}</p>}
+              {!placedOrder && rewardCredit > 0 && !creditApplies && (
+                <p className="pt-2 text-xs leading-5 text-emerald-700">
+                  Your KES {rewardCredit.toLocaleString()} referral reward comes off automatically when you order with the phone number you used before.
+                </p>
+              )}
             </div>
           </div>
         </div>

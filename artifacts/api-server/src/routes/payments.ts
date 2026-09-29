@@ -1,8 +1,13 @@
 import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
-import { db, paymentsTable, ordersTable, paymentSettingsTable } from "@workspace/db";
+import { db, paymentsTable, ordersTable, orderItemsTable, paymentSettingsTable } from "@workspace/db";
 import { InitiateMpesaPaymentBody, GetPaymentParams } from "@workspace/api-zod";
-import { initiateStkPush, registerC2bUrls } from "../lib/mpesa";
+import { initiateStkPush, isValidCallbackKey, registerC2bUrls } from "../lib/mpesa";
+import { emailCustomerAboutOrder } from "../lib/customer-notifications";
+import { ensureOrdersSchema } from "../lib/ensure-orders-schema";
+import { canAccessOrder } from "../lib/order-access";
+import { rewardReferralForPaidOrder } from "../lib/referrals";
+import { siteUrl } from "../lib/seo";
 import { ensurePaymentSettingsSchema } from "../lib/ensure-payment-settings-schema";
 import { logger } from "../lib/logger";
 import { requireAdmin } from "../lib/auth-middleware";
@@ -24,14 +29,25 @@ router.post("/payments/mpesa/initiate", async (req, res): Promise<void> => {
     return;
   }
 
-  const { orderId, phone, amount } = parsed.data;
-
-  // Check order exists
-  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+  await ensureOrdersSchema();
+  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, parsed.data.orderId));
   if (!order) {
     res.status(400).json({ error: "Order not found" });
     return;
   }
+  // Only the customer (private link, phone number or account) or the owner can start a payment, and it is always
+  // for the order's own amount and phone number, whatever the request says.
+  if (!(await canAccessOrder(req, order))) {
+    res.status(401).json({ error: "Open this order from your order link to pay for it." });
+    return;
+  }
+  if (order.paymentStatus === "paid") {
+    res.status(409).json({ error: "This order is already paid." });
+    return;
+  }
+  const orderId = order.id;
+  const phone = order.customerPhone;
+  const amount = parseFloat(order.total);
 
   // Load operational config saved from the admin payment settings.
   await ensurePaymentSettingsSchema();
@@ -79,8 +95,14 @@ router.post("/payments/mpesa/initiate", async (req, res): Promise<void> => {
 router.post("/payments/mpesa/callback", async (req, res): Promise<void> => {
   const body = req.body;
   req.log.info({ body }, "MPesa callback received");
+  if (!isValidCallbackKey(req.query.key)) {
+    logger.warn("M-Pesa callback without the right key ignored");
+    res.json({ received: true });
+    return;
+  }
 
   try {
+    await ensureOrdersSchema();
     const stkCallback = body?.Body?.stkCallback;
     if (!stkCallback) {
       res.json({ received: true });
@@ -121,15 +143,19 @@ router.post("/payments/mpesa/callback", async (req, res): Promise<void> => {
       })
       .where(eq(paymentsTable.id, payment.id));
 
-    // Update order payment status
-    await db
-      .update(ordersTable)
-      .set({
-        paymentStatus: isSuccess ? "paid" : "failed",
-        mpesaReceiptNo: mpesaReceiptNo,
-        status: isSuccess ? "confirmed" : "pending",
-      })
-      .where(eq(ordersTable.id, payment.orderId));
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, payment.orderId));
+    if (order && isSuccess) {
+      // Confirm the order unless it has already moved on (e.g. being made).
+      const [paidOrder] = await db
+        .update(ordersTable)
+        .set({ paymentStatus: "paid", mpesaReceiptNo, status: order.status === "pending" ? "confirmed" : order.status })
+        .where(eq(ordersTable.id, order.id))
+        .returning();
+      if (order.paymentStatus !== "paid") await afterPayment(paidOrder, siteUrl(req));
+    } else if (order && order.paymentStatus !== "paid") {
+      // A cancelled or failed prompt never undoes a payment that already went through (e.g. a second attempt).
+      await db.update(ordersTable).set({ paymentStatus: "failed" }).where(eq(ordersTable.id, order.id));
+    }
 
     res.json({ received: true });
   } catch (err) {
@@ -150,8 +176,16 @@ router.post("/payments/mpesa/c2b/validation", (_req, res): void => {
 router.post("/payments/mpesa/c2b/confirmation", async (req, res): Promise<void> => {
   const body = req.body;
   req.log.info({ body }, "MPesa C2B confirmation received");
+  if (!isValidCallbackKey(req.query.key)) {
+    // Registered before the key existed: register the URLs again in Admin → Payments. Until then the owner
+    // confirms these payments with "Mark paid".
+    logger.warn({ receipt: body?.TransID }, "M-Pesa C2B confirmation without the right key ignored");
+    res.json({ ResultCode: 0, ResultDesc: "Accepted" });
+    return;
+  }
 
   try {
+    await ensureOrdersSchema();
     const amount = Math.ceil(Number(body?.TransAmount));
     const receipt = typeof body?.TransID === "string" ? body.TransID : undefined;
     const last9 = String(body?.MSISDN ?? "").replace(/\D/g, "").slice(-9);
@@ -170,10 +204,11 @@ router.post("/payments/mpesa/c2b/confirmation", async (req, res): Promise<void> 
 
       if (matches.length === 1) {
         const order = matches[0];
-        await db
+        const [paidOrder] = await db
           .update(ordersTable)
           .set({ paymentStatus: "paid", status: "confirmed", mpesaReceiptNo: receipt })
-          .where(eq(ordersTable.id, order.id));
+          .where(eq(ordersTable.id, order.id))
+          .returning();
         await db.insert(paymentsTable).values({
           orderId: order.id,
           amount: String(amount),
@@ -183,6 +218,7 @@ router.post("/payments/mpesa/c2b/confirmation", async (req, res): Promise<void> 
           rawCallback: JSON.stringify(body),
         });
         logger.info({ orderId: order.id, receipt }, "C2B payment auto-reconciled");
+        await afterPayment(paidOrder, siteUrl(req));
       } else {
         logger.warn(
           { receipt, amount, last9, matchCount: matches.length },
@@ -239,3 +275,14 @@ function formatPayment(p: typeof paymentsTable.$inferSelect) {
 }
 
 export default router;
+
+// Once an order is paid: reward whoever referred the customer, and email the customer a receipt.
+async function afterPayment(order: typeof ordersTable.$inferSelect, baseUrl: string) {
+  try {
+    await rewardReferralForPaidOrder(order.id);
+    const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
+    await emailCustomerAboutOrder(order, items, "paid", baseUrl);
+  } catch (err) {
+    logger.error({ err, orderId: order.id }, "After-payment steps failed");
+  }
+}

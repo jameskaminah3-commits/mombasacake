@@ -25,6 +25,8 @@ const CakeDetail = lazy(loadCakeDetail);
 const Cart = lazy(loadCart);
 const Checkout = lazy(loadCheckout);
 const OrderSuccess = lazy(() => import("@/pages/order"));
+const MyOrders = lazy(() => import("@/pages/my-orders"));
+const Account = lazy(() => import("@/pages/account"));
 const Blog = lazy(() => import("@/pages/blog"));
 const BlogPost = lazy(() => import("@/pages/blog-post"));
 const Login = lazy(() => import("@/pages/login"));
@@ -129,6 +131,8 @@ function Router() {
                 <Route path="/cart" component={Cart} />
                 <Route path="/checkout" component={Checkout} />
                 <Route path="/order/:id" component={OrderSuccess} />
+                <Route path="/orders" component={MyOrders} />
+                <Route path="/account" component={Account} />
                 <Route path="/blog" component={Blog} />
                 <Route path="/blog/:slug" component={BlogPost} />
                 <Route component={NotFound} />

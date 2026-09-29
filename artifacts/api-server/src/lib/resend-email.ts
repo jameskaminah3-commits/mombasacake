@@ -1,5 +1,7 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "";
+// Changeable so a local test server can stand in for Resend.
+const RESEND_API_URL = (process.env.RESEND_API_URL || "https://api.resend.com").replace(/\/+$/, "");
 
 export interface ResendEmailParams {
   to: string | string[];
@@ -13,7 +15,7 @@ export async function sendResendEmail(params: ResendEmailParams): Promise<void> 
     throw new Error("Resend is not configured.");
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await fetch(`${RESEND_API_URL}/emails`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${RESEND_API_KEY}`,

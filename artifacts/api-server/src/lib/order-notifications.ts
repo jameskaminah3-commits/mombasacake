@@ -84,7 +84,7 @@ export async function sendNewOrderNotification(order: Order, items: OrderItem[])
   });
 }
 
-function escapeHtml(value: string) {
+export function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

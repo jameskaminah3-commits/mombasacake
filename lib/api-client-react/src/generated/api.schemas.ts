@@ -86,6 +86,10 @@ export interface Customer {
   name: string;
   email?: string | null;
   phone: string;
+  /** The code this customer shares with friends. */
+  referralCode?: string | null;
+  /** Referral rewards not yet spent. */
+  creditBalance?: number;
   createdAt: string;
 }
 
@@ -128,6 +132,19 @@ export interface Order {
   mpesaReceiptNo?: string | null;
   items: OrderItem[];
   createdAt: string;
+  /** Private code for the customer's order link (only sent to people allowed to see the order). */
+  accessToken?: string | null;
+  /** Referral reward credit taken off this order. */
+  creditUsed?: number;
+  /** The customer's own referral code and reward balance, when the shop runs referrals. */
+  referral?: OrderReferral | null;
+}
+
+export interface OrderReferral {
+  code: string;
+  friendDiscount: number;
+  referrerReward: number;
+  creditBalance: number;
 }
 
 export interface OrderItemInput {

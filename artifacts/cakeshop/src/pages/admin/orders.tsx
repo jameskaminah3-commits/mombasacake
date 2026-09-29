@@ -22,11 +22,35 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { Link } from "wouter";
-import { Pencil, Plus, Search } from "lucide-react";
+import { Link2, Pencil, Plus, Search } from "lucide-react";
+import { SiWhatsapp } from "react-icons/si";
 import { Button } from "@/components/ui/button";
 import { AdminOrderForm, ORDER_STATUSES as STATUSES } from "@/components/admin-order-form";
+import { customerOrderLink, orderPath } from "@/lib/customer";
 import { orderItemChoices } from "@/lib/order-items";
+import { normalizeKenyanPhone } from "@/lib/phone";
 import { normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
+
+// A ready-to-send WhatsApp update for the customer, matching where their order is, with their private order link.
+function customerUpdateMessage(order: Order) {
+  const name = order.customerName.trim().split(/\s+/)[0] || order.customerName;
+  const update =
+    order.status === "cancelled"
+      ? `your order #${order.id} has been cancelled.`
+      : order.status === "delivered"
+        ? `your order #${order.id} has been delivered. Enjoy! We'd love a quick review on your order page.`
+        : order.status === "ready"
+          ? `your order #${order.id} is ready!`
+          : order.status === "preparing"
+            ? `your cake for order #${order.id} is being made.`
+            : order.paymentStatus === "paid"
+              ? `we've received your payment for order #${order.id}. Thank you!`
+              : `thank you for your order #${order.id} (KES ${Math.round(order.total).toLocaleString()}). You can pay with M-Pesa on your order page.`;
+  return `Hi ${name}, ${update}\n\nFollow your order here: ${customerOrderLink(order)}\n\nChannah Cake House`;
+}
+
+const customerWhatsAppUrl = (order: Order) =>
+  `https://wa.me/${normalizeKenyanPhone(order.customerPhone)}?text=${encodeURIComponent(customerUpdateMessage(order))}`;
 
 export default function AdminOrders() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -99,6 +123,15 @@ export default function AdminOrders() {
   const openOrderForm = (order: Order | null) => {
     setEditingOrder(order);
     setFormOpen(true);
+  };
+
+  const copyCustomerLink = async (order: Order) => {
+    try {
+      await navigator.clipboard.writeText(customerOrderLink(order));
+      toast({ title: "Customer link copied", description: `Send it to ${order.customerName} to follow and pay for order #${order.id}.` });
+    } catch {
+      window.prompt("Copy the customer's order link:", customerOrderLink(order));
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -223,7 +256,7 @@ export default function AdminOrders() {
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">
                     <div className="flex flex-col items-start gap-1.5">
-                      <Link href={`~/order/${order.id}`} className="hover:underline text-primary">
+                      <Link href={`~${orderPath(order)}`} className="hover:underline text-primary">
                         #{order.id}
                       </Link>
                       <Button
@@ -236,6 +269,25 @@ export default function AdminOrders() {
                       >
                         <Pencil className="mr-1 h-3 w-3" /> Edit
                       </Button>
+                      <Button asChild variant="outline" size="sm" className="h-7 px-2 text-xs">
+                        <a
+                          href={customerWhatsAppUrl(order)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`WhatsApp ${order.customerName} about order #${order.id}`}
+                          title="Opens WhatsApp with an update and their order link, ready to send"
+                        >
+                          <SiWhatsapp className="mr-1 h-3 w-3 text-[#25D366]" /> Update
+                        </a>
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => copyCustomerLink(order)}
+                        className="inline-flex items-center text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                        aria-label={`Copy the customer's link for order #${order.id}`}
+                      >
+                        <Link2 className="mr-1 h-3 w-3" /> Copy link
+                      </button>
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
@@ -309,8 +361,16 @@ export default function AdminOrders() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="font-bold">
-                    KES {order.total.toLocaleString()}
+                  <TableCell>
+                    <p className="font-bold">KES {order.total.toLocaleString()}</p>
+                    {order.discountAmount > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {order.promoCode ? `${order.promoCode}: ` : "Discount: "}−KES {order.discountAmount.toLocaleString()}
+                      </p>
+                    )}
+                    {(order.creditUsed ?? 0) > 0 && (
+                      <p className="text-xs text-muted-foreground">Referral credit: −KES {(order.creditUsed ?? 0).toLocaleString()}</p>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Select 

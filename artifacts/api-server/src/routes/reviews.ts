@@ -3,6 +3,7 @@ import { eq, desc, and } from "drizzle-orm";
 import { db, reviewsTable, cakesTable, ordersTable, orderItemsTable, ensureReviewsSchema } from "@workspace/db";
 import { z } from "zod";
 import { requireAdmin } from "../lib/auth-middleware";
+import { ensureOrdersSchema } from "../lib/ensure-orders-schema";
 
 const router: IRouter = Router();
 
@@ -54,6 +55,7 @@ router.get("/reviews/cake/:cakeId", async (req, res): Promise<void> => {
 
 router.post("/reviews", async (req, res): Promise<void> => {
   await ensureReviewsSchema();
+  await ensureOrdersSchema();
   const parsed = CreateReviewBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

@@ -24,6 +24,8 @@ function isPrivatePath(pathname: string) {
     pathname === "/login" ||
     pathname === "/cart" ||
     pathname === "/checkout" ||
+    pathname === "/orders" ||
+    pathname === "/account" ||
     pathname.startsWith("/order/")
   );
 }
@@ -170,6 +172,8 @@ export function renderRobotsTxt(base: string) {
     "Disallow: /cart",
     "Disallow: /checkout",
     "Disallow: /order/",
+    "Disallow: /orders",
+    "Disallow: /account",
     "",
     `Sitemap: ${base}/sitemap.xml`,
     "",

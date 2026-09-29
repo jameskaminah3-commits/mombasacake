@@ -19,7 +19,7 @@ export default function AdminCustomers() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Customers</h1>
-        <p className="text-muted-foreground mt-1">View your customer base.</p>
+        <p className="text-muted-foreground mt-1">Everyone who has ordered, with their referral code and unspent referral credit.</p>
       </div>
 
       <div className="border rounded-md bg-card">
@@ -29,6 +29,8 @@ export default function AdminCustomers() {
               <TableHead>Name</TableHead>
               <TableHead>Phone</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Referral code</TableHead>
+              <TableHead>Credit</TableHead>
               <TableHead>Joined</TableHead>
             </TableRow>
           </TableHeader>
@@ -39,12 +41,14 @@ export default function AdminCustomers() {
                   <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[180px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[90px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[70px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
                 </TableRow>
               ))
             ) : customers?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   No customers found.
                 </TableCell>
               </TableRow>
@@ -59,6 +63,12 @@ export default function AdminCustomers() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {customer.email || "—"}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    {customer.referralCode || "—"}
+                  </TableCell>
+                  <TableCell>
+                    {customer.creditBalance ? `KES ${customer.creditBalance.toLocaleString()}` : "—"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {format(new Date(customer.createdAt), 'MMM d, yyyy')}

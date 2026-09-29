@@ -3,10 +3,12 @@ import { eq } from "drizzle-orm";
 import { db, customersTable } from "@workspace/db";
 import { CreateCustomerBody, GetCustomerParams } from "@workspace/api-zod";
 import { requireAdmin } from "../lib/auth-middleware";
+import { ensureOrdersSchema } from "../lib/ensure-orders-schema";
 
 const router: IRouter = Router();
 
 router.get("/customers", requireAdmin, async (_req, res): Promise<void> => {
+  await ensureOrdersSchema();
   const customers = await db
     .select()
     .from(customersTable)
@@ -14,7 +16,9 @@ router.get("/customers", requireAdmin, async (_req, res): Promise<void> => {
   res.json(customers.map(formatCustomer));
 });
 
-router.post("/customers", async (req, res): Promise<void> => {
+// Customers are created by their orders; adding one by hand is for the owner only.
+router.post("/customers", requireAdmin, async (req, res): Promise<void> => {
+  await ensureOrdersSchema();
   const parsed = CreateCustomerBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -30,6 +34,7 @@ router.get("/customers/:id", requireAdmin, async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
+  await ensureOrdersSchema();
   const [customer] = await db
     .select()
     .from(customersTable)
@@ -47,6 +52,8 @@ function formatCustomer(c: typeof customersTable.$inferSelect) {
     name: c.name,
     email: c.email ?? null,
     phone: c.phone,
+    referralCode: c.referralCode ?? null,
+    creditBalance: parseFloat(c.creditBalance),
     createdAt: c.createdAt.toISOString(),
   };
 }

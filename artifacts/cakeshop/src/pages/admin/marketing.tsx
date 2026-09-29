@@ -17,6 +17,7 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
 import { AdminImageUpload } from "@/components/admin-image-upload";
+import { AdminReferrals } from "@/components/admin-referrals";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -401,15 +402,20 @@ export default function AdminMarketing() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Marketing</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Manage offers and blog stories from one place.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Manage offers, referral rewards and blog stories from one place.</p>
         </div>
       </div>
 
       <Tabs defaultValue="promotions" className="space-y-5">
-        <TabsList className="grid h-auto w-full grid-cols-2 sm:w-auto">
+        <TabsList className="grid h-auto w-full grid-cols-3 sm:w-auto">
           <TabsTrigger value="promotions">Promotions</TabsTrigger>
+          <TabsTrigger value="referrals">Referrals</TabsTrigger>
           <TabsTrigger value="blog">Blog</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="referrals">
+          <AdminReferrals />
+        </TabsContent>
 
         <TabsContent value="promotions" className="space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

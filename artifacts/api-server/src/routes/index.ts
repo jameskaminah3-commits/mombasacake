@@ -16,6 +16,8 @@ import blogRouter from "./blog";
 import authRouter from "./auth";
 import uploadsRouter from "./uploads";
 import cakeOptionsRouter from "./cake-options";
+import referralsRouter from "./referrals";
+import customerAccountRouter from "./customer-account";
 
 const router: IRouter = Router();
 
@@ -36,5 +38,7 @@ router.use(reviewsRouter);
 router.use(blogRouter);
 router.use(uploadsRouter);
 router.use(cakeOptionsRouter);
+router.use(referralsRouter);
+router.use(customerAccountRouter);
 
 export default router;

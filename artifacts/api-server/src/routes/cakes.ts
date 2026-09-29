@@ -40,7 +40,8 @@ router.get("/cakes", async (req, res): Promise<void> => {
     .from(cakesTable)
     .leftJoin(categoriesTable, eq(cakesTable.categoryId, categoriesTable.id))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(cakesTable.createdAt));
+    // Newest first; cakes added at the same moment (e.g. together at setup) keep a fixed order.
+    .orderBy(desc(cakesTable.createdAt), desc(cakesTable.id));
 
   res.json(cakes.map(({ cake, categoryName }) => formatCake(cake, categoryName)));
 });
@@ -51,7 +52,7 @@ router.get("/cakes/featured", async (_req, res): Promise<void> => {
     .from(cakesTable)
     .leftJoin(categoriesTable, eq(cakesTable.categoryId, categoriesTable.id))
     .where(and(eq(cakesTable.featured, true), eq(cakesTable.available, true)))
-    .orderBy(desc(cakesTable.createdAt))
+    .orderBy(desc(cakesTable.createdAt), desc(cakesTable.id))
     .limit(8);
   res.json(cakes.map(({ cake, categoryName }) => formatCake(cake, categoryName)));
 });

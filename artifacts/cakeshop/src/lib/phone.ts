@@ -8,6 +8,17 @@ export function normalizeKenyanPhone(value: string) {
   return digits;
 }
 
+// The last nine digits, the same for every way of writing a number.
+export const phoneKey = (value: string) => value.replace(/\D/g, "").slice(-9);
+
 export function isValidKenyanMobile(value: string) {
   return /^254[17]\d{8}$/.test(value);
+}
+
+// 254712345678 → 0712 345 678, the way customers write their number.
+export function displayKenyanPhone(value: string) {
+  const normalized = normalizeKenyanPhone(value);
+  if (!isValidKenyanMobile(normalized)) return value;
+  const local = `0${normalized.slice(3)}`;
+  return `${local.slice(0, 4)} ${local.slice(4, 7)} ${local.slice(7)}`;
 }

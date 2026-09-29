@@ -10,6 +10,9 @@ import { logger } from "./lib/logger";
 import { renderRobotsTxt, renderSitemap, renderStorefrontPage, siteUrl } from "./lib/seo";
 
 const app: Express = express();
+// Railway's proxy sits in front of the app: trust its one hop, so req.ip is each visitor's own address
+// (what the sign-in and order-lookup limits count by), not the proxy's.
+app.set("trust proxy", 1);
 const bundleDir = path.dirname(fileURLToPath(import.meta.url));
 const storefrontCandidates = [
   path.resolve(bundleDir, "../../cakeshop/dist/public"),

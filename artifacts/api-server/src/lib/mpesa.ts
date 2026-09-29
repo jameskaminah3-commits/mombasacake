@@ -1,5 +1,24 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import axios from "axios";
 import { logger } from "./logger";
+
+// Safaricom's payment notifications come to public addresses, so each address carries a secret key and
+// notifications without it are ignored (anyone could otherwise post a fake "payment received").
+const CALLBACK_KEY = createHmac("sha256", process.env.SESSION_SECRET || "dev-only-session-secret")
+  .update("mpesa-callbacks")
+  .digest("hex")
+  .slice(0, 32);
+
+function withCallbackKey(address: string) {
+  const url = new URL(address);
+  url.searchParams.set("key", CALLBACK_KEY);
+  return url.toString();
+}
+
+export function isValidCallbackKey(value: unknown) {
+  if (typeof value !== "string" || value.length !== CALLBACK_KEY.length) return false;
+  return timingSafeEqual(Buffer.from(value), Buffer.from(CALLBACK_KEY));
+}
 
 const MPESA_BASE_URL =
   process.env.MPESA_ENV === "production"
@@ -40,7 +59,7 @@ export async function registerC2bUrls(): Promise<unknown> {
     {
       ShortCode: shortcode,
       ResponseType: "Completed",
-      ConfirmationURL: `${base}/api/payments/mpesa/c2b/confirmation`,
+      ConfirmationURL: withCallbackKey(`${base}/api/payments/mpesa/c2b/confirmation`),
       ValidationURL: `${base}/api/payments/mpesa/c2b/validation`,
     },
     {
@@ -99,11 +118,10 @@ export async function initiateStkPush(params: StkPushParams): Promise<StkPushRes
   if (phone.startsWith("+")) phone = phone.slice(1);
   if (phone.startsWith("0")) phone = `254${phone.slice(1)}`;
 
-  const callbackUrl =
+  const callbackUrl = withCallbackKey(
     process.env.MPESA_CALLBACK_URL ||
-    `${
-      process.env.PUBLIC_APP_URL?.replace(/\/+$/, "") || "https://example.com"
-    }/api/payments/mpesa/callback`;
+      `${process.env.PUBLIC_APP_URL?.replace(/\/+$/, "") || "https://example.com"}/api/payments/mpesa/callback`,
+  );
 
   try {
     const token = await getAccessToken();

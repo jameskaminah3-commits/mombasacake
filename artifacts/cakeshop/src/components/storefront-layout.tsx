@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { useListCakes, useListCategories } from "@workspace/api-client-react";
 import { Clock, Menu, Phone, Search, ShoppingBag } from "lucide-react";
@@ -7,6 +7,7 @@ import { useCart } from "@/lib/cart-context";
 import { DEFAULT_CAKE_IMAGE_URL, DEFAULT_LOGO_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
 import { cakePriceLabel, useCakeOptions } from "@/lib/cake-options";
+import { captureReferralCodeFromUrl, useCustomerSession, useEmailLoginAvailable } from "@/lib/customer";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   STORE_HOURS,
@@ -29,7 +30,12 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
   const { itemCount, total } = useCart();
   const [location, setLocation] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const customerSession = useCustomerSession();
+  const loginAvailable = useEmailLoginAvailable();
   const { data: categories } = useListCategories();
+
+  // A friend's shared link (…/?ref=CODE) fills their code in at checkout.
+  useEffect(() => captureReferralCodeFromUrl(), []);
 
   const isShopPage = location === "/";
   const showCartBar = itemCount > 0 && !CART_BAR_HIDDEN_PREFIXES.some((prefix) => location.startsWith(prefix));
@@ -92,6 +98,18 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
                     window.setTimeout(() => goToCategory(categoryId), 320);
                   })}
                 </ul>
+                <SheetClose asChild>
+                  <Link href="/orders" className="mt-1 block rounded-lg px-3 py-2 text-sm font-semibold hover:bg-muted">
+                    My orders
+                  </Link>
+                </SheetClose>
+                {(customerSession || loginAvailable) && (
+                  <SheetClose asChild>
+                    <Link href="/account" className="block rounded-lg px-3 py-2 text-sm font-semibold hover:bg-muted">
+                      {customerSession ? "My account" : "Sign in"}
+                    </Link>
+                  </SheetClose>
+                )}
                 <SheetClose asChild>
                   <Link href="/blog" className="mt-1 block rounded-lg px-3 py-2 text-sm font-semibold hover:bg-muted">
                     Blog
