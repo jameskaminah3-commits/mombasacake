@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { renderRobotsTxt, renderSitemap, renderStorefrontPage, siteUrl } from "./lib/seo";
 
 const app: Express = express();
 const bundleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -45,8 +46,24 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+app.get("/robots.txt", (req, res) => {
+  res.type("text/plain").set("Cache-Control", "public, max-age=3600").send(renderRobotsTxt(siteUrl(req)));
+});
+
+app.get("/sitemap.xml", async (req, res) => {
+  try {
+    res.type("application/xml").set("Cache-Control", "public, max-age=3600").send(await renderSitemap(siteUrl(req)));
+  } catch (err) {
+    logger.error({ err }, "Sitemap failed");
+    res.status(500).type("text/plain").send("Sitemap unavailable");
+  }
+});
+
 app.use(
   express.static(storefrontDist, {
+    // Pages (including "/") go through renderStorefrontPage below, which fills in each page's title and address.
+    index: false,
     setHeaders(res, filePath) {
       // Built JS/CSS get a new hashed filename on every deploy, so browsers can keep them for a year.
       if (filePath.includes(`${path.sep}assets${path.sep}`)) {
@@ -56,7 +73,7 @@ app.use(
   }),
 );
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   if (req.path.startsWith("/api")) {
     next();
     return;
@@ -73,7 +90,13 @@ app.use((req, res, next) => {
     return;
   }
 
-  res.sendFile(path.join(storefrontDist, "index.html"));
+  try {
+    const page = await renderStorefrontPage(req, path.join(storefrontDist, "index.html"));
+    // Pages are small; always check for a newer version so deploys reach customers straight away.
+    res.status(page.status).type("html").set("Cache-Control", "no-cache").send(page.html);
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default app;
