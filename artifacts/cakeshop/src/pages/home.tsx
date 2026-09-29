@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, MapPin, Star, Tag } from "lucide-react";
+import { ChevronRight, Clock, MapPin, Smartphone, Sparkles, Star, Tag, Truck } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import {
   useGetPopularCakes,
@@ -14,11 +14,10 @@ import { RevealImage } from "@/components/reveal-image";
 import { ProductCard, ProductCardSkeleton } from "@/components/product-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getApiBaseUrl } from "@/lib/api-base";
-import { DEFAULT_CAKE_OPTIONS, fetchCakeOptions } from "@/lib/cake-options";
 import { DEFAULT_HOMEPAGE_GALLERY, fetchHomepageGallery, type HomepageGalleryItem } from "@/lib/homepage-gallery";
 import { DEFAULT_HOMEPAGE_HERO, fetchHomepageHero, type HomepageHeroContent } from "@/lib/homepage-hero";
 import { DEFAULT_CAKE_IMAGE_URL, DEFAULT_GALLERY_IMAGE_URL, DEFAULT_LOGO_IMAGE_URL } from "@/lib/site-images";
-import { STORE_PHONE_DISPLAY, WHATSAPP_ORDER_URL, getOpenStatus } from "@/lib/store-info";
+import { WHATSAPP_CUSTOM_CAKE_URL, WHATSAPP_ORDER_URL, getOpenStatus } from "@/lib/store-info";
 import { SECTION_SCROLL_OFFSET, categorySectionId, scrollToSection } from "@/lib/store-sections";
 import { cn, formatKes } from "@/lib/utils";
 
@@ -42,6 +41,32 @@ type CatalogSection = {
   isCategory: boolean;
 };
 
+// Best-rated and newest first. Reviews are optional on the storefront: any failure just hides them.
+async function fetchStoreReviews(): Promise<CakeReview[]> {
+  const response = await fetch(`${getApiBaseUrl()}/api/reviews`);
+  if (!response.ok) return [];
+  const data: unknown = await response.json();
+  if (!Array.isArray(data)) return [];
+  return [...(data as CakeReview[])].sort((a, b) =>
+    b.rating !== a.rating ? b.rating - a.rating : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  );
+}
+
+function useStoreReviews() {
+  const { data } = useQuery({ queryKey: ["store-reviews"], queryFn: fetchStoreReviews, retry: 1 });
+  return data ?? [];
+}
+
+// Why order here, in a glance. Keep these true: custom designs, delivery and M-Pesa are all part of the order flow.
+const HIGHLIGHTS = [
+  { icon: Sparkles, label: "Custom designs" },
+  { icon: Truck, label: "Delivery in Mombasa" },
+  { icon: Smartphone, label: "Pay with M-Pesa" },
+];
+
+// Signs the customer is moving around the page themselves.
+const USER_SCROLL_EVENTS = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
+
 function sortAvailableFirst(cakes: Cake[]) {
   return [...cakes].sort((a, b) => Number(b.available) - Number(a.available));
 }
@@ -59,11 +84,6 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
     queryKey: ["homepage-hero"],
     queryFn: fetchHomepageHero,
     placeholderData: DEFAULT_HOMEPAGE_HERO,
-  });
-  const { data: cakeOptions } = useQuery({
-    queryKey: ["cake-options"],
-    queryFn: fetchCakeOptions,
-    placeholderData: DEFAULT_CAKE_OPTIONS,
   });
 
   const [showCategoryBar, setShowCategoryBar] = useState(false);
@@ -170,16 +190,28 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
     scroller.scrollTo({ left: chip.offsetLeft - scroller.clientWidth / 2 + chip.clientWidth / 2, behavior: "smooth" });
   }, [activeSection, showCategoryBar]);
 
-  // Links like /#category-3 (from the menu on other pages) open the shop at that category.
+  // Links like /#category-3 (from the menu on other pages) open the shop at that category. Popular cakes,
+  // offers and reviews can arrive a moment later and push it down (browsers don't always compensate),
+  // so keep it in place while the page settles, until the customer starts scrolling or for 3 seconds.
   useEffect(() => {
     const target = window.location.hash.slice(1);
-    if (!target || !sections.some((section) => section.id === target)) return;
-    const frame = window.requestAnimationFrame(() => {
-      scrollToSection(target, "auto");
+    if (!target) return;
+    const observer = new ResizeObserver(() => scrollToSection(target, "auto"));
+    const release = () => {
+      observer.disconnect();
+      window.clearTimeout(timer);
+      for (const type of USER_SCROLL_EVENTS) window.removeEventListener(type, finish);
+    };
+    const finish = () => {
+      release();
+      // Drop "#category-…" from the address so a refresh starts at the top.
       window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [sections]);
+    };
+    const timer = window.setTimeout(finish, 3000);
+    for (const type of USER_SCROLL_EVENTS) window.addEventListener(type, finish, { passive: true });
+    observer.observe(document.body);
+    return release;
+  }, []);
 
   const categorySections = sections.filter((section) => section.isCategory);
 
@@ -248,11 +280,19 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
           </div>
         </nav>
 
-        <div className="mt-5 space-y-3">
+        {variant === "store" && (
+          <ul className="mt-4 grid grid-cols-3 gap-2" aria-label="Why order from us">
+            {HIGHLIGHTS.map(({ icon: Icon, label }) => (
+              <li key={label} className="flex flex-col items-center gap-1 rounded-xl bg-muted/60 px-1.5 py-2.5 text-center">
+                <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+                <span className="text-[11px] font-semibold leading-tight text-foreground/80">{label}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="mt-4 space-y-3">
           {activePromotions.length > 0 && <OffersCard promotions={activePromotions} cakeNameBySlug={cakeNameBySlug} />}
-          {variant === "store" && (
-            <IntroCard hero={homepageHero ?? DEFAULT_HOMEPAGE_HERO} hasFlavours={(cakeOptions?.flavours.length ?? 0) > 0} />
-          )}
 
           {loading ? (
             <div className="rounded-2xl border border-border bg-card p-4">
@@ -277,18 +317,21 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
               </a>
             </div>
           ) : (
-            sections.map((section) => (
-              <section key={section.id} id={section.id} aria-labelledby={`${section.id}-title`} className="rounded-2xl border border-border bg-card p-4">
-                <h2 id={`${section.id}-title`} className="text-base font-bold tracking-tight">
-                  {section.title}
-                </h2>
-                {section.description && <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{section.description}</p>}
-                <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-5 min-[520px]:grid-cols-3 sm:grid-cols-4">
-                  {section.cakes.map((cake) => (
-                    <ProductCard key={cake.id} cake={cake} />
-                  ))}
-                </div>
-              </section>
+            sections.map((section, index) => (
+              <Fragment key={section.id}>
+                <section id={section.id} aria-labelledby={`${section.id}-title`} className="rounded-2xl border border-border bg-card p-4">
+                  <h2 id={`${section.id}-title`} className="text-base font-bold tracking-tight">
+                    {section.title}
+                  </h2>
+                  {section.description && <p className="mt-0.5 text-xs leading-5 text-muted-foreground">{section.description}</p>}
+                  <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-5 min-[520px]:grid-cols-3 sm:grid-cols-4">
+                    {section.cakes.map((cake) => (
+                      <ProductCard key={cake.id} cake={cake} />
+                    ))}
+                  </div>
+                </section>
+                {variant === "store" && index === 0 && <CustomCakeCta />}
+              </Fragment>
             ))
           )}
 
@@ -296,6 +339,7 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
             <>
               <RecentWorkCard />
               <ReviewsCard />
+              <AboutCard hero={homepageHero ?? DEFAULT_HOMEPAGE_HERO} />
             </>
           )}
         </div>
@@ -307,6 +351,8 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
 function StoreHeader({ hero }: { hero: HomepageHeroContent }) {
   const cover = hero.slides[0]?.imageUrl;
   const [status, setStatus] = useState(() => getOpenStatus());
+  const reviews = useStoreReviews();
+  const averageRating = reviews.length ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : null;
 
   useEffect(() => {
     const timer = window.setInterval(() => setStatus(getOpenStatus()), 60_000);
@@ -341,31 +387,56 @@ function StoreHeader({ hero }: { hero: HomepageHeroContent }) {
           <span className={cn("font-semibold", status.isOpen ? "text-emerald-600" : "text-muted-foreground")}>
             {status.isOpen ? "Open" : "Closed"}
           </span>
-          · {status.todayHours}
+          · {status.label}
         </span>
+        {averageRating !== null && (
+          <a
+            href="#reviews-title"
+            onClick={(event) => {
+              event.preventDefault();
+              document.getElementById("reviews-title")?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }}
+            aria-label={`Rated ${averageRating.toFixed(1)} out of 5 from ${reviews.length} ${reviews.length === 1 ? "review" : "reviews"}`}
+            className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-foreground/80 hover:bg-muted/70"
+          >
+            <Star className="h-3.5 w-3.5 fill-primary text-primary" aria-hidden="true" />
+            <span className="font-semibold text-foreground">{averageRating.toFixed(1)}</span>
+            <span>({reviews.length})</span>
+          </a>
+        )}
       </div>
     </section>
   );
 }
 
-function IntroCard({ hero, hasFlavours }: { hero: HomepageHeroContent; hasFlavours: boolean }) {
+function CustomCakeCta() {
   return (
-    <section aria-labelledby="how-to-order-title" className="rounded-2xl border border-border bg-card p-4 text-sm leading-6 text-foreground/80">
-      <h2 id="how-to-order-title" className="text-center text-sm font-bold text-foreground">
-        Choose your Channah cake
+    <a
+      href={WHATSAPP_CUSTOM_CAKE_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-3 rounded-2xl border border-[#25D366]/30 bg-[#25D366]/10 p-4 transition-colors hover:bg-[#25D366]/15"
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white">
+        <SiWhatsapp className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-bold">Have a design in mind?</span>
+        <span className="block text-xs leading-5 text-muted-foreground">Send us a photo on WhatsApp for a quote.</span>
+      </span>
+      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+    </a>
+  );
+}
+
+function AboutCard({ hero }: { hero: HomepageHeroContent }) {
+  if (!hero.description) return null;
+  return (
+    <section aria-labelledby="about-title" className="rounded-2xl border border-border bg-card p-4">
+      <h2 id="about-title" className="text-base font-bold tracking-tight">
+        About {hero.brandLine}
       </h2>
-      <p className="mt-2">
-        Browse our cakes and choose the design you love. Select your size{hasFlavours ? " and flavour" : ""}, then add the message you'd
-        like on your cake.
-      </p>
-      <p className="mt-3">{hero.description}</p>
-      <p className="mt-3">
-        Need help choosing? WhatsApp us on{" "}
-        <a href={WHATSAPP_ORDER_URL} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline-offset-2 hover:underline">
-          {STORE_PHONE_DISPLAY}
-        </a>
-        .
-      </p>
+      <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{hero.description}</p>
     </section>
   );
 }
@@ -422,25 +493,7 @@ function RecentWorkCard() {
 }
 
 function ReviewsCard() {
-  const [reviews, setReviews] = useState<CakeReview[]>([]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch(`${getApiBaseUrl()}/api/reviews`, { signal: controller.signal })
-      .then((response) => (response.ok ? response.json() : []))
-      .then((data: CakeReview[]) => {
-        if (!Array.isArray(data)) return;
-        setReviews(
-          [...data].sort((a, b) =>
-            b.rating !== a.rating ? b.rating - a.rating : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-          ),
-        );
-      })
-      .catch(() => {
-        // Reviews are optional on the storefront; hide the section if they fail to load.
-      });
-    return () => controller.abort();
-  }, []);
+  const reviews = useStoreReviews();
 
   if (reviews.length === 0) return null;
 

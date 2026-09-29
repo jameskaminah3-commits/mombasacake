@@ -10,6 +10,9 @@ export const WHATSAPP_URL = "https://wa.me/254721868212";
 export const WHATSAPP_ORDER_URL = `${WHATSAPP_URL}?text=${encodeURIComponent(
   "Hi! I'm interested in ordering a cake from Channah Cake House.",
 )}`;
+export const WHATSAPP_CUSTOM_CAKE_URL = `${WHATSAPP_URL}?text=${encodeURIComponent(
+  "Hi! I'd like a quote for a custom cake. Here's the design I have in mind:",
+)}`;
 
 // Opening hours in Kenyan time (24h clock); days use JavaScript numbering, Sunday = 0.
 export const STORE_HOURS = [
@@ -29,7 +32,8 @@ export function formatHoursRange(entry: { opens: number; closes: number }) {
   return `${formatHour(entry.opens)} – ${formatHour(entry.closes)}`;
 }
 
-// Whether the shop is open right now in Mombasa, and today's hours.
+// Whether the shop is open right now in Mombasa, today's hours, and a short label:
+// "until 7:00 PM" while open, otherwise when it next opens ("opens 8:00 AM", "opens tomorrow 9:00 AM").
 export function getOpenStatus(now = new Date()) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: "Africa/Nairobi",
@@ -44,7 +48,16 @@ export function getOpenStatus(now = new Date()) {
   const today = STORE_HOURS.find((entry) => entry.dayNumbers.includes(day)) ?? STORE_HOURS[0];
   const minutesNow = hour * 60 + minute;
   const isOpen = minutesNow >= today.opens * 60 && minutesNow < today.closes * 60;
-  return { isOpen, todayHours: formatHoursRange(today) };
+  let label = `until ${formatHour(today.closes)}`;
+  if (!isOpen) {
+    if (minutesNow < today.opens * 60) {
+      label = `opens ${formatHour(today.opens)}`;
+    } else {
+      const tomorrow = STORE_HOURS.find((entry) => entry.dayNumbers.includes((day + 1) % 7)) ?? STORE_HOURS[0];
+      label = `opens tomorrow ${formatHour(tomorrow.opens)}`;
+    }
+  }
+  return { isOpen, todayHours: formatHoursRange(today), label };
 }
 
 export const STORE_SOCIALS = [
