@@ -367,10 +367,11 @@ export default function Checkout() {
                     name="customerEmail"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email (Optional)</FormLabel>
+                        <FormLabel>Email for order updates (optional)</FormLabel>
                         <FormControl>
                           <Input type="email" inputMode="email" autoComplete="email" placeholder="jane@example.com" {...field} className="bg-background" />
                         </FormControl>
+                        <p className="text-xs text-muted-foreground">We'll email your receipt and let you know as your order moves along.</p>
                         <FormMessage />
                       </FormItem>
                     )}
