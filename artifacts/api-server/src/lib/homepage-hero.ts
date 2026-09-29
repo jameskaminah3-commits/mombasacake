@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { buildSupabaseMediaUrl, normalizeSupabaseMediaUrl } from "./media-urls";
 import { readStoreSetting, writeStoreSetting } from "./store-settings";
@@ -24,7 +24,7 @@ export type HomepageHeroContent = z.infer<typeof HomepageHeroSchema>;
 const SETTINGS_KEY = "homepage-hero";
 
 // Content shipped with the app, shown until the homepage is first saved in the admin panel.
-const SHIPPED_FILE = path.join(process.cwd(), "data", "homepage-hero.json");
+const SHIPPED_FILE = fileURLToPath(new URL("../data/homepage-hero.json", import.meta.url));
 
 export const DEFAULT_HOMEPAGE_HERO: HomepageHeroContent = {
   brandLine: "Channah Cake House",

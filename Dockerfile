@@ -14,4 +14,8 @@ RUN corepack pnpm run build
 
 EXPOSE 3001
 
-CMD ["corepack", "pnpm", "start"]
+# The image already holds the built shop and server, so the container only starts the server.
+# (`pnpm start` builds everything again first, which needs about 1 GB of memory: on small Railway
+# plans it was killed during start-up and new versions never went live.)
+WORKDIR /app/artifacts/api-server
+CMD ["node", "--enable-source-maps", "dist/index.mjs"]

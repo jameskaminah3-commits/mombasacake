@@ -3,6 +3,9 @@ builder = "DOCKERFILE"
 watchPatterns = ["**"]
 
 [deploy]
+# Same as the Dockerfile's CMD; set here too because this file overrides a start command set in the
+# Railway dashboard (a rebuild-then-start command there would run out of memory on small plans).
+startCommand = "node --enable-source-maps /app/artifacts/api-server/dist/index.mjs"
 healthcheckPath = "/api/healthz"
 healthcheckTimeout = 300
 restartPolicyType = "ALWAYS"

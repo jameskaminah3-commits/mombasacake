@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { buildSupabaseMediaUrl, normalizeSupabaseMediaUrl } from "./media-urls";
 import { readStoreSetting, writeStoreSetting } from "./store-settings";
@@ -19,7 +19,7 @@ export type HomepageGalleryContent = z.infer<typeof HomepageGallerySchema>;
 const SETTINGS_KEY = "homepage-gallery";
 
 // Photos shipped with the app, shown until the gallery is first saved in the admin panel.
-const SHIPPED_FILE = path.join(process.cwd(), "data", "homepage-gallery.json");
+const SHIPPED_FILE = fileURLToPath(new URL("../data/homepage-gallery.json", import.meta.url));
 
 export const DEFAULT_HOMEPAGE_GALLERY: HomepageGalleryContent = {
   items: [
