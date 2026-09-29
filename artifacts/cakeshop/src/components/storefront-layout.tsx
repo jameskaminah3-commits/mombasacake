@@ -194,7 +194,23 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
               </a>
             ))}
           </div>
-          <p className="mt-4 text-xs text-muted-foreground">&copy; {new Date().getFullYear()} {STORE_NAME}</p>
+          {/* One line with a dot on wider screens; on phones the credit gets its own line rather than
+              wrapping mid-name. The link keeps the referrer so the studio sees visits from here. */}
+          <p className="mt-4 text-xs leading-5 text-muted-foreground">
+            <span className="whitespace-nowrap">&copy; {new Date().getFullYear()} {STORE_NAME}</span>
+            <span aria-hidden="true" className="hidden sm:inline"> · </span>
+            <span className="block whitespace-nowrap sm:inline">
+              Built by{" "}
+              <a
+                href="https://tembeabilamatata.com/"
+                target="_blank"
+                rel="noopener"
+                className="font-medium underline decoration-muted-foreground/40 underline-offset-2 transition-colors hover:text-foreground hover:decoration-foreground"
+              >
+                Tembea Bila Matata
+              </a>
+            </span>
+          </p>
           <div className="mt-2 flex items-center justify-center gap-4 text-xs text-muted-foreground">
             <Link href="/blog" className="hover:text-foreground">Blog</Link>
             <Link href="/login" className="hover:text-foreground">Staff login</Link>
