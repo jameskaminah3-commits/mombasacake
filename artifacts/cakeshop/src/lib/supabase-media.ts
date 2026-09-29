@@ -40,7 +40,7 @@ export function buildSupabaseMediaUrl(path: string) {
   return `/api/media?path=${encodeURIComponent(cleanPath)}`;
 }
 
-export function isSupabaseMediaUrl(value: string | null | undefined): boolean {
+function isSupabaseMediaUrl(value: string | null | undefined): boolean {
   if (!value) return false;
   try {
     const url = new URL(value);
@@ -91,24 +91,6 @@ export function normalizeSupabaseMediaUrl(value: string | null | undefined) {
     return buildSupabaseMediaUrl(value);
   }
   return value;
-}
-
-export function extractSupabaseMediaPath(value: string) {
-  if (!isSupabaseMediaUrl(value)) return null;
-
-  const url = new URL(value);
-  const publicPrefix = `/storage/v1/object/public/${SUPABASE_MEDIA_BUCKET}/`;
-  const directPrefix = `/storage/v1/object/${SUPABASE_MEDIA_BUCKET}/`;
-
-  if (url.pathname.startsWith(publicPrefix)) {
-    return decodeURIComponent(url.pathname.slice(publicPrefix.length));
-  }
-
-  if (url.pathname.startsWith(directPrefix)) {
-    return decodeURIComponent(url.pathname.slice(directPrefix.length));
-  }
-
-  return null;
 }
 
 function fileExtension(file: File) {
@@ -172,29 +154,6 @@ export async function uploadSupabaseMedia(
     path: uploadedPath,
     url: uploaded.url || buildSupabaseMediaUrl(uploadedPath),
   };
-}
-
-export async function deleteSupabaseMedia(url: string, accessToken: string) {
-  assertSupabaseMediaConfig();
-
-  if (!url || !accessToken) return;
-
-  const response = await fetch(
-    `${getApiBaseUrl()}/api/uploads/media`,
-    {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ url }),
-    },
-  );
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || "Image delete failed");
-  }
 }
 
 export async function fetchSupabaseMediaLibrary(

@@ -3,9 +3,10 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Image as ImageIcon, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Image as ImageIcon, Plus, Sparkles, Trash2 } from "lucide-react";
 import { AdminHomepageHighlights } from "@/components/admin-homepage-highlights";
 import { AdminImageUpload } from "@/components/admin-image-upload";
+import { CoverSlideshow, MAX_COVER_PHOTOS } from "@/components/cover-slideshow";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -17,17 +18,24 @@ import { useAuth } from "@/lib/auth-context";
 import { DEFAULT_HOMEPAGE_GALLERY, fetchHomepageGalleryForEditing, saveHomepageGallery } from "@/lib/homepage-gallery";
 import { DEFAULT_HOMEPAGE_HERO, fetchHomepageHeroForEditing, saveHomepageHero } from "@/lib/homepage-hero";
 import { DEFAULT_LOGO_IMAGE_URL } from "@/lib/site-images";
-import { normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
 
-const shopHeaderSchema = z
-  .object({
-    brandLine: z.string().trim().min(2, "Add your shop name"),
-    headline: z.string().trim().min(2, "Add a short tagline"),
-    description: z.string().trim().min(2, "Add a few words about your shop"),
-    // The shop shows the first slide's photo as its cover photo. Older slides are kept as they are.
-    slides: z.array(z.object({ title: z.string(), label: z.string(), accent: z.string(), imageUrl: z.string() })).min(1),
-  })
-  .refine((values) => Boolean(values.slides[0]?.imageUrl), { message: "Choose a cover photo", path: ["slides", 0, "imageUrl"] });
+const shopHeaderSchema = z.object({
+  brandLine: z.string().trim().min(2, "Add your shop name"),
+  headline: z.string().trim().min(2, "Add a short tagline"),
+  description: z.string().trim().min(2, "Add a few words about your shop"),
+  // Cover photos, shown in turn. label and accent are text from the shop's earlier design, kept on photos saved back then.
+  slides: z
+    .array(
+      z.object({
+        title: z.string().trim().max(40, "Keep the caption to 40 characters"),
+        label: z.string(),
+        accent: z.string(),
+        imageUrl: z.string().min(1, "Choose a photo"),
+      }),
+    )
+    .min(1, "Add at least one cover photo")
+    .max(MAX_COVER_PHOTOS, `Use at most ${MAX_COVER_PHOTOS} cover photos`),
+});
 
 const gallerySchema = z.object({
   items: z
@@ -94,7 +102,7 @@ export default function AdminHomepage() {
   );
 }
 
-// Cover photo, shop name and tagline at the top of the shop, and the About box at the bottom.
+// Cover photos, shop name and tagline at the top of the shop, and the About box at the bottom.
 function ShopHeaderEditor() {
   const { token } = useAuth();
   const { toast } = useToast();
@@ -103,6 +111,7 @@ function ShopHeaderEditor() {
     resolver: zodResolver(shopHeaderSchema),
     defaultValues: DEFAULT_HOMEPAGE_HERO,
   });
+  const slides = useFieldArray({ control: form.control, name: "slides" });
   const { data, isError, isFetching, refetch } = useQuery({
     queryKey: ["admin", "homepage-hero"],
     queryFn: fetchHomepageHeroForEditing,
@@ -133,15 +142,15 @@ function ShopHeaderEditor() {
   }, [data, form]);
 
   const values = form.watch();
-  const cover = values.slides[0]?.imageUrl;
-  const coverUrl = cover ? normalizeSupabaseMediaUrl(cover) || cover : "";
+  const previewSlides = values.slides.filter((slide) => slide.imageUrl);
+  const slidesError = form.formState.errors.slides?.root?.message ?? form.formState.errors.slides?.message;
 
   return (
     <Card id="homepage-hero" className="scroll-mt-24 border-border/60">
       <CardHeader className="pb-3">
         <h2 className="text-lg font-semibold">Shop header</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          The cover photo, name and tagline at the top of the shop, and the About box at the bottom.
+          The cover photos, name and tagline at the top of the shop, and the About box at the bottom.
         </p>
       </CardHeader>
       <CardContent>
@@ -189,25 +198,107 @@ function ShopHeaderEditor() {
                   />
                 </div>
 
-                <FormField
-                  control={form.control}
-                  name="slides.0.imageUrl"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cover photo</FormLabel>
-                      <AdminImageUpload
-                        label="Cover photo"
-                        folder="homepage-hero"
-                        value={field.value}
-                        onChange={(url) => field.onChange(url)}
-                        onClear={() => field.onChange("")}
-                        helperText="The wide photo across the top of the shop. Landscape photos work best."
-                        defaultLibraryScope="all"
+                <section className="space-y-3" aria-labelledby="cover-photos-title">
+                  <div className="flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                      <h3 id="cover-photos-title" className="text-sm font-medium">
+                        Cover photos
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        The wide strip across the top of the shop. With two or more, they fade from one to the next every 5 seconds.
+                        Landscape photos work best.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => slides.append({ title: "", label: "", accent: "", imageUrl: "" })}
+                      disabled={slides.fields.length >= MAX_COVER_PHOTOS}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add photo
+                    </Button>
+                  </div>
+
+                  {slides.fields.map((field, index) => (
+                    <div key={field.id} className="space-y-3 rounded-2xl border bg-muted/20 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium">
+                          Photo {index + 1}
+                          {index === 0 && <span className="font-normal text-muted-foreground"> · shows first</span>}
+                        </p>
+                        <div className="flex items-center">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => slides.move(index, index - 1)}
+                            disabled={index === 0}
+                            aria-label={`Move photo ${index + 1} earlier`}
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => slides.move(index, index + 1)}
+                            disabled={index === slides.fields.length - 1}
+                            aria-label={`Move photo ${index + 1} later`}
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => slides.remove(index)}
+                            disabled={slides.fields.length <= 1}
+                            aria-label={`Remove photo ${index + 1}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name={`slides.${index}.imageUrl`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <AdminImageUpload
+                              label={`Cover photo ${index + 1}`}
+                              folder="homepage-hero"
+                              value={field.value}
+                              onChange={(url) => field.onChange(url)}
+                              onClear={() => field.onChange("")}
+                              defaultLibraryScope="all"
+                            />
+                            <FormMessage />
+                          </FormItem>
+                        )}
                       />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                      <FormField
+                        control={form.control}
+                        name={`slides.${index}.title`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Caption (optional)</FormLabel>
+                            <FormControl>
+                              <Input {...field} placeholder="e.g. Butterfly birthday cakes" maxLength={40} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  ))}
+                  {slidesError && <p className="text-sm font-medium text-destructive">{slidesError}</p>}
+                </section>
 
                 <FormField
                   control={form.control}
@@ -234,9 +325,11 @@ function ShopHeaderEditor() {
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Preview on a phone</p>
               <div className="mx-auto mt-2 max-w-sm space-y-3 rounded-2xl border bg-background p-3">
                 <div className="text-center">
-                  <div className="h-28 overflow-hidden rounded-2xl bg-muted">
-                    {coverUrl && <img src={coverUrl} alt="" className="h-full w-full object-cover" />}
-                  </div>
+                  <CoverSlideshow
+                    key={previewSlides.map((slide) => slide.imageUrl).join("|")}
+                    slides={previewSlides}
+                    className="h-28 rounded-2xl"
+                  />
                   <div className="relative mx-auto -mt-12 h-24 w-24 overflow-hidden rounded-full border-4 border-background bg-white shadow-md">
                     <img src={DEFAULT_LOGO_IMAGE_URL} alt="" className="h-full w-full object-contain p-2" />
                   </div>

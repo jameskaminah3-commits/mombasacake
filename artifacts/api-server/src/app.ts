@@ -47,6 +47,11 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
+// The old separate menu page is now the shop's home page.
+app.get("/menu", (req, res) => {
+  res.redirect(301, `/${req.originalUrl.slice(req.path.length)}`);
+});
+
 app.get("/robots.txt", (req, res) => {
   res.type("text/plain").set("Cache-Control", "public, max-age=3600").send(renderRobotsTxt(siteUrl(req)));
 });

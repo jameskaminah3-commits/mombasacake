@@ -57,7 +57,7 @@ function parseVariantPrices(value: string | null) {
 }
 
 async function pageMeta(pathname: string): Promise<PageMeta> {
-  if (pathname === "/" || pathname === "/menu") return { status: 200, canonicalPath: "/" };
+  if (pathname === "/") return { status: 200, canonicalPath: "/" };
   if (pathname === "/blog") return { status: 200, canonicalPath: "/blog", title: `Blog | ${SITE_NAME}` };
   if (isPrivatePath(pathname)) return { status: 200, canonicalPath: pathname, noindex: true };
 

@@ -31,7 +31,7 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { data: categories } = useListCategories();
 
-  const isShopPage = location === "/" || location === "/menu";
+  const isShopPage = location === "/";
   const showCartBar = itemCount > 0 && !CART_BAR_HIDDEN_PREFIXES.some((prefix) => location.startsWith(prefix));
   // The product and cart pages pin their own action bar to the bottom of the screen on mobile.
   const pageHasMobileActionBar = location.startsWith("/cake/") || (location === "/cart" && itemCount > 0);

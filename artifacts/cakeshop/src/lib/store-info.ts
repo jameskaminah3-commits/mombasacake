@@ -1,8 +1,6 @@
 import { SiFacebook, SiInstagram, SiTiktok, SiYoutube } from "react-icons/si";
 
 export const STORE_NAME = "Channah Cake House";
-export const STORE_LOCATION = "Mombasa, Kenya";
-export const STORE_EMAIL = "channahcakes@gmail.com";
 export const STORE_PHONE = "+254721868212";
 export const STORE_PHONE_DISPLAY = "+254 721 868 212";
 

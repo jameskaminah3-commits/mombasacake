@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, MapPin, Star, Tag } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, MapPin, Star, Tag } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import {
   useGetPopularCakes,
@@ -10,6 +10,7 @@ import {
   type Cake,
   type Promotion,
 } from "@workspace/api-client-react";
+import { CoverSlideshow } from "@/components/cover-slideshow";
 import { CustomCakeButton, HighlightsRow } from "@/components/homepage-selling-points";
 import { RevealImage } from "@/components/reveal-image";
 import { ProductCard, ProductCardSkeleton } from "@/components/product-card";
@@ -67,10 +68,6 @@ function sortAvailableFirst(cakes: Cake[]) {
 }
 
 export default function Home() {
-  return <StorePage variant="store" />;
-}
-
-export function StorePage({ variant }: { variant: "store" | "menu" }) {
   const { data: cakes, isLoading: loadingCakes } = useListCakes();
   const { data: categories, isLoading: loadingCategories } = useListCategories();
   const { data: popularCakes } = useGetPopularCakes();
@@ -85,7 +82,6 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
     queryKey: ["homepage-highlights"],
     queryFn: fetchHomepageHighlights,
     placeholderData: DEFAULT_HOMEPAGE_HIGHLIGHTS,
-    enabled: variant === "store",
   });
 
   const [showCategoryBar, setShowCategoryBar] = useState(false);
@@ -242,14 +238,7 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
       )}
 
       <div className="mx-auto w-full max-w-2xl px-3 pb-8 sm:px-4">
-        {variant === "store" ? (
-          <StoreHeader hero={homepageHero ?? DEFAULT_HOMEPAGE_HERO} />
-        ) : (
-          <div className="pt-6 text-center">
-            <h1 className="text-xl font-extrabold tracking-tight">Our menu</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Browse our collection of artisan cakes. Each piece is crafted to perfection.</p>
-          </div>
-        )}
+        <StoreHeader hero={homepageHero ?? DEFAULT_HOMEPAGE_HERO} />
 
         <nav ref={categoryPicturesRef} className="no-scrollbar -mx-3 mt-5 overflow-x-auto sm:-mx-4" aria-label="Shop by category">
           <div className="mx-auto flex w-max gap-2 px-3 sm:px-4">
@@ -282,7 +271,7 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
           </div>
         </nav>
 
-        {variant === "store" && sellingPoints.showHighlights && <HighlightsRow highlights={sellingPoints.highlights} className="mt-4" />}
+        {sellingPoints.showHighlights && <HighlightsRow highlights={sellingPoints.highlights} className="mt-4" />}
 
         <div className="mt-4 space-y-3">
           {activePromotions.length > 0 && <OffersCard promotions={activePromotions} cakeNameBySlug={cakeNameBySlug} />}
@@ -323,20 +312,16 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
                     ))}
                   </div>
                 </section>
-                {variant === "store" && index === 0 && sellingPoints.showCustomCakeButton && (
+                {index === 0 && sellingPoints.showCustomCakeButton && (
                   <CustomCakeButton title={sellingPoints.customCakeTitle} text={sellingPoints.customCakeText} />
                 )}
               </Fragment>
             ))
           )}
 
-          {variant === "store" && (
-            <>
-              <RecentWorkCard />
-              <ReviewsCard />
-              <AboutCard hero={homepageHero ?? DEFAULT_HOMEPAGE_HERO} />
-            </>
-          )}
+          <RecentWorkCard />
+          <ReviewsCard />
+          <AboutCard hero={homepageHero ?? DEFAULT_HOMEPAGE_HERO} />
         </div>
       </div>
     </div>
@@ -344,7 +329,7 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
 }
 
 function StoreHeader({ hero }: { hero: HomepageHeroContent }) {
-  const cover = hero.slides[0]?.imageUrl;
+  const coverSlides = hero.slides.filter((slide) => slide.imageUrl);
   const [status, setStatus] = useState(() => getOpenStatus());
   const reviews = useStoreReviews();
   const averageRating = reviews.length ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : null;
@@ -356,11 +341,7 @@ function StoreHeader({ hero }: { hero: HomepageHeroContent }) {
 
   return (
     <section className="pt-3 text-center">
-      <div className="h-28 overflow-hidden rounded-2xl bg-muted sm:h-36">
-        {cover && (
-          <RevealImage src={cover} alt="" className="object-cover" eager fallbackSrc={DEFAULT_GALLERY_IMAGE_URL} placeholderClassName="bg-muted" />
-        )}
-      </div>
+      <CoverSlideshow key={coverSlides.map((slide) => slide.imageUrl).join("|")} slides={coverSlides} className="h-28 rounded-2xl sm:h-36" />
       <div className="relative mx-auto -mt-12 h-24 w-24 overflow-hidden rounded-full border-4 border-background bg-white shadow-md">
         <RevealImage
           src={DEFAULT_LOGO_IMAGE_URL}
@@ -467,12 +448,35 @@ function RecentWorkCard() {
   );
 }
 
+const REVIEW_CARD_STEP = 256 + 12; // card width + gap
+
+// Customers swipe through reviews themselves (moving text is hard to read); computers with a mouse also get arrows.
 function ReviewsCard() {
   const reviews = useStoreReviews();
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ atStart: true, atEnd: false });
+
+  useEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    const update = () =>
+      setEdges({ atStart: row.scrollLeft <= 4, atEnd: row.scrollLeft + row.clientWidth >= row.scrollWidth - 4 });
+    update();
+    row.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      row.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [reviews.length]);
 
   if (reviews.length === 0) return null;
 
   const averageRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
+  const scrollReviews = (direction: 1 | -1) => {
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    rowRef.current?.scrollBy({ left: direction * REVIEW_CARD_STEP, behavior: still ? "auto" : "smooth" });
+  };
 
   return (
     <section aria-labelledby="reviews-title" className="rounded-2xl border border-border bg-card p-4">
@@ -480,15 +484,39 @@ function ReviewsCard() {
         <h2 id="reviews-title" className="text-base font-bold tracking-tight">
           Customer reviews
         </h2>
-        <p className="flex items-center gap-1 text-sm font-semibold">
-          <Star className="h-4 w-4 fill-primary text-primary" />
-          {averageRating.toFixed(1)}
-          <span className="font-normal text-muted-foreground">
-            · {reviews.length} {reviews.length === 1 ? "review" : "reviews"}
-          </span>
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="flex items-center gap-1 text-sm font-semibold">
+            <Star className="h-4 w-4 fill-primary text-primary" />
+            {averageRating.toFixed(1)}
+            <span className="font-normal text-muted-foreground">
+              · {reviews.length} {reviews.length === 1 ? "review" : "reviews"}
+            </span>
+          </p>
+          {reviews.length > 1 && (
+            <div className="hidden gap-1 pointer-fine:flex">
+              <button
+                type="button"
+                onClick={() => scrollReviews(-1)}
+                disabled={edges.atStart}
+                aria-label="Previous reviews"
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-border text-foreground/70 transition-colors hover:bg-muted disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollReviews(1)}
+                disabled={edges.atEnd}
+                aria-label="More reviews"
+                className="flex h-7 w-7 items-center justify-center rounded-full border border-border text-foreground/70 transition-colors hover:bg-muted disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-      <div className="no-scrollbar -mx-4 mt-3 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4">
+      <div ref={rowRef} className="no-scrollbar -mx-4 mt-3 flex snap-x scroll-px-4 gap-3 overflow-x-auto px-4">
         {reviews.slice(0, 12).map((review) => (
           <figure key={review.id} className="flex w-64 shrink-0 snap-start flex-col rounded-xl bg-muted/60 p-4">
             <div className="flex gap-0.5" aria-label={`${review.rating} out of 5 stars`}>

@@ -9,5 +9,3 @@ node_modules
 artifacts/**/dist
 **/.DS_Store
 *.log
-landing-desktop.png
-landing-mobile.png

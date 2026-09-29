@@ -56,6 +56,7 @@ router.get("/cakes/featured", async (_req, res): Promise<void> => {
   res.json(cakes.map(({ cake, categoryName }) => formatCake(cake, categoryName)));
 });
 
+// The "Popular" row at the top of the shop: cakes the owner starred in admin first, then best sellers.
 router.get("/cakes/popular", async (_req, res): Promise<void> => {
   const popular = await db
     .select({
@@ -68,7 +69,7 @@ router.get("/cakes/popular", async (_req, res): Promise<void> => {
     .leftJoin(orderItemsTable, eq(orderItemsTable.cakeId, cakesTable.id))
     .where(eq(cakesTable.available, true))
     .groupBy(cakesTable.id, categoriesTable.name)
-    .orderBy(desc(sql`count(${orderItemsTable.id})`))
+    .orderBy(desc(cakesTable.featured), desc(sql`count(${orderItemsTable.id})`), desc(cakesTable.id))
     .limit(8);
   res.json(popular.map(({ cake, categoryName }) => formatCake(cake, categoryName)));
 });

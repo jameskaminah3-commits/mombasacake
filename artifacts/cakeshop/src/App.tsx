@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { Redirect, Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -14,7 +14,6 @@ import { StorefrontLayout } from "@/components/storefront-layout";
 // The shop page ships with the app; every other page is downloaded when first needed,
 // so shoppers on mobile data never download the admin panel.
 import Home from "@/pages/home";
-import Menu from "@/pages/menu";
 import NotFound from "@/pages/not-found";
 
 const loadCakeDetail = () => import("@/pages/cake");
@@ -123,7 +122,9 @@ function Router() {
             <Suspense fallback={<PageLoading />}>
               <Switch>
                 <Route path="/" component={Home} />
-                <Route path="/menu" component={Menu} />
+                <Route path="/menu">
+                  <Redirect to="/" />
+                </Route>
                 <Route path="/cake/:id" component={CakeDetail} />
                 <Route path="/cart" component={Cart} />
                 <Route path="/checkout" component={Checkout} />

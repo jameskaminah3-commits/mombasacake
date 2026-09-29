@@ -4,14 +4,16 @@ import { z } from "zod";
 import { buildSupabaseMediaUrl, normalizeSupabaseMediaUrl } from "./media-urls";
 import { readStoreSetting, writeStoreSetting } from "./store-settings";
 
+// A cover photo. The title is its optional caption; label and accent are text from the shop's earlier design,
+// kept on photos saved back then.
 const HeroSlideSchema = z.object({
-  title: z.string().min(2),
-  label: z.string().min(2),
-  accent: z.string().min(2),
+  title: z.string().trim().default(""),
+  label: z.string().default(""),
+  accent: z.string().default(""),
   imageUrl: z.string().min(1),
 });
 
-const HomepageHeroSchema = z.object({
+export const HomepageHeroSchema = z.object({
   brandLine: z.string().min(2),
   headline: z.string().min(2),
   description: z.string().min(2),

@@ -28,10 +28,6 @@ export function getSupabaseProjectUrl() {
   return envUrl;
 }
 
-export function getSupabaseServiceRoleKey() {
-  return SUPABASE_SERVICE_ROLE_KEY;
-}
-
 function assertStorageConfig() {
   if (!getSupabaseProjectUrl()) {
     throw new Error("SUPABASE_URL is not configured.");

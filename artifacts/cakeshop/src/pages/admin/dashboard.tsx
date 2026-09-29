@@ -66,7 +66,7 @@ export default function Dashboard() {
       href: "/cakes",
     },
     {
-      label: "Featured",
+      label: "In Popular",
       value: dashboardStats.featuredListings.toLocaleString(),
       icon: Star,
       href: "/cakes",

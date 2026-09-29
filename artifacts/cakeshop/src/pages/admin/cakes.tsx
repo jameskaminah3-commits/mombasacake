@@ -414,7 +414,8 @@ export default function AdminCakes() {
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 w-full">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-base">Featured</FormLabel>
+                          <FormLabel className="text-base">Show in Popular</FormLabel>
+                          <p className="text-sm text-muted-foreground">Shown first in the Popular row at the top of the shop.</p>
                         </div>
                         <FormControl>
                           <Switch
@@ -458,7 +459,7 @@ export default function AdminCakes() {
               <TableHead>Category</TableHead>
               <TableHead>Price</TableHead>
               <TableHead>Availability</TableHead>
-              <TableHead>Featured</TableHead>
+              <TableHead>Popular</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -530,10 +531,10 @@ export default function AdminCakes() {
                       className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
                         cake.featured ? "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" : "bg-muted text-muted-foreground hover:bg-muted/80"
                       }`}
-                      title={cake.featured ? "Remove from featured" : "Add to featured"}
+                      title={cake.featured ? "Remove from the Popular row" : "Show first in the Popular row at the top of the shop"}
                     >
                       {cake.featured ? <Star className="w-3.5 h-3.5 fill-current" /> : <StarOff className="w-3.5 h-3.5" />}
-                      {cake.featured ? "Featured" : "Not featured"}
+                      {cake.featured ? "In Popular" : "Add to Popular"}
                     </button>
                   </TableCell>
                   <TableCell className="text-right">
