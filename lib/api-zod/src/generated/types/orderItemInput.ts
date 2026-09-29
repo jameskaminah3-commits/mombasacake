@@ -11,4 +11,7 @@ export interface OrderItemInput {
   /** @minimum 1 */
   quantity: number;
   variantLabel?: string;
+  flavour?: string;
+  secondFlavour?: string;
+  cakeMessage?: string;
 }

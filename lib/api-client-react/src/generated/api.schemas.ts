@@ -106,6 +106,9 @@ export interface OrderItem {
   unitPrice: number;
   subtotal: number;
   variantLabel?: string | null;
+  flavour?: string | null;
+  secondFlavour?: string | null;
+  cakeMessage?: string | null;
 }
 
 export interface Order {
@@ -115,6 +118,7 @@ export interface Order {
   customerPhone: string;
   customerEmail?: string | null;
   deliveryAddress?: string | null;
+  deliveryDate?: string | null;
   notes?: string | null;
   promoCode?: string | null;
   discountAmount: number;
@@ -131,6 +135,9 @@ export interface OrderItemInput {
   /** @minimum 1 */
   quantity: number;
   variantLabel?: string;
+  flavour?: string;
+  secondFlavour?: string;
+  cakeMessage?: string;
 }
 
 export interface OrderInput {

@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { cartLineKey, describeCartLine, useCart } from "@/lib/cart-context";
+import { cartLineKey, useCart } from "@/lib/cart-context";
 import {
   getGetOrderQueryKey,
   useCreateOrder,
@@ -155,23 +155,20 @@ export default function Checkout() {
     try {
       setPaymentStatus("processing");
 
+      // Each cake's size, flavours and message are saved with that cake, so admin and the order email show them per cake.
       const orderItems = items.map((item) => ({
         cakeId: item.cake.id,
         quantity: item.quantity,
         variantLabel: item.variantLabel || undefined,
+        flavour: item.flavour || undefined,
+        secondFlavour: item.secondFlavour || undefined,
+        cakeMessage: item.message || undefined,
       }));
-
-      // Each cake's flavour and message goes into the order notes so the baker sees them with the order.
-      const cakeDetails = items.filter((item) => item.flavour || item.secondFlavour || item.message).map(describeCartLine);
-      const customerNote = values.notes?.trim();
-      const notes = cakeDetails.length
-        ? [...cakeDetails, customerNote ? `Customer note: ${customerNote}` : null].filter(Boolean).join("\n")
-        : customerNote || undefined;
 
       const order = await createOrder.mutateAsync({
         data: {
           ...values,
-          notes,
+          notes: values.notes?.trim() || undefined,
           deliveryDate: values.deliveryDate || undefined,
           promoCode: values.promoCode?.trim() || undefined,
           items: orderItems,

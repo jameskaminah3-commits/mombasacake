@@ -113,15 +113,3 @@ export function useCart() {
   }
   return context;
 }
-
-// One line per cake for the order notes, so the baker sees each cake's flavour and message.
-export function describeCartLine(item: CartItem) {
-  return [
-    `${item.quantity}x ${item.cake.name}${item.variantLabel ? ` (${item.variantLabel})` : ""}`,
-    item.flavour ? `Flavour: ${item.flavour}` : null,
-    item.secondFlavour ? `Second flavour: ${item.secondFlavour}` : null,
-    item.message ? `Message on cake: "${item.message}"` : null,
-  ]
-    .filter(Boolean)
-    .join(" — ");
-}

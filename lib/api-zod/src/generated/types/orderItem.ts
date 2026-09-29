@@ -14,4 +14,8 @@ export interface OrderItem {
   quantity: number;
   unitPrice: number;
   subtotal: number;
+  variantLabel?: string | null;
+  flavour?: string | null;
+  secondFlavour?: string | null;
+  cakeMessage?: string | null;
 }

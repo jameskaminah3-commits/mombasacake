@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, desc, sql, and, gte } from "drizzle-orm";
 import { db, ordersTable, customersTable, orderItemsTable, cakesTable } from "@workspace/db";
 import { requireAdmin } from "../lib/auth-middleware";
+import { ensureOrdersSchema } from "../lib/ensure-orders-schema";
 
 const router: IRouter = Router();
 
@@ -55,6 +56,7 @@ router.get("/dashboard/stats", requireAdmin, async (_req, res): Promise<void> =>
 });
 
 router.get("/dashboard/recent-orders", requireAdmin, async (_req, res): Promise<void> => {
+  await ensureOrdersSchema();
   const orders = await db
     .select()
     .from(ordersTable)

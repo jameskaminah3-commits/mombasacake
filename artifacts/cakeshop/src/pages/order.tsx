@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle2, Clock3, Package, MapPin, Phone, Receipt } from "lucide-react";
 import { format } from "date-fns";
 import { DEFAULT_PAYMENT_DETAILS, fetchPaymentDetails } from "@/lib/payment-details";
+import { orderItemChoices } from "@/lib/order-items";
 
 export default function OrderSuccess() {
   const { id } = useParams();
@@ -123,12 +124,20 @@ export default function OrderSuccess() {
           </h3>
           <div className="space-y-4">
             {order.items.map((item) => (
-              <div key={item.id} className="flex justify-between items-center text-sm border-b border-border/50 pb-4 last:border-0 last:pb-0">
-                <div className="flex items-center gap-3">
+              <div key={item.id} className="flex justify-between items-start gap-3 text-sm border-b border-border/50 pb-4 last:border-0 last:pb-0">
+                <div className="flex items-start gap-3">
                   <span className="bg-muted px-2 py-1 rounded text-xs font-bold text-muted-foreground">{item.quantity}x</span>
-                  <span className="font-medium">{item.cakeName}</span>
+                  <div>
+                    <p className="font-medium">
+                      {item.cakeName}
+                      {item.variantLabel ? ` (${item.variantLabel})` : ""}
+                    </p>
+                    {orderItemChoices(item).map((choice) => (
+                      <p key={choice} className="text-xs text-muted-foreground">{choice}</p>
+                    ))}
+                  </div>
                 </div>
-                <span className="font-medium text-muted-foreground">KES {item.subtotal.toLocaleString()}</span>
+                <span className="shrink-0 font-medium text-muted-foreground">KES {item.subtotal.toLocaleString()}</span>
               </div>
             ))}
           </div>

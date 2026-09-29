@@ -14,6 +14,7 @@ export interface Order {
   customerPhone: string;
   customerEmail?: string | null;
   deliveryAddress?: string | null;
+  deliveryDate?: string | null;
   notes?: string | null;
   promoCode?: string | null;
   discountAmount: number;

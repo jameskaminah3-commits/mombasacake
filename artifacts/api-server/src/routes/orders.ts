@@ -1,5 +1,6 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import { eq, desc, and } from "drizzle-orm";
+import { z } from "zod";
 import { ensureOrdersSchema } from "../lib/ensure-orders-schema";
 import { db, ordersTable, orderItemsTable, cakesTable, promotionsTable, customersTable, paymentsTable } from "@workspace/db";
 import { requireAdmin } from "../lib/auth-middleware";
@@ -17,12 +18,111 @@ import { ensurePromotionsSchema } from "../lib/ensure-promotions-schema";
 
 const router: IRouter = Router();
 
+const ORDER_STATUSES = ["pending", "confirmed", "preparing", "ready", "delivered", "cancelled"] as const;
+
+// Orders the owner enters or edits in the admin panel (e.g. taken on WhatsApp or by phone).
+const AdminOrderItemBody = z.object({
+  cakeId: z.number().int().positive(),
+  variantLabel: z.string().max(60).nullish(),
+  flavour: z.string().max(60).nullish(),
+  secondFlavour: z.string().max(60).nullish(),
+  cakeMessage: z.string().max(120).nullish(),
+  quantity: z.number().int().min(1).max(100),
+  // Empty uses the cake's price for the chosen size; set it for a custom quote.
+  unitPrice: z.number().min(0).max(10_000_000).nullish(),
+});
+
+const AdminOrderBody = z.object({
+  customerName: z.string().trim().min(1, "Enter the customer's name").max(120),
+  customerPhone: z.string().trim().min(1, "Enter the customer's phone number").max(40),
+  customerEmail: z.string().trim().max(200).nullish(),
+  deliveryAddress: z.string().trim().max(500).nullish(),
+  deliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Delivery date must be YYYY-MM-DD").nullish(),
+  notes: z.string().trim().max(2000).nullish(),
+  discountAmount: z.number().min(0).max(10_000_000).default(0),
+  status: z.enum(ORDER_STATUSES).default("confirmed"),
+  items: z.array(AdminOrderItemBody).min(1, "Add at least one cake").max(50),
+});
+
+const ManualOrderBody = AdminOrderBody.extend({
+  // Payment already received, e.g. cash or an M-Pesa payment confirmed from the SMS.
+  paid: z.boolean().default(false),
+  mpesaReceiptNo: z.string().trim().max(40).nullish(),
+});
+
+class OrderInputError extends Error {}
+
+// Free-text choices: trimmed, empty becomes null, capped so one field can't bloat an order.
+function cleanText(value: string | null | undefined, maxLength: number) {
+  const text = value?.trim();
+  return text ? text.slice(0, maxLength) : null;
+}
+
+function firstIssue(error: z.ZodError) {
+  const issue = error.issues[0];
+  if (!issue) return "Invalid order details";
+  return issue.path.length ? `${issue.path.join(".")}: ${issue.message}` : issue.message;
+}
+
+function sendOrderError(res: Response, err: unknown, logMessage: string) {
+  if (err instanceof OrderInputError) {
+    res.status(400).json({ error: err.message });
+    return;
+  }
+  logger.error({ err }, logMessage);
+  res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+}
+
+// Prices each cake from the catalogue (size price, or the base price), unless the admin set a price.
+// When editing, a cake that has since been removed from the catalogue keeps its saved name, photo and price.
+async function priceAdminItems(
+  items: z.infer<typeof AdminOrderItemBody>[],
+  savedItems: (typeof orderItemsTable.$inferSelect)[] = [],
+) {
+  let subtotal = 0;
+  const priced = [];
+  for (const item of items) {
+    const [cake] = await db.select().from(cakesTable).where(eq(cakesTable.id, item.cakeId));
+    const saved = savedItems.find((savedItem) => savedItem.cakeId === item.cakeId);
+    if (!cake && !saved) throw new OrderInputError(`Cake ${item.cakeId} was not found`);
+
+    const variantLabel = cleanText(item.variantLabel, 60);
+    let unitPrice = item.unitPrice ?? null;
+    if (unitPrice == null && cake) {
+      unitPrice = parseFloat(cake.price);
+      if (variantLabel) {
+        const variant = parseCakeVariants(cake.variants)?.find((v) => v.label === variantLabel);
+        if (!variant) throw new OrderInputError(`${cake.name} has no "${variantLabel}" size any more; choose a size or enter a price`);
+        unitPrice = variant.price;
+      }
+    }
+    if (unitPrice == null) unitPrice = parseFloat(saved!.unitPrice);
+
+    const lineSubtotal = unitPrice * item.quantity;
+    subtotal += lineSubtotal;
+    priced.push({
+      cakeId: item.cakeId,
+      cakeName: cake?.name ?? saved!.cakeName,
+      cakeImage: cake ? normalizeSupabaseMediaUrl(cake.imageUrl) : saved!.cakeImage,
+      variantLabel,
+      flavour: cleanText(item.flavour, 60),
+      secondFlavour: cleanText(item.secondFlavour, 60),
+      cakeMessage: cleanText(item.cakeMessage, 120),
+      quantity: item.quantity,
+      unitPrice: String(unitPrice),
+      subtotal: String(lineSubtotal),
+    });
+  }
+  return { priced, subtotal };
+}
+
 router.get("/orders", requireAdmin, async (req, res): Promise<void> => {
   const query = ListOrdersQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
     return;
   }
+  await ensureOrdersSchema();
 
   const conditions = [];
   if (query.data.status) conditions.push(eq(ordersTable.status, query.data.status));
@@ -74,6 +174,9 @@ router.post("/orders", async (req, res): Promise<void> => {
         cakeName: cake.name,
         cakeImage: normalizeSupabaseMediaUrl(cake.imageUrl),
         variantLabel: item.variantLabel ?? null,
+        flavour: cleanText(item.flavour, 60),
+        secondFlavour: cleanText(item.secondFlavour, 60),
+        cakeMessage: cleanText(item.cakeMessage, 120),
         quantity: item.quantity,
         unitPrice: String(unitPrice),
         subtotal: String(lineSubtotal),
@@ -157,6 +260,7 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
+  await ensureOrdersSchema();
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
   if (!order) {
     res.status(404).json({ error: "Order not found" });
@@ -177,6 +281,7 @@ router.patch("/orders/:id/status", requireAdmin, async (req, res): Promise<void>
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  await ensureOrdersSchema();
   const [order] = await db
     .update(ordersTable)
     .set({ status: parsed.data.status })
@@ -207,6 +312,7 @@ router.patch("/orders/:id/mark-paid", requireAdmin, async (req, res): Promise<vo
   };
   if (receipt) setValues.mpesaReceiptNo = receipt;
 
+  await ensureOrdersSchema();
   const [order] = await db
     .update(ordersTable)
     .set(setValues)
@@ -227,6 +333,131 @@ router.patch("/orders/:id/mark-paid", requireAdmin, async (req, res): Promise<vo
 
   const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
   res.json(formatOrder(order, items));
+});
+
+// Admin: record an order taken outside the shop (WhatsApp, phone, walk-in).
+router.post("/orders/manual", requireAdmin, async (req, res): Promise<void> => {
+  const parsed = ManualOrderBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: firstIssue(parsed.error) });
+    return;
+  }
+
+  try {
+    await ensureOrdersSchema();
+    const { priced, subtotal } = await priceAdminItems(parsed.data.items);
+    const discount = Math.min(parsed.data.discountAmount, subtotal);
+    const customer = {
+      name: parsed.data.customerName,
+      phone: parsed.data.customerPhone,
+      email: cleanText(parsed.data.customerEmail, 200),
+    };
+    const customerId = await resolveCustomerId(customer);
+    const receipt = cleanText(parsed.data.mpesaReceiptNo, 40);
+
+    const { order, items } = await db.transaction(async (tx) => {
+      const [order] = await tx
+        .insert(ordersTable)
+        .values({
+          customerId,
+          customerName: customer.name,
+          customerPhone: customer.phone,
+          customerEmail: customer.email,
+          deliveryAddress: cleanText(parsed.data.deliveryAddress, 500),
+          deliveryDate: parsed.data.deliveryDate ? new Date(parsed.data.deliveryDate + "T00:00:00Z") : null,
+          notes: cleanText(parsed.data.notes, 2000),
+          discountAmount: String(discount),
+          total: String(subtotal - discount),
+          status: parsed.data.status,
+          paymentStatus: parsed.data.paid ? "paid" : "pending",
+          mpesaReceiptNo: receipt,
+        })
+        .returning();
+      const items = await tx
+        .insert(orderItemsTable)
+        .values(priced.map((item) => ({ ...item, orderId: order.id })))
+        .returning();
+      if (parsed.data.paid) {
+        // Same record the "Mark paid" button keeps, so the Payments page lists it too.
+        await tx.insert(paymentsTable).values({
+          orderId: order.id,
+          amount: order.total,
+          method: receipt ? "mpesa" : "manual",
+          status: "completed",
+          mpesaReceiptNo: receipt ?? undefined,
+        });
+      }
+      return { order, items };
+    });
+
+    logger.info({ orderId: order.id }, "Manual order created");
+    res.status(201).json(formatOrder(order, items));
+  } catch (err) {
+    sendOrderError(res, err, "Manual order creation failed");
+  }
+});
+
+// Admin: change an order's customer details, delivery, cakes (size, flavours, message, quantity) and status.
+// Payment is confirmed separately with "Mark paid".
+router.put("/orders/:id", requireAdmin, async (req, res): Promise<void> => {
+  const params = GetOrderParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const parsed = AdminOrderBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: firstIssue(parsed.error) });
+    return;
+  }
+
+  try {
+    await ensureOrdersSchema();
+    const [existing] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
+    if (!existing) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+    const savedItems = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, existing.id));
+    const { priced, subtotal } = await priceAdminItems(parsed.data.items, savedItems);
+    const discount = Math.min(parsed.data.discountAmount, subtotal);
+    const customer = {
+      name: parsed.data.customerName,
+      phone: parsed.data.customerPhone,
+      email: cleanText(parsed.data.customerEmail, 200),
+    };
+    const customerId = await resolveCustomerId(customer);
+
+    const { order, items } = await db.transaction(async (tx) => {
+      const [order] = await tx
+        .update(ordersTable)
+        .set({
+          customerId,
+          customerName: customer.name,
+          customerPhone: customer.phone,
+          customerEmail: customer.email,
+          deliveryAddress: cleanText(parsed.data.deliveryAddress, 500),
+          deliveryDate: parsed.data.deliveryDate ? new Date(parsed.data.deliveryDate + "T00:00:00Z") : null,
+          notes: cleanText(parsed.data.notes, 2000),
+          discountAmount: String(discount),
+          total: String(subtotal - discount),
+          status: parsed.data.status,
+        })
+        .where(eq(ordersTable.id, existing.id))
+        .returning();
+      await tx.delete(orderItemsTable).where(eq(orderItemsTable.orderId, existing.id));
+      const items = await tx
+        .insert(orderItemsTable)
+        .values(priced.map((item) => ({ ...item, orderId: existing.id })))
+        .returning();
+      return { order, items };
+    });
+
+    logger.info({ orderId: order.id }, "Order edited in admin");
+    res.json(formatOrder(order, items));
+  } catch (err) {
+    sendOrderError(res, err, "Order update failed");
+  }
 });
 
 function formatOrder(
@@ -254,6 +485,9 @@ function formatOrder(
       cakeName: i.cakeName,
       cakeImage: normalizeSupabaseMediaUrl(i.cakeImage) ?? null,
       variantLabel: i.variantLabel ?? null,
+      flavour: i.flavour ?? null,
+      secondFlavour: i.secondFlavour ?? null,
+      cakeMessage: i.cakeMessage ?? null,
       quantity: i.quantity,
       unitPrice: parseFloat(i.unitPrice),
       subtotal: parseFloat(i.subtotal),

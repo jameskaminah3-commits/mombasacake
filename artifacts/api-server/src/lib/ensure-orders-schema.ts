@@ -18,6 +18,9 @@ export function ensureOrdersSchema(): Promise<void> {
       await db.execute(sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_date timestamp with time zone`);
       await db.execute(sql`ALTER TABLE cakes ADD COLUMN IF NOT EXISTS variants text`);
       await db.execute(sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS variant_label text`);
+      await db.execute(sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS flavour text`);
+      await db.execute(sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS second_flavour text`);
+      await db.execute(sql`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS cake_message text`);
     })().catch((error) => {
       ensureOrdersSchemaPromise = null;
       logger.error({ error }, "ensureOrdersSchema failed");

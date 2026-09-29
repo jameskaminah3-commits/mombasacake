@@ -24,14 +24,27 @@ export async function sendNewOrderNotification(order: Order, items: OrderItem[])
   }
 
   const itemName = (item: OrderItem) => `${item.cakeName}${item.variantLabel ? ` (${item.variantLabel})` : ""}`;
+  const itemChoices = (item: OrderItem) =>
+    [
+      item.flavour ? `Flavour: ${item.flavour}` : null,
+      item.secondFlavour ? `Second flavour: ${item.secondFlavour}` : null,
+      item.cakeMessage ? `Message on cake: "${item.cakeMessage}"` : null,
+    ].filter(Boolean) as string[];
 
   const itemList = items
-    .map((item) => `<li><strong>${item.quantity}x</strong> ${escapeHtml(itemName(item))} - KES ${parseFloat(item.subtotal).toLocaleString()}</li>`)
+    .map((item) => {
+      const choices = itemChoices(item);
+      return `<li><strong>${item.quantity}x</strong> ${escapeHtml(itemName(item))} - KES ${parseFloat(item.subtotal).toLocaleString()}${
+        choices.length ? `<br><span style="color:#555">${escapeHtml(choices.join(" · "))}</span>` : ""
+      }</li>`;
+    })
     .join("");
 
   const itemSummary = items
-    .map((item) => `${item.quantity}x ${itemName(item)} (KES ${parseFloat(item.subtotal).toLocaleString()})`)
-    .join(", ");
+    .map((item) =>
+      [`- ${item.quantity}x ${itemName(item)} (KES ${parseFloat(item.subtotal).toLocaleString()})`, ...itemChoices(item)].join(" — "),
+    )
+    .join("\n");
 
   // Delivery dates are stored as midnight UTC of the chosen day.
   const deliveryDate = order.deliveryDate
@@ -66,7 +79,7 @@ export async function sendNewOrderNotification(order: Order, items: OrderItem[])
       order.notes ? `Notes:\n${order.notes}` : null,
       `Total: KES ${parseFloat(order.total).toLocaleString()}`,
       `Payment status: ${order.paymentStatus}`,
-      `Items: ${itemSummary}`,
+      `Items:\n${itemSummary}`,
     ].filter(Boolean).join("\n"),
   });
 }

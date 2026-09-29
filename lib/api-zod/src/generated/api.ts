@@ -351,7 +351,10 @@ export const CreateOrderBody = zod.object({
   "items": zod.array(zod.object({
   "cakeId": zod.number(),
   "quantity": zod.number().min(1),
-  "variantLabel": zod.string().optional()
+  "variantLabel": zod.string().optional(),
+  "flavour": zod.string().optional(),
+  "secondFlavour": zod.string().optional(),
+  "cakeMessage": zod.string().optional()
 }))
 })
 

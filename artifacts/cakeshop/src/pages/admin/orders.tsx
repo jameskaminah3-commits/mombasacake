@@ -22,20 +22,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { Link } from "wouter";
-import { Search } from "lucide-react";
+import { Pencil, Plus, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AdminOrderForm, ORDER_STATUSES as STATUSES } from "@/components/admin-order-form";
+import { orderItemChoices } from "@/lib/order-items";
 import { normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
-
-const STATUSES = ['pending', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
-
-// The API sends each order's delivery date (YYYY-MM-DD), though the generated Order type doesn't declare it.
-function deliveryDateOf(order: Order) {
-  return (order as Order & { deliveryDate?: string | null }).deliveryDate ?? null;
-}
 
 export default function AdminOrders() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [paymentFilter, setPaymentFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   
   const { data: orders, isLoading } = useListOrders({
     status: filterStatus !== "all" ? filterStatus : undefined
@@ -98,6 +96,11 @@ export default function AdminOrders() {
     }
   };
 
+  const openOrderForm = (order: Order | null) => {
+    setEditingOrder(order);
+    setFormOpen(true);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-500';
@@ -112,8 +115,20 @@ export default function AdminOrders() {
 
   return (
     <div className="space-y-6">
+      <AdminOrderForm
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        order={editingOrder}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() })}
+      />
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Orders</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold tracking-tight">Orders</h1>
+          <Button type="button" onClick={() => openOrderForm(null)} className="bg-primary text-primary-foreground hover:bg-primary/90">
+            <Plus className="mr-2 h-4 w-4" /> New order
+          </Button>
+        </div>
         
         <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
           <div className="relative sm:w-64">
@@ -207,9 +222,21 @@ export default function AdminOrders() {
               filteredOrders?.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell className="font-medium">
-                    <Link href={`~/order/${order.id}`} className="hover:underline text-primary">
-                      #{order.id}
-                    </Link>
+                    <div className="flex flex-col items-start gap-1.5">
+                      <Link href={`~/order/${order.id}`} className="hover:underline text-primary">
+                        #{order.id}
+                      </Link>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => openOrderForm(order)}
+                        aria-label={`Edit order #${order.id}`}
+                      >
+                        <Pencil className="mr-1 h-3 w-3" /> Edit
+                      </Button>
+                    </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {format(new Date(order.createdAt), 'MMM d, h:mm a')}
@@ -226,34 +253,36 @@ export default function AdminOrders() {
                           {order.deliveryAddress}
                         </span>
                       )}
-                      {deliveryDateOf(order) && (
+                      {order.deliveryDate && (
                         <span className="mt-1 text-xs font-semibold text-foreground">
-                          Deliver {format(new Date(`${deliveryDateOf(order)}T00:00:00`), "EEE d MMM")}
+                          Deliver {format(new Date(`${order.deliveryDate}T00:00:00`), "EEE d MMM")}
                         </span>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="max-w-[280px] space-y-1">
-                      {order.items.slice(0, 3).map((item) => (
-                        <div key={item.id} className="flex items-center gap-2 text-sm">
+                    <div className="max-w-[300px] space-y-2">
+                      {order.items.map((item) => (
+                        <div key={item.id} className="flex items-start gap-2 text-sm">
                           {item.cakeImage && (
                             <img
                               src={normalizeSupabaseMediaUrl(item.cakeImage) || item.cakeImage}
                               alt=""
-                              className="h-8 w-8 rounded-md object-cover"
+                              className="h-8 w-8 shrink-0 rounded-md object-cover"
                             />
                           )}
-                          <span className="truncate">
-                            {item.quantity}x {item.cakeName}
-                            {item.variantLabel ? ` (${item.variantLabel})` : ""}
-                          </span>
+                          <div className="min-w-0">
+                            <p className="font-medium leading-5">
+                              {item.quantity}x {item.cakeName}
+                              {item.variantLabel ? ` (${item.variantLabel})` : ""}
+                            </p>
+                            {orderItemChoices(item).map((choice) => (
+                              <p key={choice} className="text-xs leading-5 text-muted-foreground">{choice}</p>
+                            ))}
+                          </div>
                         </div>
                       ))}
-                      {order.items.length > 3 && (
-                        <p className="text-xs text-muted-foreground">+{order.items.length - 3} more</p>
-                      )}
-                      {/* Flavours, cake messages and customer notes arrive in the order notes, one cake per line. */}
+                      {/* Customer notes; orders placed before per-cake choices were saved also list flavours here. */}
                       {order.notes && (
                         <p className="mt-2 whitespace-pre-line rounded-md bg-muted/60 p-2 text-xs leading-5 text-foreground">
                           {order.notes}

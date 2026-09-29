@@ -75,7 +75,10 @@ router.post("/reviews", async (req, res): Promise<void> => {
     return;
   }
 
-  const orderItems = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
+  const orderItems = await db
+    .select({ cakeId: orderItemsTable.cakeId })
+    .from(orderItemsTable)
+    .where(eq(orderItemsTable.orderId, order.id));
   const purchasedCake = orderItems.some((item) => item.cakeId === parsed.data.cakeId);
   if (!purchasedCake) {
     res.status(400).json({ error: "That order does not include this cake" });

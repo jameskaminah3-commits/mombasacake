@@ -791,6 +791,18 @@ components:
           type: number
         subtotal:
           type: number
+        variantLabel:
+          type: string
+          nullable: true
+        flavour:
+          type: string
+          nullable: true
+        secondFlavour:
+          type: string
+          nullable: true
+        cakeMessage:
+          type: string
+          nullable: true
 
     Order:
       type: object
@@ -809,6 +821,9 @@ components:
           type: string
           nullable: true
         deliveryAddress:
+          type: string
+          nullable: true
+        deliveryDate:
           type: string
           nullable: true
         notes:
@@ -844,6 +859,14 @@ components:
         quantity:
           type: integer
           minimum: 1
+        variantLabel:
+          type: string
+        flavour:
+          type: string
+        secondFlavour:
+          type: string
+        cakeMessage:
+          type: string
 
     OrderInput:
       type: object
