@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 import { db, paymentsTable, ordersTable, orderItemsTable, paymentSettingsTable } from "@workspace/db";
 import { InitiateMpesaPaymentBody, GetPaymentParams } from "@workspace/api-zod";
 import { initiateStkPush, isValidCallbackKey, registerC2bUrls } from "../lib/mpesa";
@@ -176,13 +176,10 @@ router.post("/payments/mpesa/c2b/validation", (_req, res): void => {
 router.post("/payments/mpesa/c2b/confirmation", async (req, res): Promise<void> => {
   const body = req.body;
   req.log.info({ body }, "MPesa C2B confirmation received");
-  if (!isValidCallbackKey(req.query.key)) {
-    // Registered before the key existed: register the URLs again in Admin → Payments. Until then the owner
-    // confirms these payments with "Mark paid".
-    logger.warn({ receipt: body?.TransID }, "M-Pesa C2B confirmation without the right key ignored");
-    res.json({ ResultCode: 0, ResultDesc: "Accepted" });
-    return;
-  }
+  // Only notifications sent to the address with the secret key (registered from Admin → Payments) are
+  // trusted to mark an order paid. Others (an address registered before the key existed, or a forgery)
+  // are shown on the order for the owner to check against their M-Pesa statement.
+  const verified = isValidCallbackKey(req.query.key);
 
   try {
     await ensureOrdersSchema();
@@ -202,7 +199,7 @@ router.post("/payments/mpesa/c2b/confirmation", async (req, res): Promise<void> 
           o.customerPhone.replace(/\D/g, "").slice(-9) === last9
       );
 
-      if (matches.length === 1) {
+      if (matches.length === 1 && verified) {
         const order = matches[0];
         const [paidOrder] = await db
           .update(ordersTable)
@@ -219,9 +216,26 @@ router.post("/payments/mpesa/c2b/confirmation", async (req, res): Promise<void> 
         });
         logger.info({ orderId: order.id, receipt }, "C2B payment auto-reconciled");
         await afterPayment(paidOrder, siteUrl(req));
+      } else if (matches.length === 1) {
+        const order = matches[0];
+        const [already] = await db
+          .select({ id: paymentsTable.id })
+          .from(paymentsTable)
+          .where(and(eq(paymentsTable.orderId, order.id), eq(paymentsTable.mpesaReceiptNo, receipt)));
+        if (!already) {
+          await db.insert(paymentsTable).values({
+            orderId: order.id,
+            amount: String(amount),
+            method: "mpesa",
+            status: "reported",
+            mpesaReceiptNo: receipt,
+            rawCallback: JSON.stringify(body),
+          });
+        }
+        logger.warn({ orderId: order.id, receipt }, "C2B payment reported without the key: the owner confirms it with Mark paid");
       } else {
         logger.warn(
-          { receipt, amount, last9, matchCount: matches.length },
+          { receipt, amount, last9, matchCount: matches.length, verified },
           "C2B payment needs manual confirmation"
         );
       }
@@ -235,12 +249,19 @@ router.post("/payments/mpesa/c2b/confirmation", async (req, res): Promise<void> 
 
 // Admin-triggered one-time registration of the C2B URLs with Safaricom.
 router.post("/payments/mpesa/c2b/register", requireAdmin, async (_req, res): Promise<void> => {
+  if (!/^https:\/\//.test(process.env.PUBLIC_APP_URL?.trim() ?? "")) {
+    res.status(400).json({ ok: false, error: "Set PUBLIC_APP_URL in Railway to your shop's address (e.g. https://channahcakes.co.ke) first." });
+    return;
+  }
   try {
     const data = await registerC2bUrls();
     res.json({ ok: true, data });
   } catch (err) {
     logger.error({ err }, "C2B URL registration failed");
-    res.status(502).json({ ok: false, error: "Failed to register C2B URLs" });
+    // Safaricom's own words help most (e.g. that the URLs are already registered).
+    const reply = (err as { response?: { data?: { errorMessage?: unknown; ResponseDescription?: unknown } } }).response?.data;
+    const reason = reply?.errorMessage ?? reply?.ResponseDescription ?? (err instanceof Error ? err.message : null);
+    res.status(502).json({ ok: false, error: typeof reason === "string" && reason ? `Safaricom: ${reason}` : "Registering with Safaricom failed." });
   }
 });
 

@@ -102,11 +102,13 @@ export default function AdminOrders() {
     }
   };
 
-  const handleMarkPaid = async (orderId: number) => {
+  const handleMarkPaid = async (order: Order) => {
     const receipt = window.prompt(
-      "Enter the M-Pesa receipt code from the payment SMS (optional):"
+      "Enter the M-Pesa receipt code from the payment SMS (optional):",
+      order.reportedPayment?.receipt ?? "",
     );
     if (receipt === null) return; // cancelled
+    const orderId = order.id;
     try {
       await customFetch(`${getApiBaseUrl()}/api/orders/${orderId}/mark-paid`, {
         method: "PATCH",
@@ -350,10 +352,16 @@ export default function AdminOrders() {
                       }`}>
                         {order.paymentStatus}
                       </span>
+                      {order.paymentStatus !== 'paid' && order.reportedPayment && (
+                        <p className="max-w-[160px] text-xs leading-5 text-amber-800">
+                          M-Pesa reported KES {order.reportedPayment.amount.toLocaleString()}
+                          {order.reportedPayment.receipt ? ` (${order.reportedPayment.receipt})` : ""}. Check your M-Pesa, then mark paid.
+                        </p>
+                      )}
                       {order.paymentStatus !== 'paid' && (
                         <button
                           type="button"
-                          onClick={() => handleMarkPaid(order.id)}
+                          onClick={() => handleMarkPaid(order)}
                           className="text-xs font-medium text-[#52B44B] underline underline-offset-2 hover:text-[#52B44B]/80"
                         >
                           Mark paid

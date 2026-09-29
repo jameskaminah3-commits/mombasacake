@@ -138,6 +138,14 @@ export interface Order {
   creditUsed?: number;
   /** The customer's own referral code and reward balance, when the shop runs referrals. */
   referral?: OrderReferral | null;
+  /** Owner's list only: a paybill payment M-Pesa reported for this unpaid order, to check and confirm. */
+  reportedPayment?: OrderReportedPayment | null;
+}
+
+export interface OrderReportedPayment {
+  receipt: string | null;
+  amount: number;
+  at: string;
 }
 
 export interface OrderReferral {

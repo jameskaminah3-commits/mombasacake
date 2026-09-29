@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Link } from "wouter";
 import { Loader2, Search } from "lucide-react";
+import { customFetch } from "@workspace/api-client-react";
+import { getApiBaseUrl } from "@/lib/api-base";
 import {
   DEFAULT_PAYMENT_SETTINGS,
   fetchPaymentSettings,
@@ -223,6 +225,8 @@ export default function AdminPayments() {
         )}
       </div>
 
+      <PaybillNotifications />
+
       {!isLoading && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="rounded-md border bg-card p-4">
@@ -281,7 +285,7 @@ export default function AdminPayments() {
                     {format(new Date(payment.createdAt), "MMM d, yyyy h:mm a")}
                   </TableCell>
                   <TableCell className="font-medium">
-                    <Link href={`/order/${payment.orderId}`} className="text-primary hover:underline">
+                    <Link href={`~/order/${payment.orderId}`} className="text-primary hover:underline">
                       #{payment.orderId}
                     </Link>
                   </TableCell>
@@ -298,7 +302,7 @@ export default function AdminPayments() {
                             : "bg-yellow-100 text-yellow-700"
                       }`}
                     >
-                      {payment.status}
+                      {payment.status === "reported" ? "check M-Pesa" : payment.status}
                     </span>
                   </TableCell>
                 </TableRow>
@@ -307,6 +311,43 @@ export default function AdminPayments() {
           </TableBody>
         </Table>
       </div>
+    </div>
+  );
+}
+
+// Asks Safaricom to tell the shop about payments customers make themselves (Lipa na M-Pesa → Pay Bill or
+// Buy Goods), so those orders are marked paid automatically too.
+function PaybillNotifications() {
+  const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [message, setMessage] = useState<string | null>(null);
+
+  const register = async () => {
+    setState("sending");
+    setMessage(null);
+    try {
+      await customFetch(`${getApiBaseUrl()}/api/payments/mpesa/c2b/register`, { method: "POST" });
+      setState("done");
+    } catch (error) {
+      const data = (error as { data?: { error?: unknown } } | null)?.data;
+      setState("error");
+      setMessage(typeof data?.error === "string" ? data.error : "Registering with Safaricom failed. Please try again.");
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-3">
+      <h2 className="text-xl font-bold tracking-tight">Payments customers make themselves</h2>
+      <p className="text-sm text-muted-foreground">
+        When a customer pays with Lipa na M-Pesa instead of the prompt, Safaricom can tell the shop so the order is marked paid automatically.
+        Press this once (and again if the shop's address changes). Until then, or if Safaricom says an address is already registered, those
+        payments show on the order as &ldquo;M-Pesa reported&rdquo; for you to check and mark paid.
+      </p>
+      <Button type="button" variant="outline" className="rounded-full" onClick={register} disabled={state === "sending"}>
+        {state === "sending" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+        Register with Safaricom
+      </Button>
+      {state === "done" && <p className="text-sm font-medium text-[#52B44B]">Registered. Payments made with Lipa na M-Pesa will now mark orders paid.</p>}
+      {state === "error" && message && <p className="text-sm font-medium text-red-600">{message}</p>}
     </div>
   );
 }

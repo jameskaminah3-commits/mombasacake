@@ -149,12 +149,18 @@ router.get("/orders", requireAdmin, async (req, res): Promise<void> => {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(ordersTable.createdAt));
 
+  // Paybill payments M-Pesa reported without the secret key, for the owner to check and confirm.
+  const reported = await db.select().from(paymentsTable).where(eq(paymentsTable.status, "reported"));
   const result = await Promise.all(orders.map(async (order) => {
     const items = await db
       .select()
       .from(orderItemsTable)
       .where(eq(orderItemsTable.orderId, order.id));
-    return formatOrder(order, items);
+    const report = order.paymentStatus === "paid" ? undefined : reported.find((payment) => payment.orderId === order.id);
+    return {
+      ...formatOrder(order, items),
+      reportedPayment: report ? { receipt: report.mpesaReceiptNo, amount: parseFloat(report.amount), at: report.createdAt.toISOString() } : null,
+    };
   }));
 
   res.json(result);
@@ -380,13 +386,21 @@ router.patch("/orders/:id/mark-paid", requireAdmin, async (req, res): Promise<vo
     return;
   }
 
-  await db.insert(paymentsTable).values({
-    orderId: order.id,
-    amount: order.total,
-    method: "mpesa",
-    status: "completed",
-    mpesaReceiptNo: receipt || undefined,
-  });
+  // A paybill payment M-Pesa reported for this order becomes the confirmed payment; otherwise record one.
+  const confirmed = await db
+    .update(paymentsTable)
+    .set({ status: "completed" })
+    .where(and(eq(paymentsTable.orderId, order.id), eq(paymentsTable.status, "reported"), receipt ? eq(paymentsTable.mpesaReceiptNo, receipt) : undefined))
+    .returning({ id: paymentsTable.id });
+  if (confirmed.length === 0) {
+    await db.insert(paymentsTable).values({
+      orderId: order.id,
+      amount: order.total,
+      method: "mpesa",
+      status: "completed",
+      mpesaReceiptNo: receipt || undefined,
+    });
+  }
   await rewardReferralForPaidOrder(order.id);
 
   const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
