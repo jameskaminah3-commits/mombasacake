@@ -1,7 +1,8 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import { buildSupabaseMediaUrl, normalizeSupabaseMediaUrl } from "./media-urls";
+import { readStoreSetting, writeStoreSetting } from "./store-settings";
 
 const GalleryItemSchema = z.object({
   label: z.string().min(2),
@@ -15,8 +16,10 @@ const HomepageGallerySchema = z.object({
 export type HomepageGalleryItem = z.infer<typeof GalleryItemSchema>;
 export type HomepageGalleryContent = z.infer<typeof HomepageGallerySchema>;
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DATA_FILE = path.join(DATA_DIR, "homepage-gallery.json");
+const SETTINGS_KEY = "homepage-gallery";
+
+// Photos shipped with the app, shown until the gallery is first saved in the admin panel.
+const SHIPPED_FILE = path.join(process.cwd(), "data", "homepage-gallery.json");
 
 export const DEFAULT_HOMEPAGE_GALLERY: HomepageGalleryContent = {
   items: [
@@ -55,50 +58,31 @@ export const DEFAULT_HOMEPAGE_GALLERY: HomepageGalleryContent = {
   ],
 };
 
-async function ensureDataFile() {
-  await mkdir(DATA_DIR, { recursive: true });
-
-  try {
-    await readFile(DATA_FILE, "utf8");
-  } catch {
-    await writeFile(DATA_FILE, `${JSON.stringify(DEFAULT_HOMEPAGE_GALLERY, null, 2)}\n`, "utf8");
-  }
-}
-
-export async function readHomepageGallery(): Promise<HomepageGalleryContent> {
-  await ensureDataFile();
-
-  const raw = await readFile(DATA_FILE, "utf8");
-  const parsed = HomepageGallerySchema.safeParse(JSON.parse(raw));
-
-  if (!parsed.success) {
-    await writeFile(DATA_FILE, `${JSON.stringify(DEFAULT_HOMEPAGE_GALLERY, null, 2)}\n`, "utf8");
-    return DEFAULT_HOMEPAGE_GALLERY;
-  }
-
-  const normalized = {
-    items: parsed.data.items.map((item) => ({
-      ...item,
-      imageUrl: normalizeSupabaseMediaUrl(item.imageUrl) || item.imageUrl,
-    })),
-  };
-
-  if (JSON.stringify(normalized) !== JSON.stringify(parsed.data)) {
-    await writeFile(DATA_FILE, `${JSON.stringify(normalized, null, 2)}\n`, "utf8");
-  }
-
-  return normalized;
-}
-
-export async function writeHomepageGallery(content: HomepageGalleryContent): Promise<HomepageGalleryContent> {
-  const parsed = HomepageGallerySchema.parse({
+function normalizeImages(content: HomepageGalleryContent): HomepageGalleryContent {
+  return {
     items: content.items.map((item) => ({
       ...item,
       imageUrl: normalizeSupabaseMediaUrl(item.imageUrl) || item.imageUrl,
     })),
-  });
+  };
+}
 
-  await ensureDataFile();
-  await writeFile(DATA_FILE, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+async function readShippedGallery(): Promise<HomepageGalleryContent> {
+  try {
+    const parsed = HomepageGallerySchema.safeParse(JSON.parse(await readFile(SHIPPED_FILE, "utf8")));
+    return parsed.success ? parsed.data : DEFAULT_HOMEPAGE_GALLERY;
+  } catch {
+    return DEFAULT_HOMEPAGE_GALLERY;
+  }
+}
+
+export async function readHomepageGallery(): Promise<HomepageGalleryContent> {
+  const saved = HomepageGallerySchema.safeParse(await readStoreSetting(SETTINGS_KEY));
+  return normalizeImages(saved.success ? saved.data : await readShippedGallery());
+}
+
+export async function writeHomepageGallery(content: HomepageGalleryContent): Promise<HomepageGalleryContent> {
+  const parsed = HomepageGallerySchema.parse(normalizeImages(content));
+  await writeStoreSetting(SETTINGS_KEY, parsed);
   return parsed;
 }

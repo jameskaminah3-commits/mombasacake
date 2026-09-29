@@ -1,3 +1,4 @@
+import { customFetch } from "@workspace/api-client-react";
 import { getApiBaseUrl } from "@/lib/api-base";
 import { buildSupabaseMediaUrl, normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
 
@@ -47,6 +48,15 @@ export const DEFAULT_HOMEPAGE_GALLERY: HomepageGalleryContent = {
   ],
 };
 
+function withNormalizedImages(content: HomepageGalleryContent): HomepageGalleryContent {
+  return {
+    items: content.items.map((item) => ({
+      ...item,
+      imageUrl: normalizeSupabaseMediaUrl(item.imageUrl) || item.imageUrl,
+    })),
+  };
+}
+
 export async function fetchHomepageGallery(): Promise<HomepageGalleryContent> {
   const response = await fetch(`${getApiBaseUrl()}/api/homepage-gallery`);
   if (!response.ok) {
@@ -58,12 +68,12 @@ export async function fetchHomepageGallery(): Promise<HomepageGalleryContent> {
     return DEFAULT_HOMEPAGE_GALLERY;
   }
 
-  return {
-    items: data.items.map((item) => ({
-      ...item,
-      imageUrl: normalizeSupabaseMediaUrl(item.imageUrl) || item.imageUrl,
-    })),
-  };
+  return withNormalizedImages(data);
+}
+
+// For the admin editor: fails instead of falling back to the default photos, so a save can't replace the shop's own.
+export async function fetchHomepageGalleryForEditing(): Promise<HomepageGalleryContent> {
+  return withNormalizedImages(await customFetch<HomepageGalleryContent>(`${getApiBaseUrl()}/api/homepage-gallery`));
 }
 
 export async function saveHomepageGallery(
@@ -82,8 +92,8 @@ export async function saveHomepageGallery(
   });
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || "Failed to save homepage gallery");
+    const data = (await response.json().catch(() => null)) as { error?: unknown } | null;
+    throw new Error(typeof data?.error === "string" ? data.error : "Failed to save homepage gallery");
   }
 
   return (await response.json()) as HomepageGalleryContent;

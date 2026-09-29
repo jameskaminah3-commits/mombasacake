@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
 import { requireAdmin } from "../lib/auth-middleware";
 import { readHomepageHero, writeHomepageHero } from "../lib/homepage-hero";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -34,10 +35,9 @@ router.put("/homepage-hero", requireAdmin, async (req: Request, res: Response): 
   try {
     const hero = await writeHomepageHero(parsed.data);
     res.json(hero);
-  } catch (error) {
-    res.status(400).json({
-      error: error instanceof Error ? error.message : "Failed to update homepage hero",
-    });
+  } catch (err) {
+    logger.error({ err }, "Saving the homepage hero failed");
+    res.status(500).json({ error: "Could not save the shop header. Please try again." });
   }
 });
 

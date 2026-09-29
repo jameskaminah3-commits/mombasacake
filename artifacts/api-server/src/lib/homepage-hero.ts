@@ -1,7 +1,8 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
 import { buildSupabaseMediaUrl, normalizeSupabaseMediaUrl } from "./media-urls";
+import { readStoreSetting, writeStoreSetting } from "./store-settings";
 
 const HeroSlideSchema = z.object({
   title: z.string().min(2),
@@ -20,8 +21,10 @@ const HomepageHeroSchema = z.object({
 export type HomepageHeroSlide = z.infer<typeof HeroSlideSchema>;
 export type HomepageHeroContent = z.infer<typeof HomepageHeroSchema>;
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DATA_FILE = path.join(DATA_DIR, "homepage-hero.json");
+const SETTINGS_KEY = "homepage-hero";
+
+// Content shipped with the app, shown until the homepage is first saved in the admin panel.
+const SHIPPED_FILE = path.join(process.cwd(), "data", "homepage-hero.json");
 
 export const DEFAULT_HOMEPAGE_HERO: HomepageHeroContent = {
   brandLine: "Channah Cake House",
@@ -56,51 +59,32 @@ export const DEFAULT_HOMEPAGE_HERO: HomepageHeroContent = {
   ],
 };
 
-async function ensureDataFile() {
-  await mkdir(DATA_DIR, { recursive: true });
-
-  try {
-    await readFile(DATA_FILE, "utf8");
-  } catch {
-    await writeFile(DATA_FILE, `${JSON.stringify(DEFAULT_HOMEPAGE_HERO, null, 2)}\n`, "utf8");
-  }
-}
-
-export async function readHomepageHero(): Promise<HomepageHeroContent> {
-  await ensureDataFile();
-
-  const raw = await readFile(DATA_FILE, "utf8");
-  const parsed = HomepageHeroSchema.safeParse(JSON.parse(raw));
-
-  if (!parsed.success) {
-    await writeFile(DATA_FILE, `${JSON.stringify(DEFAULT_HOMEPAGE_HERO, null, 2)}\n`, "utf8");
-    return DEFAULT_HOMEPAGE_HERO;
-  }
-
-  const normalized = {
-    ...parsed.data,
-    slides: parsed.data.slides.map((slide) => ({
-      ...slide,
-      imageUrl: normalizeSupabaseMediaUrl(slide.imageUrl) || slide.imageUrl,
-    })),
-  };
-
-  if (JSON.stringify(normalized) !== JSON.stringify(parsed.data)) {
-    await writeFile(DATA_FILE, `${JSON.stringify(normalized, null, 2)}\n`, "utf8");
-  }
-
-  return normalized;
-}
-
-export async function writeHomepageHero(content: HomepageHeroContent): Promise<HomepageHeroContent> {
-  const parsed = HomepageHeroSchema.parse({
+function normalizeImages(content: HomepageHeroContent): HomepageHeroContent {
+  return {
     ...content,
     slides: content.slides.map((slide) => ({
       ...slide,
       imageUrl: normalizeSupabaseMediaUrl(slide.imageUrl) || slide.imageUrl,
     })),
-  });
-  await ensureDataFile();
-  await writeFile(DATA_FILE, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+  };
+}
+
+async function readShippedHero(): Promise<HomepageHeroContent> {
+  try {
+    const parsed = HomepageHeroSchema.safeParse(JSON.parse(await readFile(SHIPPED_FILE, "utf8")));
+    return parsed.success ? parsed.data : DEFAULT_HOMEPAGE_HERO;
+  } catch {
+    return DEFAULT_HOMEPAGE_HERO;
+  }
+}
+
+export async function readHomepageHero(): Promise<HomepageHeroContent> {
+  const saved = HomepageHeroSchema.safeParse(await readStoreSetting(SETTINGS_KEY));
+  return normalizeImages(saved.success ? saved.data : await readShippedHero());
+}
+
+export async function writeHomepageHero(content: HomepageHeroContent): Promise<HomepageHeroContent> {
+  const parsed = HomepageHeroSchema.parse(normalizeImages(content));
+  await writeStoreSetting(SETTINGS_KEY, parsed);
   return parsed;
 }

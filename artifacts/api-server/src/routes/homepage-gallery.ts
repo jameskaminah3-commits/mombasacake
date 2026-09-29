@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { z } from "zod";
 import { requireAdmin } from "../lib/auth-middleware";
 import { readHomepageGallery, writeHomepageGallery } from "../lib/homepage-gallery";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -29,10 +30,9 @@ router.put("/homepage-gallery", requireAdmin, async (req: Request, res: Response
   try {
     const gallery = await writeHomepageGallery(parsed.data);
     res.json(gallery);
-  } catch (error) {
-    res.status(400).json({
-      error: error instanceof Error ? error.message : "Failed to update homepage gallery",
-    });
+  } catch (err) {
+    logger.error({ err }, "Saving the homepage gallery failed");
+    res.status(500).json({ error: "Could not save the photos. Please try again." });
   }
 });
 

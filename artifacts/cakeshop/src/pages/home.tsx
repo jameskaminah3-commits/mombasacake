@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, Clock, MapPin, Smartphone, Sparkles, Star, Tag, Truck } from "lucide-react";
+import { Clock, MapPin, Star, Tag } from "lucide-react";
 import { SiWhatsapp } from "react-icons/si";
 import {
   useGetPopularCakes,
@@ -10,14 +10,16 @@ import {
   type Cake,
   type Promotion,
 } from "@workspace/api-client-react";
+import { CustomCakeButton, HighlightsRow } from "@/components/homepage-selling-points";
 import { RevealImage } from "@/components/reveal-image";
 import { ProductCard, ProductCardSkeleton } from "@/components/product-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getApiBaseUrl } from "@/lib/api-base";
 import { DEFAULT_HOMEPAGE_GALLERY, fetchHomepageGallery, type HomepageGalleryItem } from "@/lib/homepage-gallery";
 import { DEFAULT_HOMEPAGE_HERO, fetchHomepageHero, type HomepageHeroContent } from "@/lib/homepage-hero";
+import { DEFAULT_HOMEPAGE_HIGHLIGHTS, fetchHomepageHighlights } from "@/lib/homepage-highlights";
 import { DEFAULT_CAKE_IMAGE_URL, DEFAULT_GALLERY_IMAGE_URL, DEFAULT_LOGO_IMAGE_URL } from "@/lib/site-images";
-import { WHATSAPP_CUSTOM_CAKE_URL, WHATSAPP_ORDER_URL, getOpenStatus } from "@/lib/store-info";
+import { WHATSAPP_ORDER_URL, getOpenStatus } from "@/lib/store-info";
 import { SECTION_SCROLL_OFFSET, categorySectionId, scrollToSection } from "@/lib/store-sections";
 import { cn, formatKes } from "@/lib/utils";
 
@@ -57,13 +59,6 @@ function useStoreReviews() {
   return data ?? [];
 }
 
-// Why order here, in a glance. Keep these true: custom designs, delivery and M-Pesa are all part of the order flow.
-const HIGHLIGHTS = [
-  { icon: Sparkles, label: "Custom designs" },
-  { icon: Truck, label: "Delivery in Mombasa" },
-  { icon: Smartphone, label: "Pay with M-Pesa" },
-];
-
 // Signs the customer is moving around the page themselves.
 const USER_SCROLL_EVENTS = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
 
@@ -84,6 +79,13 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
     queryKey: ["homepage-hero"],
     queryFn: fetchHomepageHero,
     placeholderData: DEFAULT_HOMEPAGE_HERO,
+  });
+  // The benefits row and the WhatsApp custom-cake button, edited in Admin → Homepage.
+  const { data: sellingPoints = DEFAULT_HOMEPAGE_HIGHLIGHTS } = useQuery({
+    queryKey: ["homepage-highlights"],
+    queryFn: fetchHomepageHighlights,
+    placeholderData: DEFAULT_HOMEPAGE_HIGHLIGHTS,
+    enabled: variant === "store",
   });
 
   const [showCategoryBar, setShowCategoryBar] = useState(false);
@@ -280,16 +282,7 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
           </div>
         </nav>
 
-        {variant === "store" && (
-          <ul className="mt-4 grid grid-cols-3 gap-2" aria-label="Why order from us">
-            {HIGHLIGHTS.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex flex-col items-center gap-1 rounded-xl bg-muted/60 px-1.5 py-2.5 text-center">
-                <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
-                <span className="text-[11px] font-semibold leading-tight text-foreground/80">{label}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        {variant === "store" && sellingPoints.showHighlights && <HighlightsRow highlights={sellingPoints.highlights} className="mt-4" />}
 
         <div className="mt-4 space-y-3">
           {activePromotions.length > 0 && <OffersCard promotions={activePromotions} cakeNameBySlug={cakeNameBySlug} />}
@@ -330,7 +323,9 @@ export function StorePage({ variant }: { variant: "store" | "menu" }) {
                     ))}
                   </div>
                 </section>
-                {variant === "store" && index === 0 && <CustomCakeCta />}
+                {variant === "store" && index === 0 && sellingPoints.showCustomCakeButton && (
+                  <CustomCakeButton title={sellingPoints.customCakeTitle} text={sellingPoints.customCakeText} />
+                )}
               </Fragment>
             ))
           )}
@@ -409,26 +404,6 @@ function StoreHeader({ hero }: { hero: HomepageHeroContent }) {
   );
 }
 
-function CustomCakeCta() {
-  return (
-    <a
-      href={WHATSAPP_CUSTOM_CAKE_URL}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex items-center gap-3 rounded-2xl border border-[#25D366]/30 bg-[#25D366]/10 p-4 transition-colors hover:bg-[#25D366]/15"
-    >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white">
-        <SiWhatsapp className="h-5 w-5" aria-hidden="true" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold">Have a design in mind?</span>
-        <span className="block text-xs leading-5 text-muted-foreground">Send us a photo on WhatsApp for a quote.</span>
-      </span>
-      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-    </a>
-  );
-}
-
 function AboutCard({ hero }: { hero: HomepageHeroContent }) {
   if (!hero.description) return null;
   return (
@@ -436,7 +411,7 @@ function AboutCard({ hero }: { hero: HomepageHeroContent }) {
       <h2 id="about-title" className="text-base font-bold tracking-tight">
         About {hero.brandLine}
       </h2>
-      <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{hero.description}</p>
+      <p className="mt-1.5 whitespace-pre-line text-sm leading-6 text-muted-foreground">{hero.description}</p>
     </section>
   );
 }

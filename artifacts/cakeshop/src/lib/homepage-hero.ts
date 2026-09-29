@@ -1,3 +1,4 @@
+import { customFetch } from "@workspace/api-client-react";
 import { getApiBaseUrl } from "@/lib/api-base";
 import { buildSupabaseMediaUrl, normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
 
@@ -48,6 +49,16 @@ export const DEFAULT_HOMEPAGE_HERO: HomepageHeroContent = {
   ],
 };
 
+function withNormalizedImages(content: HomepageHeroContent): HomepageHeroContent {
+  return {
+    ...content,
+    slides: content.slides.map((slide) => ({
+      ...slide,
+      imageUrl: normalizeSupabaseMediaUrl(slide.imageUrl) || slide.imageUrl,
+    })),
+  };
+}
+
 export async function fetchHomepageHero(): Promise<HomepageHeroContent> {
   const response = await fetch(`${getApiBaseUrl()}/api/homepage-hero`);
   if (!response.ok) {
@@ -59,13 +70,12 @@ export async function fetchHomepageHero(): Promise<HomepageHeroContent> {
     return DEFAULT_HOMEPAGE_HERO;
   }
 
-  return {
-    ...data,
-    slides: data.slides.map((slide) => ({
-      ...slide,
-      imageUrl: normalizeSupabaseMediaUrl(slide.imageUrl) || slide.imageUrl,
-    })),
-  };
+  return withNormalizedImages(data);
+}
+
+// For the admin editor: fails instead of falling back to the default content, so a save can't replace the shop's own.
+export async function fetchHomepageHeroForEditing(): Promise<HomepageHeroContent> {
+  return withNormalizedImages(await customFetch<HomepageHeroContent>(`${getApiBaseUrl()}/api/homepage-hero`));
 }
 
 export async function saveHomepageHero(token: string | null, content: HomepageHeroContent): Promise<HomepageHeroContent> {
@@ -81,8 +91,8 @@ export async function saveHomepageHero(token: string | null, content: HomepageHe
   });
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || "Failed to save homepage hero");
+    const data = (await response.json().catch(() => null)) as { error?: unknown } | null;
+    throw new Error(typeof data?.error === "string" ? data.error : "Failed to save homepage hero");
   }
 
   return (await response.json()) as HomepageHeroContent;
