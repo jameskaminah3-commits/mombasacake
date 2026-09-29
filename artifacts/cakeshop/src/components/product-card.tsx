@@ -2,18 +2,13 @@ import { Link } from "wouter";
 import type { Cake } from "@workspace/api-client-react";
 import { RevealImage } from "@/components/reveal-image";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cakePriceLabel, useCakeOptions } from "@/lib/cake-options";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
-import { cn, formatKes } from "@/lib/utils";
-
-export function cakePriceLabel(cake: Cake) {
-  if (cake.variants && cake.variants.length > 0) {
-    return `From ${formatKes(Math.min(...cake.variants.map((variant) => variant.price)))}`;
-  }
-  return formatKes(cake.price);
-}
+import { cn } from "@/lib/utils";
 
 // Cakes need a size, flavour and message, so cards open the cake page rather than adding straight to the cart.
 export function ProductCard({ cake, className }: { cake: Cake; className?: string }) {
+  const cakeOptions = useCakeOptions();
   return (
     <Link href={`/cake/${cake.id}`} className={cn("group block", className)}>
       <div className="relative aspect-square overflow-hidden rounded-xl border border-border/60 bg-muted">
@@ -37,7 +32,7 @@ export function ProductCard({ cake, className }: { cake: Cake; className?: strin
       <p className="mt-2 line-clamp-2 text-sm font-semibold leading-snug transition-colors group-hover:text-primary">
         {cake.name}
       </p>
-      <p className="mt-0.5 text-sm text-foreground/80">{cakePriceLabel(cake)}</p>
+      <p className="mt-0.5 text-sm text-foreground/80">{cakePriceLabel(cake, cakeOptions)}</p>
     </Link>
   );
 }

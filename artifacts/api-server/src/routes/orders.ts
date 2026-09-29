@@ -15,6 +15,7 @@ import {
   ListOrdersQueryParams,
 } from "@workspace/api-zod";
 import { ensurePromotionsSchema } from "../lib/ensure-promotions-schema";
+import { cakeSizes, readCakeOptions } from "../lib/cake-options";
 
 const router: IRouter = Router();
 
@@ -79,6 +80,7 @@ async function priceAdminItems(
   items: z.infer<typeof AdminOrderItemBody>[],
   savedItems: (typeof orderItemsTable.$inferSelect)[] = [],
 ) {
+  const cakeOptions = await readCakeOptions();
   let subtotal = 0;
   const priced = [];
   for (const item of items) {
@@ -91,7 +93,7 @@ async function priceAdminItems(
     if (unitPrice == null && cake) {
       unitPrice = parseFloat(cake.price);
       if (variantLabel) {
-        const variant = parseCakeVariants(cake.variants)?.find((v) => v.label === variantLabel);
+        const variant = cakeSizes(cake, cakeOptions).find((v) => v.label === variantLabel);
         if (!variant) throw new OrderInputError(`${cake.name} has no "${variantLabel}" size any more; choose a size or enter a price`);
         unitPrice = variant.price;
       }
@@ -153,18 +155,19 @@ router.post("/orders", async (req, res): Promise<void> => {
     return;
   }
 
-  // Fetch cake prices
+  // Price each cake from the catalogue: the chosen size's price (its own sizes, or the shop's standard sizes
+  // priced per kg), else the cake's price.
+  const cakeOptions = await readCakeOptions();
   let orderSubtotal = 0;
   const enrichedItems = await Promise.all(
     parsed.data.items.map(async (item) => {
       const [cake] = await db.select().from(cakesTable).where(eq(cakesTable.id, item.cakeId));
-      if (!cake) throw new Error(`Cake ${item.cakeId} not found`);
+      if (!cake) throw new OrderInputError("One of the cakes in your cart is no longer available. Please remove it and try again.");
       let unitPrice = parseFloat(cake.price);
       if (item.variantLabel) {
-        const variants = parseCakeVariants(cake.variants);
-        const variant = variants?.find((v) => v.label === item.variantLabel);
-        if (!variant) throw new Error(`Variant "${item.variantLabel}" not found for cake ${item.cakeId}`);
-        unitPrice = variant.price;
+        const size = cakeSizes(cake, cakeOptions).find((v) => v.label === item.variantLabel);
+        if (!size) throw new OrderInputError(`${cake.name} no longer comes in "${item.variantLabel}". Please choose its size again.`);
+        unitPrice = size.price;
       }
       const lineSubtotal = unitPrice * item.quantity;
       orderSubtotal += lineSubtotal;
@@ -249,9 +252,7 @@ await ensureOrdersSchema();
 
   res.status(201).json(formatOrder(order, items));
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    logger.error({ err }, "Order creation failed");
-    res.status(500).json({ error: message });
+    sendOrderError(res, err, "Order creation failed");
   }
 });
 router.get("/orders/:id", async (req, res): Promise<void> => {
@@ -554,20 +555,6 @@ function calculateDiscount(promo: PromotionView, subtotal: number, items: OrderP
   if (!isPromotionEligible(promo, items, subtotal)) return 0;
   const amount = promo.discountAmount ?? (promo.discountPct != null ? (subtotal * promo.discountPct) / 100 : 0);
   return Math.min(amount, subtotal);
-}
-
-function parseCakeVariants(value: string | null | undefined) {
-  if (!value) return null;
-  try {
-    const parsed = JSON.parse(value);
-    if (!Array.isArray(parsed)) return null;
-    return parsed.filter(
-      (v): v is { label: string; price: number } =>
-        typeof v === "object" && v !== null && typeof v.label === "string" && typeof v.price === "number"
-    );
-  } catch {
-    return null;
-  }
 }
 
 function parseApplicableCakeSlugs(value: string | null) {

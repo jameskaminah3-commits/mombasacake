@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useParams, Link, useLocation } from "wouter";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetCake,
   useListCakes,
@@ -19,7 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getApiBaseUrl } from "@/lib/api-base";
-import { DEFAULT_CAKE_OPTIONS, fetchCakeOptions, offersSecondFlavour } from "@/lib/cake-options";
+import { cakeSizes, offersSecondFlavour, useCakeOptions } from "@/lib/cake-options";
 import { hasInAppHistory } from "@/lib/navigation-history";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
@@ -174,11 +174,8 @@ export default function CakeDetail() {
     query: { enabled: !!cakeId, queryKey: getGetCakeQueryKey(cakeId), placeholderData: cakeFromShopPage }
   });
   const { data: allCakes } = useListCakes();
-  const { data: cakeOptions } = useQuery({
-    queryKey: ["cake-options"],
-    queryFn: fetchCakeOptions,
-    placeholderData: DEFAULT_CAKE_OPTIONS,
-  });
+  // The shop's flavours and standard sizes; the choices wait for them so nobody picks from the wrong list.
+  const cakeOptions = useCakeOptions();
   const flavours = cakeOptions?.flavours ?? [];
 
   const { addItem } = useCart();
@@ -237,13 +234,13 @@ export default function CakeDetail() {
     }
   }, [cake?.description, descriptionExpanded]);
 
-  const variants = cake?.variants ?? [];
+  const variants = cake ? cakeSizes(cake, cakeOptions) : [];
   const hasVariants = variants.length > 0;
   // Like the sample shop, the first size is chosen until the customer picks another.
   const selectedVariant = hasVariants ? variants.find((v) => v.label === selectedSizeLabel) ?? variants[0] : null;
   const unitPrice = selectedVariant?.price ?? cake?.price ?? 0;
   const needsFlavour = flavours.length > 0;
-  const readyToAdd = !needsFlavour || !!flavour;
+  const readyToAdd = !!cakeOptions && (!needsFlavour || !!flavour);
   const flavourOptions = flavours.map((f) => ({ value: f.name, label: f.description ? `${f.name} — ${f.description}` : f.name }));
   // Bigger cakes (e.g. tiered ones) can have a second flavour when the shop allows it for the chosen size.
   const showSecondFlavour = !!cakeOptions && offersSecondFlavour(cakeOptions, selectedVariant?.label);
@@ -292,7 +289,7 @@ export default function CakeDetail() {
   };
 
   const handleAddToCart = () => {
-    if (!cake) return;
+    if (!cake || !cakeOptions) return;
     if (needsFlavour && !flavour) {
       setFlavourError("Please choose a flavour");
       document.getElementById("flavour-options")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -482,6 +479,13 @@ export default function CakeDetail() {
 
           {cake.available ? (
             <>
+              {!cakeOptions && (
+                <div className="mt-5 space-y-3" aria-label="Loading sizes and flavours">
+                  <Skeleton className="h-10 w-full rounded-xl" />
+                  <Skeleton className="h-10 w-full rounded-xl" />
+                  <Skeleton className="h-10 w-2/3 rounded-xl" />
+                </div>
+              )}
               {hasVariants && (
                 <>
                   <hr className="my-5 border-border" />

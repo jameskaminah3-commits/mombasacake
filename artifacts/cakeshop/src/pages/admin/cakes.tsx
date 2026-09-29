@@ -18,6 +18,7 @@ import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { AdminImageUpload } from "@/components/admin-image-upload";
 import { AdminCakeOptions } from "@/components/admin-cake-options";
+import { kgLabel, useCakeOptions } from "@/lib/cake-options";
 import {
   Table,
   TableBody,
@@ -120,6 +121,9 @@ export default function AdminCakes() {
   });
 
   const selectedImage = form.watch("imageUrl");
+  const cakeOptions = useCakeOptions();
+  const standardSizes = cakeOptions?.standardSizesKg ?? [];
+  const priceField = Number(form.watch("price")) || 0;
 
   const invalidateQueries = () => {
     queryClient.invalidateQueries({ queryKey: getListCakesQueryKey() });
@@ -360,9 +364,16 @@ export default function AdminCakes() {
                       <Plus className="w-3 h-3 mr-1" /> Add Size
                     </Button>
                   </div>
-                  {variantFields.length === 0 && (
-                    <p className="text-xs text-muted-foreground">No size variants. The base price above applies. Add variants if this cake comes in multiple sizes with different prices.</p>
-                  )}
+                  {variantFields.length === 0 &&
+                    (standardSizes.length > 0 ? (
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        No sizes of its own, so customers choose from the standard sizes, with the price above as the 1 kg price:{" "}
+                        {standardSizes.map((kg) => `${kgLabel(kg)} KES ${Math.round(priceField * kg).toLocaleString()}`).join(" · ")}. Add sizes
+                        here to give this cake its own sizes and prices instead.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No size variants. The base price above applies. Add variants if this cake comes in multiple sizes with different prices.</p>
+                    ))}
                   {variantFields.map((field, index) => (
                     <div key={field.id} className="flex items-center gap-2">
                       <Input
@@ -508,6 +519,13 @@ export default function AdminCakes() {
                         <span className="text-xs text-muted-foreground">From KES {Math.min(...cake.variants.map((v) => v.price)).toLocaleString()}</span>
                         <div>
                           <Badge variant="outline" className="text-xs">{cake.variants.length} size{cake.variants.length !== 1 ? "s" : ""}</Badge>
+                        </div>
+                      </div>
+                    ) : standardSizes.length > 0 ? (
+                      <div className="space-y-0.5">
+                        <span className="text-xs text-muted-foreground">KES {cake.price.toLocaleString()} per kg</span>
+                        <div>
+                          <Badge variant="outline" className="text-xs">Standard sizes</Badge>
                         </div>
                       </div>
                     ) : (

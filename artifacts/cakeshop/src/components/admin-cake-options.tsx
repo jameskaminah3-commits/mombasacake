@@ -1,30 +1,47 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { fetchCakeOptions, saveCakeOptions, type CakeFlavour } from "@/lib/cake-options";
+import { fetchCakeOptions, kgLabel, saveCakeOptions, type CakeFlavour } from "@/lib/cake-options";
+import { formatKes } from "@/lib/utils";
 
-// Store-wide flavour list: customers must pick one on every cake page (the question is hidden when empty).
+const EXAMPLE_PRICE = 3000;
+
+// Shop-wide cake choices: the flavours customers must pick from on every cake page (hidden when empty), and the
+// standard sizes offered on cakes that have no sizes of their own.
 export function AdminCakeOptions() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data, isLoading } = useQuery({ queryKey: ["cake-options"], queryFn: fetchCakeOptions });
   const [flavours, setFlavours] = useState<CakeFlavour[]>([]);
   const [secondFlavourMinKg, setSecondFlavourMinKg] = useState("");
+  const [sizes, setSizes] = useState<number[]>([]);
+  const [newSize, setNewSize] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (data) {
       setFlavours(data.flavours);
       setSecondFlavourMinKg(data.secondFlavourMinKg == null ? "" : String(data.secondFlavourMinKg));
+      setSizes(data.standardSizesKg);
     }
   }, [data]);
 
   const updateFlavour = (index: number, changes: Partial<CakeFlavour>) =>
     setFlavours((current) => current.map((flavour, i) => (i === index ? { ...flavour, ...changes } : flavour)));
+
+  const addSize = () => {
+    const kg = Number(newSize.trim().replace(",", "."));
+    if (!(kg > 0 && kg <= 100)) {
+      toast({ title: "Enter a size in kg", description: "For example 0.5, 1.5 or 5.", variant: "destructive" });
+      return;
+    }
+    setSizes((current) => [...new Set([...current, kg])].sort((a, b) => a - b));
+    setNewSize("");
+  };
 
   const handleSave = async () => {
     const cleaned = flavours
@@ -39,28 +56,28 @@ export function AdminCakeOptions() {
 
     setSaving(true);
     try {
-      const saved = await saveCakeOptions({ flavours: cleaned, secondFlavourMinKg: minKg });
+      const saved = await saveCakeOptions({ flavours: cleaned, secondFlavourMinKg: minKg, standardSizesKg: sizes });
       queryClient.setQueryData(["cake-options"], saved);
       setFlavours(saved.flavours);
       setSecondFlavourMinKg(saved.secondFlavourMinKg == null ? "" : String(saved.secondFlavourMinKg));
-      toast({ title: "Flavours saved", description: `${saved.flavours.length} flavour${saved.flavours.length === 1 ? "" : "s"} on the cake pages.` });
+      setSizes(saved.standardSizesKg);
+      toast({
+        title: "Flavours and sizes saved",
+        description: `${saved.flavours.length} flavour${saved.flavours.length === 1 ? "" : "s"}, ${saved.standardSizesKg.length} standard size${saved.standardSizesKg.length === 1 ? "" : "s"}.`,
+      });
     } catch {
-      toast({ title: "Could not save flavours", variant: "destructive" });
+      toast({ title: "Could not save flavours and sizes", variant: "destructive" });
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <section className="rounded-md border bg-card p-4">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold">Cake flavours</h2>
-          <p className="text-sm text-muted-foreground">
-            Customers choose one of these on every cake page. Leave the list empty to skip the flavour question.
-          </p>
-        </div>
-      </div>
+    <section id="cake-flavours-sizes" className="scroll-mt-24 rounded-md border bg-card p-4">
+      <h2 className="text-lg font-semibold">Cake flavours and sizes</h2>
+      <p className="text-sm text-muted-foreground">
+        Customers choose one of these flavours on every cake page. Leave the list empty to skip the flavour question.
+      </p>
 
       <div className="mt-4 space-y-2">
         {isLoading ? (
@@ -133,8 +150,61 @@ export function AdminCakeOptions() {
         </div>
       </div>
 
+      <div className="mt-4 border-t pt-4">
+        <p className="font-semibold">Standard sizes</p>
+        <p className="text-sm text-muted-foreground">
+          Cakes without sizes of their own offer these, priced at the cake's price × kg, so a cake's price is its 1 kg price. A cake with its
+          own sizes shows only those. Remove all sizes to turn this off.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Standard sizes">
+          {sizes.length === 0 && <span className="text-sm text-muted-foreground">No standard sizes.</span>}
+          {sizes.map((kg) => (
+            <span key={kg} className="inline-flex items-center gap-1 rounded-full border bg-muted/40 py-1 pl-3 pr-1 text-sm font-medium">
+              {kgLabel(kg)}
+              <button
+                type="button"
+                onClick={() => setSizes((current) => current.filter((size) => size !== kg))}
+                aria-label={`Remove ${kgLabel(kg)}`}
+                className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-destructive"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <Input
+            type="number"
+            inputMode="decimal"
+            min={0.5}
+            max={100}
+            step={0.5}
+            value={newSize}
+            onChange={(e) => setNewSize(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addSize();
+              }
+            }}
+            placeholder="e.g. 5"
+            className="w-24"
+            aria-label="New size in kg"
+          />
+          <span className="text-sm text-muted-foreground">kg</span>
+          <Button type="button" variant="outline" size="sm" onClick={addSize} disabled={sizes.length >= 12}>
+            <Plus className="mr-1 h-4 w-4" /> Add size
+          </Button>
+        </div>
+        {sizes.length > 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Example, a {formatKes(EXAMPLE_PRICE)} cake: {sizes.map((kg) => `${kgLabel(kg)} ${formatKes(Math.round(EXAMPLE_PRICE * kg))}`).join(" · ")}
+          </p>
+        )}
+      </div>
+
       <Button type="button" className="mt-4" onClick={handleSave} disabled={saving || isLoading}>
-        {saving ? "Saving…" : "Save flavours"}
+        {saving ? "Saving…" : "Save flavours and sizes"}
       </Button>
     </section>
   );

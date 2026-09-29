@@ -6,7 +6,7 @@ import { SiWhatsapp } from "react-icons/si";
 import { useCart } from "@/lib/cart-context";
 import { DEFAULT_CAKE_IMAGE_URL, DEFAULT_LOGO_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
-import { cakePriceLabel } from "@/components/product-card";
+import { cakePriceLabel, useCakeOptions } from "@/lib/cake-options";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   STORE_HOURS,
@@ -207,6 +207,7 @@ export function StorefrontLayout({ children }: { children: React.ReactNode }) {
 function SearchSheet() {
   const [query, setQuery] = useState("");
   const { data: cakes } = useListCakes();
+  const cakeOptions = useCakeOptions();
   const term = query.trim().toLowerCase();
   const results = term
     ? (cakes ?? [])
@@ -250,7 +251,7 @@ function SearchSheet() {
                     </span>
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{cake.name}</span>
-                      <span className="block text-xs text-muted-foreground">{cakePriceLabel(cake)}</span>
+                      <span className="block text-xs text-muted-foreground">{cakePriceLabel(cake, cakeOptions)}</span>
                     </span>
                   </Link>
                 </SheetClose>

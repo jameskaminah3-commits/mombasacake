@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { getApiBaseUrl } from "@/lib/api-base";
-import { DEFAULT_CAKE_OPTIONS, fetchCakeOptions } from "@/lib/cake-options";
+import { cakeSizes, fetchCakeOptions, type CakeOptions } from "@/lib/cake-options";
 import { isValidKenyanMobile, normalizeKenyanPhone } from "@/lib/phone";
 import { formatKes } from "@/lib/utils";
 
@@ -52,13 +52,13 @@ function emptyItem(): ItemDraft {
   return { key: newKey(), cakeId: "", variantLabel: "", flavour: "", secondFlavour: "", cakeMessage: "", quantity: "1", price: "" };
 }
 
-function cataloguePrice(cake: Cake | undefined, variantLabel: string) {
+function cataloguePrice(cake: Cake | undefined, variantLabel: string, cakeOptions: CakeOptions | undefined) {
   if (!cake) return null;
-  if (variantLabel) return cake.variants?.find((variant) => variant.label === variantLabel)?.price ?? null;
+  if (variantLabel) return cakeSizes(cake, cakeOptions).find((variant) => variant.label === variantLabel)?.price ?? null;
   return cake.price;
 }
 
-function draftFromOrder(order: Order | null, cakes: Cake[]): OrderDraft {
+function draftFromOrder(order: Order | null, cakes: Cake[], cakeOptions: CakeOptions): OrderDraft {
   if (!order) {
     return {
       customerName: "",
@@ -87,7 +87,7 @@ function draftFromOrder(order: Order | null, cakes: Cake[]): OrderDraft {
     receipt: order.mpesaReceiptNo ?? "",
     items: order.items.map((item) => {
       const cake = cakes.find((candidate) => candidate.id === item.cakeId);
-      const listPrice = cataloguePrice(cake, item.variantLabel ?? "");
+      const listPrice = cataloguePrice(cake, item.variantLabel ?? "", cakeOptions);
       return {
         key: newKey(),
         cakeId: String(item.cakeId),
@@ -124,24 +124,24 @@ export function AdminOrderForm({
 }) {
   const { toast } = useToast();
   const { data: cakes } = useListCakes();
-  const { data: cakeOptions } = useQuery({ queryKey: ["cake-options"], queryFn: fetchCakeOptions, placeholderData: DEFAULT_CAKE_OPTIONS });
+  const { data: cakeOptions } = useQuery({ queryKey: ["cake-options"], queryFn: fetchCakeOptions });
   const [draft, setDraft] = useState<OrderDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const loadedFor = useRef<string | null>(null);
   const isEdit = order !== null;
 
-  // Fill the form once per opening, after the cake list has loaded (prices are compared against it).
+  // Fill the form once per opening, after the cakes and sizes have loaded (prices are compared against them).
   useEffect(() => {
     if (!open) {
       loadedFor.current = null;
       return;
     }
     const target = order ? `order-${order.id}` : "new";
-    if (cakes && loadedFor.current !== target) {
+    if (cakes && cakeOptions && loadedFor.current !== target) {
       loadedFor.current = target;
-      setDraft(draftFromOrder(order, cakes));
+      setDraft(draftFromOrder(order, cakes, cakeOptions));
     }
-  }, [open, order, cakes]);
+  }, [open, order, cakes, cakeOptions]);
 
   const cakeList = [...(cakes ?? [])].sort((a, b) => Number(b.available) - Number(a.available) || a.name.localeCompare(b.name));
   const flavourNames = (cakeOptions?.flavours ?? []).map((flavour) => flavour.name);
@@ -154,7 +154,7 @@ export function AdminOrderForm({
 
   const lines = (draft?.items ?? []).map((item) => {
     const cake = cakeList.find((candidate) => String(candidate.id) === item.cakeId);
-    const listPrice = cataloguePrice(cake, item.variantLabel);
+    const listPrice = cataloguePrice(cake, item.variantLabel, cakeOptions);
     const customPrice = item.price.trim() === "" ? null : Number(item.price);
     const unitPrice = customPrice ?? listPrice;
     const quantity = Number(item.quantity);
@@ -176,7 +176,7 @@ export function AdminOrderForm({
       if (!line.item.cakeId) return `${label}: choose a cake.`;
       if (!Number.isInteger(line.quantity) || line.quantity < 1) return `${label}: quantity must be 1 or more.`;
       if (line.item.price.trim() !== "" && !(Number(line.item.price) >= 0)) return `${label}: the price must be a number.`;
-      const hasSizes = (line.cake?.variants?.length ?? 0) > 0;
+      const hasSizes = !!line.cake && cakeSizes(line.cake, cakeOptions).length > 0;
       if (hasSizes && !line.item.variantLabel && line.item.price.trim() === "") return `${label}: choose a size.`;
       if (line.unitPrice == null) return `${label}: choose a size or enter a price.`;
     }
@@ -295,7 +295,7 @@ export function AdminOrderForm({
                 ))}
               </datalist>
               {lines.map(({ item, cake, listPrice, unitPrice, quantity, total: lineTotal }, index) => {
-                const sizes = cake?.variants ?? [];
+                const sizes = cake ? cakeSizes(cake, cakeOptions) : [];
                 const sizeOptions =
                   item.variantLabel && !sizes.some((size) => size.label === item.variantLabel)
                     ? [...sizes, { label: item.variantLabel, price: Number.NaN }]
