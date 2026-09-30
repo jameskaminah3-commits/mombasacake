@@ -85,7 +85,7 @@ export function AdminImageUpload({
       onChange(url);
       toast({
         title: `${label} uploaded`,
-        description: `Stored in Supabase and limited to ${maxMb} MB.`,
+        description: "Saved to your media library.",
       });
     } catch (error) {
       toast({
@@ -119,7 +119,7 @@ export function AdminImageUpload({
           <div>
             <p className="text-sm font-medium text-foreground">{label}</p>
             <p className="text-xs text-muted-foreground">
-              JPG, PNG, WebP, or AVIF up to {maxMb} MB.
+              JPG, PNG, WebP, or AVIF. Big phone photos are resized to under {maxMb} MB automatically.
               {helperText ? ` ${helperText}` : ""}
             </p>
           </div>

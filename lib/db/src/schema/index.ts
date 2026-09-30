@@ -11,3 +11,4 @@ export * from "./admin-password-resets";
 export * from "./blog";
 export * from "./referrals";
 export * from "./customer-accounts";
+export * from "./cake-media";

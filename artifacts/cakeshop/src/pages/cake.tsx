@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToastAction } from "@/components/ui/toast";
-import { ChevronLeft, Star, ZoomIn, X, ChevronDown, ChevronUp, Share2 } from "lucide-react";
+import { ChevronLeft, Star, ChevronDown, ChevronUp, Share2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,12 +22,11 @@ import { getApiBaseUrl } from "@/lib/api-base";
 import { cakeSizes, offersSecondFlavour, useCakeOptions } from "@/lib/cake-options";
 import { hasInAppHistory } from "@/lib/navigation-history";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
-import { RevealImage } from "@/components/reveal-image";
+import { CakeGallery } from "@/components/cake-gallery";
 import { ProductCard } from "@/components/product-card";
 import { QuantityStepper } from "@/components/quantity-stepper";
 import { cn, formatKes } from "@/lib/utils";
 import { normalizeKenyanPhone } from "@/lib/phone";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 const CAKE_MESSAGE_MAX_LENGTH = 60;
 
@@ -182,7 +181,6 @@ export default function CakeDetail() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [quantity, setQuantity] = useState(1);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [selectedSizeLabel, setSelectedSizeLabel] = useState<string | null>(null);
   const [flavour, setFlavour] = useState<string | null>(null);
   const [secondFlavour, setSecondFlavour] = useState<string | null>(null);
@@ -389,56 +387,8 @@ export default function CakeDetail() {
       </button>
 
       <div className="mt-1 grid items-start gap-6 md:grid-cols-2 md:gap-8">
-        {/* Photo — tap to open full size */}
-        <div>
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label={`View ${cake.name} full size`}
-            className="group relative aspect-square cursor-zoom-in overflow-hidden rounded-2xl border border-border/60 bg-muted"
-            onClick={() => setLightboxOpen(true)}
-            onKeyDown={(e) => e.key === "Enter" && setLightboxOpen(true)}
-          >
-            <RevealImage src={imageUrl} alt={cake.name} className="object-cover" fallbackSrc={DEFAULT_CAKE_IMAGE_URL} placeholderClassName="bg-muted" eager timeoutMs={3000} />
-            <div className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/50 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition-opacity md:opacity-0 md:group-hover:opacity-100">
-              <ZoomIn className="h-3.5 w-3.5 shrink-0" />
-              <span>Tap to zoom</span>
-            </div>
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              onClick={() => setLightboxOpen(true)}
-              aria-label="View photo"
-              className="h-16 w-16 overflow-hidden rounded-xl border-2 border-foreground bg-muted"
-            >
-              <RevealImage src={imageUrl} alt="" className="object-cover" fallbackSrc={DEFAULT_CAKE_IMAGE_URL} placeholderClassName="bg-muted" />
-            </button>
-          </div>
-        </div>
-
-        {/* Lightbox */}
-        <DialogPrimitive.Root open={lightboxOpen} onOpenChange={setLightboxOpen}>
-          <DialogPrimitive.Portal>
-            <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/95 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-200" />
-            <DialogPrimitive.Content
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200 outline-none"
-              aria-describedby={undefined}
-            >
-              <DialogPrimitive.Title className="sr-only">{cake.name} — full size image</DialogPrimitive.Title>
-              <img
-                src={imageUrl}
-                alt={cake.name}
-                className="rounded-2xl object-contain"
-                style={{ maxWidth: "100%", maxHeight: "calc(100dvh - 80px)" }}
-              />
-              <DialogPrimitive.Close className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-colors backdrop-blur-sm">
-                <X className="w-5 h-5" />
-                <span className="sr-only">Close</span>
-              </DialogPrimitive.Close>
-            </DialogPrimitive.Content>
-          </DialogPrimitive.Portal>
-        </DialogPrimitive.Root>
+        {/* Photos and videos: swipe through them, tap a photo to open it full size */}
+        <CakeGallery key={cake.id} name={cake.name} imageUrl={imageUrl} media={cake.media ?? []} />
 
         {/* Details and choices */}
         <div className="flex flex-col">

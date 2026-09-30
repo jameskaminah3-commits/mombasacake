@@ -17,6 +17,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { AdminImageUpload } from "@/components/admin-image-upload";
+import { AdminCakeMedia } from "@/components/admin-cake-media";
 import { AdminCakeOptions } from "@/components/admin-cake-options";
 import { kgLabel, useCakeOptions } from "@/lib/cake-options";
 import {
@@ -72,6 +73,9 @@ const cakeSchema = z.object({
   available: z.boolean().default(true),
   featured: z.boolean().default(false),
   variants: z.array(variantSchema).optional(),
+  media: z
+    .array(z.object({ type: z.enum(["image", "video"]), url: z.string(), posterUrl: z.string().nullish() }))
+    .default([]),
 });
 
 type CakeFormValues = z.infer<typeof cakeSchema>;
@@ -86,6 +90,7 @@ const defaultCakeFormValues: CakeFormValues = {
   available: true,
   featured: false,
   variants: [],
+  media: [],
 };
 
 function slugify(value: string) {
@@ -121,6 +126,8 @@ export default function AdminCakes() {
   });
 
   const selectedImage = form.watch("imageUrl");
+  const media = form.watch("media");
+  const [mediaUploading, setMediaUploading] = useState(false);
   const cakeOptions = useCakeOptions();
   const standardSizes = cakeOptions?.standardSizesKg ?? [];
   const priceField = Number(form.watch("price")) || 0;
@@ -175,6 +182,7 @@ export default function AdminCakes() {
       available: cake.available,
       featured: cake.featured,
       variants: cake.variants ?? [],
+      media: cake.media ?? [],
     });
     setIsDialogOpen(true);
   };
@@ -343,11 +351,17 @@ export default function AdminCakes() {
                         value={selectedImage || ""}
                         onChange={(url) => form.setValue("imageUrl", url, { shouldValidate: true, shouldDirty: true })}
                         onClear={() => form.setValue("imageUrl", "", { shouldValidate: true, shouldDirty: true })}
-                        helperText="Upload a single image for the cake listing and detail page."
+                        helperText="The main photo, shown on the shop page and first on the cake page."
                       />
                       <FormMessage />
                     </FormItem>
                   )}
+                />
+
+                <AdminCakeMedia
+                  value={media ?? []}
+                  onChange={(items) => form.setValue("media", items, { shouldDirty: true })}
+                  onBusyChange={setMediaUploading}
                 />
 
                 {/* Variants / size options */}
@@ -440,8 +454,8 @@ export default function AdminCakes() {
                 </div>
 
                 <div className="flex justify-end pt-4">
-                  <Button type="submit" disabled={createCake.isPending || updateCake.isPending}>
-                    {editingCake ? "Save Changes" : "Create Cake"}
+                  <Button type="submit" disabled={createCake.isPending || updateCake.isPending || mediaUploading}>
+                    {mediaUploading ? "Waiting for uploads…" : editingCake ? "Save Changes" : "Create Cake"}
                   </Button>
                 </div>
               </form>
@@ -557,13 +571,13 @@ export default function AdminCakes() {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(cake)}>
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(cake)} aria-label={`Edit ${cake.name}`}>
                         <Edit className="w-4 h-4" />
                       </Button>
                       
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" aria-label={`Delete ${cake.name}`}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </AlertDialogTrigger>

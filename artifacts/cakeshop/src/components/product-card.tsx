@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { Play } from "lucide-react";
 import type { Cake } from "@workspace/api-client-react";
 import { RevealImage } from "@/components/reveal-image";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +27,11 @@ export function ProductCard({ cake, className }: { cake: Cake; className?: strin
         {!cake.available && (
           <span className="absolute left-2 top-2 rounded-full bg-foreground/80 px-2.5 py-1 text-[11px] font-semibold text-background">
             Sold out
+          </span>
+        )}
+        {cake.media?.some((item) => item.type === "video") && (
+          <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+            <Play className="h-3 w-3 fill-current" aria-hidden="true" /> Video
           </span>
         )}
       </div>

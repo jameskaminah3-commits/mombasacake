@@ -48,7 +48,16 @@ export interface Cake {
   categoryId?: number | null;
   categoryName?: string | null;
   variants?: Array<{ label: string; price: number }> | null;
+  /** Extra photos and videos, shown after the main image on the cake page. */
+  media?: CakeMediaItem[];
   createdAt: string;
+}
+
+export interface CakeMediaItem {
+  type: "image" | "video";
+  url: string;
+  /** A still frame shown before a video plays. */
+  posterUrl?: string | null;
 }
 
 export interface CakeInput {
@@ -64,6 +73,7 @@ export interface CakeInput {
   featured?: boolean;
   categoryId?: number;
   variants?: Array<{ label: string; price: number }>;
+  media?: CakeMediaItem[];
 }
 
 export interface CakeUpdate {
@@ -79,6 +89,8 @@ export interface CakeUpdate {
   featured?: boolean;
   categoryId?: number;
   variants?: Array<{ label: string; price: number }> | null;
+  /** Replaces all extra photos and videos when given. */
+  media?: CakeMediaItem[];
 }
 
 export interface Customer {
