@@ -472,11 +472,14 @@ export default function Checkout() {
                 <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#52B44B]/10">
                   <CheckCircle2 className="h-7 w-7 text-[#52B44B]" />
                 </div>
-                <h2 className="text-xl font-extrabold">Order #{placedOrder.id} placed</h2>
+                <h2 className="text-xl font-extrabold">We've received your order #{placedOrder.id}</h2>
                 <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
                   Now pay <strong className="text-foreground">KES {Math.ceil(placedOrder.total).toLocaleString()}</strong> with M-Pesa, then send us the
                   M-Pesa code so we can confirm it.
                 </p>
+                {placedOrder.customerEmail && loginAvailable && (
+                  <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground">A copy of your order is on its way to {placedOrder.customerEmail}.</p>
+                )}
               </div>
               {manualPayment}
               <Button variant="outline" className="mt-4 w-full rounded-full" onClick={() => setLocation(orderPath(placedOrder))}>

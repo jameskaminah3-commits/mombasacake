@@ -20,7 +20,7 @@ export function MpesaManualPayment({
   headers,
   onSent,
 }: {
-  order: Pick<Order, "id" | "total"> & { paymentCheck?: OrderPaymentCheck | null };
+  order: Pick<Order, "id" | "total"> & { customerEmail?: string | null; paymentCheck?: OrderPaymentCheck | null };
   headers: Record<string, string>;
   onSent?: (order: Order) => void;
 }) {
@@ -126,7 +126,11 @@ export function MpesaManualPayment({
           <p className="flex items-center gap-2 font-semibold text-[#3f8f3a]">
             <CheckCircle2 className="h-4 w-4 shrink-0" /> Code {check.code} received
           </p>
-          <p className="mt-1 text-muted-foreground">We're confirming your payment and will let you know as soon as it's done.</p>
+          <p className="mt-1 text-muted-foreground">
+            {order.customerEmail
+              ? `We're checking your payment and will email you at ${order.customerEmail} once it's confirmed.`
+              : "We're checking your payment. Your order page shows it as paid once it's confirmed."}
+          </p>
           <button type="button" onClick={() => setEditing(true)} className="mt-2 text-sm font-medium text-primary underline-offset-2 hover:underline">
             Sent the wrong code? Send it again
           </button>
@@ -142,7 +146,7 @@ export function MpesaManualPayment({
             </p>
           )}
           <Label htmlFor={`mpesa-code-${order.id}`} className="text-sm font-semibold">
-            Paid? Enter the M-Pesa code from your SMS
+            Paid? Enter your M-Pesa code
           </Label>
           <div className="flex gap-2">
             <Input
@@ -150,7 +154,7 @@ export function MpesaManualPayment({
               value={value}
               onChange={(event) => {
                 const text = event.target.value;
-                // A pasted SMS becomes just its code.
+                // Only the code is needed; if the whole SMS is pasted, its code is picked out.
                 setValue(text.length > 12 ? extractMpesaCode(text) ?? text : text.toUpperCase());
                 setProblem(null);
               }}
@@ -170,7 +174,7 @@ export function MpesaManualPayment({
               {problem}
             </p>
           ) : (
-            <p className="text-xs text-muted-foreground">You can also paste the whole M-Pesa message. We'll confirm your payment and let you know.</p>
+            <p className="text-xs text-muted-foreground">Just the code, e.g. TJK3AB12CD. It's at the start of your M-Pesa confirmation SMS.</p>
           )}
         </form>
       )}
