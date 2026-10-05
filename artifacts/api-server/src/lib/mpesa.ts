@@ -20,10 +20,10 @@ export function isValidCallbackKey(value: unknown) {
   return timingSafeEqual(Buffer.from(value), Buffer.from(CALLBACK_KEY));
 }
 
-const MPESA_BASE_URL =
-  process.env.MPESA_ENV === "production"
-    ? "https://api.safaricom.co.ke"
-    : "https://sandbox.safaricom.co.ke";
+const LIVE = process.env.MPESA_ENV === "production";
+const MPESA_BASE_URL = LIVE ? "https://api.safaricom.co.ke" : "https://sandbox.safaricom.co.ke";
+// Safaricom's test shortcode only works with their sandbox; live payments always use the shop's own number.
+const SANDBOX_FALLBACK = LIVE ? "" : "174379";
 
 async function getAccessToken(): Promise<string> {
   const consumerKey = process.env.MPESA_CONSUMER_KEY;
@@ -48,8 +48,10 @@ async function getAccessToken(): Promise<string> {
 // One-time registration of the C2B Validation/Confirmation URLs with Safaricom
 // so that EVERY payment to the till (including ones the customer makes manually
 // via Buy Goods, not just app-initiated STK pushes) is POSTed to our server.
-export async function registerC2bUrls(): Promise<unknown> {
-  const shortcode = process.env.MPESA_SHORTCODE || "174379";
+// `shopShortcode`: the paybill number, or the till's store / head office number, from Admin → Payments.
+export async function registerC2bUrls(shopShortcode?: string | null): Promise<unknown> {
+  const shortcode = shopShortcode || process.env.MPESA_SHORTCODE || SANDBOX_FALLBACK;
+  if (!shortcode) throw new Error("No paybill or store number set");
   const base =
     process.env.PUBLIC_APP_URL?.replace(/\/+$/, "") || "https://example.com";
 
@@ -79,7 +81,7 @@ export interface StkPushParams {
   orderId: number;
   callbackUrl?: string;
   // Operational config, normally sourced from the admin payment settings.
-  // Falls back to env vars, then to sandbox defaults.
+  // Falls back to env vars, then (sandbox only) to Safaricom's test shortcode.
   shortcode?: string;
   transactionType?: string;
   tillNumber?: string;
@@ -98,7 +100,7 @@ export async function initiateStkPush(params: StkPushParams): Promise<StkPushRes
   // to authenticate and sign the password, while PartyB is the customer-facing
   // Till number. Set MPESA_TRANSACTION_TYPE=CustomerBuyGoodsOnline and
   // MPESA_TILL_NUMBER to operate against a Till.
-  const shortcode = params.shortcode || process.env.MPESA_SHORTCODE || "174379";
+  const shortcode = params.shortcode || process.env.MPESA_SHORTCODE || SANDBOX_FALLBACK;
   const passkey = process.env.MPESA_PASSKEY || "";
   const transactionType =
     params.transactionType || process.env.MPESA_TRANSACTION_TYPE || "CustomerPayBillOnline";
@@ -124,6 +126,7 @@ export async function initiateStkPush(params: StkPushParams): Promise<StkPushRes
   );
 
   try {
+    if (!shortcode) throw new Error("No paybill or store number set for the M-Pesa prompt");
     const token = await getAccessToken();
 
     const response = await axios.post(
@@ -157,8 +160,8 @@ export async function initiateStkPush(params: StkPushParams): Promise<StkPushRes
     };
   } catch (err: unknown) {
     logger.error({ err }, "MPesa STK push failed");
-    // Return a mock response for sandbox/dev when credentials aren't set
-    if (!process.env.MPESA_CONSUMER_KEY) {
+    // Tests only (MPESA_MOCK=1): pretend the prompt was sent. Real customers never get a fake prompt.
+    if (process.env.MPESA_MOCK === "1") {
       return {
         checkoutRequestId: `mock-cid-${Date.now()}`,
         merchantRequestId: `mock-mid-${Date.now()}`,

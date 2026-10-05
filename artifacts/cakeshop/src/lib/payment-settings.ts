@@ -1,46 +1,28 @@
 import { customFetch } from "@workspace/api-client-react";
 import { getApiBaseUrl } from "@/lib/api-base";
 
+// Admin → Payments. `stkSetting` is the owner's switch for the M-Pesa prompt; `stkConfigured` says whether the
+// server has the M-Pesa (Daraja) keys the prompt needs, `darajaKeys` whether it can ask Safaricom for payment
+// notifications.
 export type PaymentSettings = {
-  provider: "mpesa";
   displayName: string;
   businessShortCode: string;
   tillNumber: string;
   transactionType: string;
   accountReferencePrefix: string;
   instructions: string;
+  stkEnabled: boolean;
 };
+export type AdminPaymentSettings = PaymentSettings & { stkSetting: boolean; stkConfigured: boolean; darajaKeys: boolean };
 
-export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
-  provider: "mpesa",
-  displayName: "MPesa",
-  businessShortCode: "174379",
-  tillNumber: "",
-  transactionType: "CustomerPayBillOnline",
-  accountReferencePrefix: "Order",
-  instructions:
-    "You will receive an MPesa prompt on your phone after clicking Pay. If the prompt does not arrive, use the business shortcode and order reference shown in the checkout screen.",
-};
-
-export async function fetchPaymentSettings(): Promise<PaymentSettings> {
-  try {
-    const data = await customFetch<Partial<PaymentSettings>>(
-      `${getApiBaseUrl()}/api/payment-settings`
-    );
-    return { ...DEFAULT_PAYMENT_SETTINGS, ...data };
-  } catch {
-    return DEFAULT_PAYMENT_SETTINGS;
-  }
+export function fetchPaymentSettings() {
+  return customFetch<AdminPaymentSettings>(`${getApiBaseUrl()}/api/payment-settings`);
 }
 
-export async function savePaymentSettings(settings: PaymentSettings): Promise<PaymentSettings> {
-  const data = await customFetch<Partial<PaymentSettings>>(
-    `${getApiBaseUrl()}/api/payment-settings`,
-    {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(settings),
-    }
-  );
-  return { ...DEFAULT_PAYMENT_SETTINGS, ...data };
+export function savePaymentSettings(settings: PaymentSettings) {
+  return customFetch<AdminPaymentSettings>(`${getApiBaseUrl()}/api/payment-settings`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  });
 }

@@ -59,8 +59,10 @@ export default function AdminOrders() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   
-  const { data: orders, isLoading } = useListOrders({
-    status: filterStatus !== "all" ? filterStatus : undefined
+  const listParams = { status: filterStatus !== "all" ? filterStatus : undefined };
+  // Refreshed every 30 seconds, so new orders and customers' M-Pesa codes show up without reloading.
+  const { data: orders, isLoading } = useListOrders(listParams, {
+    query: { queryKey: getListOrdersQueryKey(listParams), refetchInterval: 30_000 },
   });
   
   const updateStatus = useUpdateOrderStatus();
@@ -68,7 +70,9 @@ export default function AdminOrders() {
   const { toast } = useToast();
 
   const filteredOrders = orders?.filter((order) => {
-    const matchesPayment = paymentFilter === "all" || order.paymentStatus === paymentFilter;
+    const matchesPayment =
+      paymentFilter === "all" ||
+      (paymentFilter === "to-check" ? order.paymentStatus !== "paid" && !!order.reportedPayment : order.paymentStatus === paymentFilter);
     const haystack = [
       String(order.id),
       order.customerName,
@@ -119,6 +123,18 @@ export default function AdminOrders() {
       toast({ title: "Payment marked as paid" });
     } catch (error) {
       toast({ title: "Failed to mark as paid", variant: "destructive" });
+    }
+  };
+
+  // The customer's code isn't in the shop's M-Pesa: they're asked (by email, and on their order page) to check it.
+  const handleCodeNotFound = async (order: Order) => {
+    if (!window.confirm(`Tell ${order.customerName} that code ${order.reportedPayment?.receipt ?? ""} wasn't found in your M-Pesa?`)) return;
+    try {
+      await customFetch(`${getApiBaseUrl()}/api/orders/${order.id}/payment-code/not-found`, { method: "POST" });
+      queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
+      toast({ title: "Customer asked to check their code" });
+    } catch {
+      toast({ title: "Couldn't update the order", variant: "destructive" });
     }
   };
 
@@ -176,7 +192,7 @@ export default function AdminOrders() {
             />
           </div>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="sm:w-[180px]">
+            <SelectTrigger className="sm:w-[180px]" aria-label="Filter by order status">
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
@@ -187,7 +203,7 @@ export default function AdminOrders() {
             </SelectContent>
           </Select>
           <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-            <SelectTrigger className="sm:w-[170px]">
+            <SelectTrigger className="sm:w-[170px]" aria-label="Filter by payment">
               <SelectValue placeholder="Payment" />
             </SelectTrigger>
             <SelectContent>
@@ -195,6 +211,7 @@ export default function AdminOrders() {
               <SelectItem value="paid">Paid</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="failed">Failed</SelectItem>
+              <SelectItem value="to-check">Codes to check</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -353,9 +370,18 @@ export default function AdminOrders() {
                         {order.paymentStatus}
                       </span>
                       {order.paymentStatus !== 'paid' && order.reportedPayment && (
-                        <p className="max-w-[160px] text-xs leading-5 text-amber-800">
-                          M-Pesa reported KES {order.reportedPayment.amount.toLocaleString()}
-                          {order.reportedPayment.receipt ? ` (${order.reportedPayment.receipt})` : ""}. Check your M-Pesa, then mark paid.
+                        <p className="max-w-[170px] rounded-md bg-amber-50 p-1.5 text-xs leading-5 text-amber-900">
+                          {order.reportedPayment.source === "customer" ? (
+                            <>
+                              Customer sent M-Pesa code <strong className="font-mono">{order.reportedPayment.receipt}</strong> for KES{" "}
+                              {order.reportedPayment.amount.toLocaleString()}. Check your M-Pesa, then mark paid.
+                            </>
+                          ) : (
+                            <>
+                              M-Pesa reported KES {order.reportedPayment.amount.toLocaleString()}
+                              {order.reportedPayment.receipt ? ` (${order.reportedPayment.receipt})` : ""}. Check your M-Pesa, then mark paid.
+                            </>
+                          )}
                         </p>
                       )}
                       {order.paymentStatus !== 'paid' && (
@@ -365,6 +391,15 @@ export default function AdminOrders() {
                           className="text-xs font-medium text-[#52B44B] underline underline-offset-2 hover:text-[#52B44B]/80"
                         >
                           Mark paid
+                        </button>
+                      )}
+                      {order.paymentStatus !== 'paid' && order.reportedPayment?.source === "customer" && (
+                        <button
+                          type="button"
+                          onClick={() => handleCodeNotFound(order)}
+                          className="text-xs font-medium text-amber-800 underline underline-offset-2 hover:text-amber-900"
+                        >
+                          Code not found
                         </button>
                       )}
                     </div>

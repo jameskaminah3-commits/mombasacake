@@ -33,10 +33,11 @@ import {
   useCustomerSession,
   useEmailLoginAvailable,
 } from "@/lib/customer";
-import { Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { RevealImage } from "@/components/reveal-image";
-import { DEFAULT_PAYMENT_SETTINGS, fetchPaymentSettings } from "@/lib/payment-settings";
+import { usePaymentDetails } from "@/lib/payment-details";
+import { MpesaManualPayment } from "@/components/mpesa-manual-payment";
 import { displayKenyanPhone, isValidKenyanMobile, normalizeKenyanPhone, phoneKey } from "@/lib/phone";
 
 const tomorrow = () => {
@@ -76,8 +77,8 @@ export default function Checkout() {
 
   const [activeOrderId, setActiveOrderId] = useState<number | null>(null);
   const statusPanelRef = useRef<HTMLDivElement>(null);
-  const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "prompted" | "success" | "failed">("idle");
-  const [paymentDetails, setPaymentDetails] = useState<{ shortCode: string; amount: number } | null>(null);
+  // "manual": paying the till or paybill from the M-Pesa menu and sending the code (when the shop doesn't send prompts).
+  const [paymentStatus, setPaymentStatus] = useState<"idle" | "processing" | "prompted" | "success" | "failed" | "manual">("idle");
   // The order once it's placed: the cart is emptied then, and paying again reuses this order.
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -87,12 +88,8 @@ export default function Checkout() {
   const { data: account } = useAccountOverview();
   const loginAvailable = useEmailLoginAvailable();
   const { data: promotions } = useListPromotions();
-  const { data: paymentSettings } = useQuery({
-    queryKey: ["payment-settings"],
-    queryFn: fetchPaymentSettings,
-    placeholderData: DEFAULT_PAYMENT_SETTINGS,
-  });
-  const isBuyGoods = paymentSettings?.transactionType === "CustomerBuyGoodsOnline";
+  const { data: paymentDetails } = usePaymentDetails();
+  const sendsPrompt = paymentDetails?.stkEnabled === true;
 
   // Polling logic when payment is prompted
   const { data: orderData } = useGetOrder(activeOrderId as number, {
@@ -209,48 +206,32 @@ export default function Checkout() {
   const summaryCredit = placedOrder ? (placedOrder.creditUsed ?? 0) : expectedCredit;
   const summaryTotal = placedOrder ? placedOrder.total : discountedTotal;
 
-  const mpesaPaymentBlock = paymentDetails && activeOrderId ? (
-    <div className="mt-6 bg-[#52B44B]/10 border border-[#52B44B]/30 rounded-xl p-5 text-left">
-      <p className="text-sm font-bold text-[#52B44B] uppercase tracking-wide mb-3">M-Pesa Payment Details</p>
-      <div className="space-y-2 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">{isBuyGoods ? "Till Number (Buy Goods)" : "Paybill Number"}</span>
-          <span className="font-bold text-foreground">{paymentDetails.shortCode}</span>
-        </div>
-        {!isBuyGoods && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Account Number</span>
-            <span className="font-bold text-foreground">Order-{activeOrderId}</span>
-          </div>
-        )}
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Amount</span>
-          <span className="font-bold text-foreground">KES {Math.ceil(paymentDetails.amount).toLocaleString()}</span>
-        </div>
-      </div>
-      <p className="mt-3 text-xs text-muted-foreground">
-        {isBuyGoods
-          ? "Use Lipa na M-Pesa → Buy Goods and Services with the till number above if the prompt doesn't appear."
-          : "Use the details above to pay manually via M-Pesa if the prompt doesn't appear."}
-      </p>
-    </div>
+  const orderHeaders: Record<string, string> = placedOrder?.accessToken ? { "X-Order-Token": placedOrder.accessToken } : {};
+  const manualPayment = placedOrder ? (
+    <MpesaManualPayment
+      order={placedOrder}
+      headers={orderHeaders}
+      onSent={(updated) => setPlacedOrder((current) => (current ? { ...current, paymentCheck: updated.paymentCheck } : current))}
+    />
   ) : null;
 
-  // Sends the M-Pesa prompt for the placed order (again, when the first prompt didn't go through).
+  // Sends the M-Pesa prompt for the placed order (again, when the first prompt didn't go through). Shops that
+  // don't send prompts go straight to paying the till and sending the code.
   const startPayment = async (order: Order) => {
+    if (!sendsPrompt) {
+      setPaymentStatus("manual");
+      return;
+    }
     setPaymentStatus("processing");
-    const manualNumber = (isBuyGoods ? paymentSettings?.tillNumber : paymentSettings?.businessShortCode) || DEFAULT_PAYMENT_SETTINGS.businessShortCode;
     try {
-      const payResult = await initiateMpesaPayment(
+      await initiateMpesaPayment(
         { orderId: order.id, phone: order.customerPhone, amount: order.total },
         { headers: order.accessToken ? { "X-Order-Token": order.accessToken } : {} },
       );
-      setPaymentDetails({ shortCode: payResult.businessShortCode || manualNumber, amount: order.total });
       setPaymentStatus("prompted");
     } catch (error) {
       console.error(error);
-      setPaymentDetails({ shortCode: manualNumber, amount: order.total });
-      setPaymentStatus("failed");
+      setPaymentStatus((error as { data?: { manualOnly?: boolean } }).data?.manualOnly ? "manual" : "failed");
     }
   };
 
@@ -456,7 +437,7 @@ export default function Checkout() {
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
                       </>
                     ) : (
-                      `Pay KES ${discountedTotal.toLocaleString()} with MPesa`
+                      sendsPrompt ? `Pay KES ${discountedTotal.toLocaleString()} with M-Pesa` : `Place order · KES ${discountedTotal.toLocaleString()}`
                     )}
                   </Button>
                 </form>
@@ -470,19 +451,37 @@ export default function Checkout() {
                 </div>
                 <h2 className="text-xl font-extrabold mb-2 text-[#52B44B]">Check your phone</h2>
                 <p className="text-muted-foreground text-base max-w-xs mx-auto">
-                  An M-Pesa STK push has been sent to your phone. Enter your PIN to complete payment of{" "}
+                  We've sent an M-Pesa prompt to your phone. Enter your PIN to pay{" "}
                   <strong>KES {(placedOrder?.total ?? discountedTotal).toLocaleString()}</strong>.
                 </p>
               </div>
-              {mpesaPaymentBlock}
+              <p className="mb-3 text-center text-sm font-medium text-muted-foreground">No prompt? Pay from the M-Pesa menu instead:</p>
+              {manualPayment}
             </div>
           ) : paymentStatus === "processing" ? (
             <div className="rounded-2xl border border-border bg-card p-12 text-center flex flex-col items-center justify-center min-h-[300px]">
               <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
               <h2 className="text-xl font-extrabold mb-2">Placing your order…</h2>
               <p className="text-muted-foreground text-sm max-w-xs">
-                Please wait while we send the M-Pesa prompt to your phone.
+                {sendsPrompt ? "Please wait while we send the M-Pesa prompt to your phone." : "Just a moment while we save your order."}
               </p>
+            </div>
+          ) : paymentStatus === "manual" && placedOrder ? (
+            <div className="rounded-2xl border border-[#52B44B]/30 bg-card p-5 sm:p-6">
+              <div className="mb-5 text-center">
+                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#52B44B]/10">
+                  <CheckCircle2 className="h-7 w-7 text-[#52B44B]" />
+                </div>
+                <h2 className="text-xl font-extrabold">Order #{placedOrder.id} placed</h2>
+                <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+                  Now pay <strong className="text-foreground">KES {Math.ceil(placedOrder.total).toLocaleString()}</strong> with M-Pesa, then send us the
+                  M-Pesa code so we can confirm it.
+                </p>
+              </div>
+              {manualPayment}
+              <Button variant="outline" className="mt-4 w-full rounded-full" onClick={() => setLocation(orderPath(placedOrder))}>
+                View my order
+              </Button>
             </div>
           ) : paymentStatus === "failed" && activeOrderId ? (
             <div className="rounded-2xl border border-amber-400/40 bg-card p-6 sm:p-8">
@@ -492,19 +491,21 @@ export default function Checkout() {
                     <path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                   </svg>
                 </div>
-                <h2 className="text-xl font-extrabold mb-2 text-amber-600 dark:text-amber-400">Payment Not Confirmed</h2>
+                <h2 className="text-xl font-extrabold mb-2 text-amber-600 dark:text-amber-400">The M-Pesa prompt didn't go through</h2>
                 <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-                  Your order <strong>#{activeOrderId}</strong> has been saved and is in <strong>pending orders</strong>. Complete payment using the details below and we'll confirm your order.
+                  Your order <strong>#{activeOrderId}</strong> is saved. Pay from the M-Pesa menu below and send us the code, or try the prompt again.
                 </p>
               </div>
-              {mpesaPaymentBlock}
+              {manualPayment}
               <div className="mt-6 flex flex-col gap-3">
-                <Button
-                  className="w-full rounded-full bg-[#52B44B] hover:bg-[#52B44B]/90 text-white font-bold"
-                  onClick={() => placedOrder && startPayment(placedOrder)}
-                >
-                  Send the M-Pesa prompt again
-                </Button>
+                {sendsPrompt && (
+                  <Button
+                    className="w-full rounded-full bg-[#52B44B] hover:bg-[#52B44B]/90 text-white font-bold"
+                    onClick={() => placedOrder && startPayment(placedOrder)}
+                  >
+                    Send the M-Pesa prompt again
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   className="w-full rounded-full"

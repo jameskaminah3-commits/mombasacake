@@ -26,7 +26,8 @@ import {
   useCustomerSession,
 } from "@/lib/customer";
 import { orderItemChoices } from "@/lib/order-items";
-import { DEFAULT_PAYMENT_DETAILS, fetchPaymentDetails } from "@/lib/payment-details";
+import { usePaymentDetails } from "@/lib/payment-details";
+import { MpesaManualPayment } from "@/components/mpesa-manual-payment";
 import { displayKenyanPhone, isValidKenyanMobile, normalizeKenyanPhone } from "@/lib/phone";
 import { WHATSAPP_URL } from "@/lib/store-info";
 import { cn } from "@/lib/utils";
@@ -114,7 +115,9 @@ export default function OrderPage() {
     <div className="mx-auto w-full max-w-2xl space-y-4 px-4 pb-12 pt-6">
       <OrderHeader order={order} />
       {!cancelled && <OrderProgress order={order} />}
-      {!paid && !cancelled && <PayCard order={order} headers={headers} onPromptSent={() => setFastUntil(Date.now() + 3 * 60_000)} />}
+      {!paid && !cancelled && (
+        <PayCard order={order} headers={headers} onPromptSent={() => setFastUntil(Date.now() + 3 * 60_000)} onChanged={() => refetch()} />
+      )}
       {paid && !cancelled && received && <ReviewSection order={order} />}
       <OrderItems order={order} />
       <DeliveryCard order={order} />
@@ -170,9 +173,13 @@ function OrderHeader({ order }: { order: Order }) {
           ? ["Your cake is being made", "We'll let you know when it's ready."]
           : paid
             ? ["Thank you!", "We've received your payment and we'll get baking."]
-            : order.paymentStatus === "failed"
-              ? ["Payment didn't go through", "Your order is saved. Pay below to confirm it."]
-              : ["Order received", "Pay with M-Pesa below to confirm your order."];
+            : order.paymentCheck?.state === "checking"
+              ? ["Checking your payment", `We've got your M-Pesa code ${order.paymentCheck.code} and are confirming it. We'll let you know.`]
+              : order.paymentCheck?.state === "not-found"
+                ? ["Payment not found", "We couldn't find your M-Pesa payment. Check the code below and send it again, or WhatsApp us."]
+                : order.paymentStatus === "failed"
+                  ? ["Payment didn't go through", "Your order is saved. Pay below to confirm it."]
+                  : ["Order received", "Pay with M-Pesa below and send us the code to confirm your order."];
   return (
     <section className="rounded-2xl border border-border bg-card p-6 text-center">
       <div
@@ -240,15 +247,20 @@ function OrderProgress({ order }: { order: Order }) {
   );
 }
 
-function PayCard({ order, headers, onPromptSent }: { order: Order; headers: Record<string, string>; onPromptSent: () => void }) {
+function PayCard({
+  order,
+  headers,
+  onPromptSent,
+  onChanged,
+}: {
+  order: Order;
+  headers: Record<string, string>;
+  onPromptSent: () => void;
+  onChanged: () => void;
+}) {
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [problem, setProblem] = useState<string | null>(null);
-  const { data: paymentDetails } = useQuery({ queryKey: ["payment-details"], queryFn: fetchPaymentDetails, placeholderData: DEFAULT_PAYMENT_DETAILS });
-  const isBuyGoods = paymentDetails?.transactionType === "CustomerBuyGoodsOnline";
-  const payNumber = isBuyGoods
-    ? paymentDetails?.tillNumber || DEFAULT_PAYMENT_DETAILS.tillNumber
-    : paymentDetails?.businessShortCode || DEFAULT_PAYMENT_DETAILS.businessShortCode;
-  const payReference = `${paymentDetails?.accountReferencePrefix || DEFAULT_PAYMENT_DETAILS.accountReferencePrefix}-${order.id}`;
+  const { data: paymentDetails } = usePaymentDetails();
 
   const sendPrompt = async () => {
     setState("sending");
@@ -259,48 +271,45 @@ function PayCard({ order, headers, onPromptSent }: { order: Order; headers: Reco
       onPromptSent();
     } catch (error) {
       setState("error");
-      setProblem(errorMessage(error, "We couldn't send the M-Pesa prompt. Please pay with the details below."));
+      setProblem(errorMessage(error, "We couldn't send the M-Pesa prompt. Please pay from the M-Pesa menu below."));
     }
   };
 
   return (
-    <section aria-labelledby="pay-title" className="rounded-2xl border border-[#52B44B]/30 bg-[#52B44B]/5 p-5">
+    <section aria-labelledby="pay-title" className="space-y-3 rounded-2xl border border-[#52B44B]/30 bg-card p-5">
       <h2 id="pay-title" className="text-base font-bold">
         Pay {kes(order.total)} with M-Pesa
       </h2>
-      {state === "sent" ? (
-        <p className="mt-2 text-sm text-muted-foreground">
-          Check your phone ({displayKenyanPhone(order.customerPhone)}) and enter your M-Pesa PIN. This page updates when the payment arrives.
-        </p>
-      ) : (
-        <p className="mt-1 text-sm text-muted-foreground">We'll send a payment prompt to {displayKenyanPhone(order.customerPhone)}.</p>
-      )}
-      <Button
-        className="mt-4 h-11 w-full rounded-full bg-[#52B44B] font-bold text-white hover:bg-[#52B44B]/90"
-        onClick={sendPrompt}
-        disabled={state === "sending"}
-      >
-        {state === "sending" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-        {state === "sent" ? "Send the prompt again" : "Send M-Pesa prompt"}
-      </Button>
-      {problem && (
-        <p role="alert" className="mt-3 text-sm text-destructive">
-          {problem}
-        </p>
-      )}
-      <div className="mt-4 space-y-1.5 rounded-xl border border-dashed border-[#52B44B]/40 bg-card p-4 text-sm">
-        <p className="font-medium">Or pay yourself:</p>
-        <p className="text-muted-foreground">
-          {isBuyGoods ? "Lipa na M-Pesa → Buy Goods, till" : "Lipa na M-Pesa → Pay Bill, business number"}{" "}
-          <strong className="text-foreground">{payNumber}</strong>
-          {!isBuyGoods && (
-            <>
-              , account <strong className="text-foreground">{payReference}</strong>
-            </>
+      {/* The M-Pesa prompt, when the shop sends them; paying from the M-Pesa menu always works. */}
+      {paymentDetails?.stkEnabled && (
+        <div>
+          <p className="text-sm text-muted-foreground">
+            {state === "sent"
+              ? `Check your phone (${displayKenyanPhone(order.customerPhone)}) and enter your M-Pesa PIN. This page updates when the payment arrives.`
+              : `We'll send a payment prompt to ${displayKenyanPhone(order.customerPhone)}.`}
+          </p>
+          <Button
+            className="mt-3 h-11 w-full rounded-full bg-[#52B44B] font-bold text-white hover:bg-[#52B44B]/90"
+            onClick={sendPrompt}
+            disabled={state === "sending"}
+          >
+            {state === "sending" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {state === "sent" ? "Send the prompt again" : "Send M-Pesa prompt"}
+          </Button>
+          {problem && (
+            <p role="alert" className="mt-3 text-sm text-destructive">
+              {problem}
+            </p>
           )}
-          , amount <strong className="text-foreground">{kes(order.total)}</strong>.
-        </p>
-      </div>
+          <p className="mt-3 text-center text-xs font-medium text-muted-foreground">or pay from the M-Pesa menu:</p>
+        </div>
+      )}
+      <MpesaManualPayment
+        key={`${order.paymentCheck?.state ?? "none"}-${order.paymentCheck?.code ?? ""}`}
+        order={order}
+        headers={headers}
+        onSent={onChanged}
+      />
     </section>
   );
 }

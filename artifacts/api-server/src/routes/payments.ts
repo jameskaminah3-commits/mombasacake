@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { and, eq, desc } from "drizzle-orm";
-import { db, paymentsTable, ordersTable, orderItemsTable, paymentSettingsTable } from "@workspace/db";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { db, paymentsTable, ordersTable, orderItemsTable } from "@workspace/db";
 import { InitiateMpesaPaymentBody, GetPaymentParams } from "@workspace/api-zod";
 import { initiateStkPush, isValidCallbackKey, registerC2bUrls } from "../lib/mpesa";
 import { emailCustomerAboutOrder } from "../lib/customer-notifications";
@@ -8,7 +8,7 @@ import { ensureOrdersSchema } from "../lib/ensure-orders-schema";
 import { canAccessOrder } from "../lib/order-access";
 import { rewardReferralForPaidOrder } from "../lib/referrals";
 import { siteUrl } from "../lib/seo";
-import { ensurePaymentSettingsSchema } from "../lib/ensure-payment-settings-schema";
+import { customerPaymentDetails, darajaKeysConfigured, readPaymentSettings, shopNumber } from "../lib/payment-settings";
 import { logger } from "../lib/logger";
 import { requireAdmin } from "../lib/auth-middleware";
 
@@ -49,23 +49,30 @@ router.post("/payments/mpesa/initiate", async (req, res): Promise<void> => {
   const phone = order.customerPhone;
   const amount = parseFloat(order.total);
 
-  // Load operational config saved from the admin payment settings.
-  await ensurePaymentSettingsSchema();
-  const [settings] = await db
-    .select()
-    .from(paymentSettingsTable)
-    .where(eq(paymentSettingsTable.settingsKey, "default"))
-    .orderBy(desc(paymentSettingsTable.createdAt))
-    .limit(1);
+  // Settings from Admin → Payments. Until the M-Pesa prompt is switched on (and the server has its keys),
+  // customers pay with the till or paybill and send their M-Pesa code instead.
+  const settings = await readPaymentSettings();
+  const details = customerPaymentDetails(settings);
+  if (!details.stkEnabled) {
+    res.status(409).json({ error: "Pay with M-Pesa using the till number, then send us your M-Pesa code.", manualOnly: true });
+    return;
+  }
 
-  const result = await initiateStkPush({
-    orderId,
-    phone,
-    amount,
-    shortcode: settings?.businessShortCode,
-    transactionType: settings?.transactionType,
-    tillNumber: settings?.tillNumber,
-  });
+  let result: Awaited<ReturnType<typeof initiateStkPush>>;
+  try {
+    result = await initiateStkPush({
+      orderId,
+      phone,
+      amount,
+      shortcode: shopNumber(settings.businessShortCode) ?? undefined,
+      transactionType: settings.transactionType,
+      tillNumber: settings.tillNumber || undefined,
+    });
+  } catch (err) {
+    logger.error({ err, orderId }, "M-Pesa prompt failed");
+    res.status(502).json({ error: "We couldn't send the M-Pesa prompt. Please pay with the till number instead.", manualOnly: true });
+    return;
+  }
 
   // Record pending payment
   await db.insert(paymentsTable).values({
@@ -77,18 +84,12 @@ router.post("/payments/mpesa/initiate", async (req, res): Promise<void> => {
     merchantRequestId: result.merchantRequestId,
   });
 
-  const isBuyGoods = settings?.transactionType === "CustomerBuyGoodsOnline";
-  const customerFacingNumber =
-    isBuyGoods && settings?.tillNumber
-      ? settings.tillNumber
-      : settings?.businessShortCode || process.env.MPESA_SHORTCODE || "174379";
-
   res.json({
     checkoutRequestId: result.checkoutRequestId,
     merchantRequestId: result.merchantRequestId ?? null,
     responseDescription: result.responseDescription,
-    businessShortCode: customerFacingNumber,
-    transactionType: settings?.transactionType || "CustomerPayBillOnline",
+    businessShortCode: details.manual.number,
+    transactionType: settings.transactionType,
   });
 });
 
@@ -188,13 +189,15 @@ router.post("/payments/mpesa/c2b/confirmation", async (req, res): Promise<void> 
     const last9 = String(body?.MSISDN ?? "").replace(/\D/g, "").slice(-9);
 
     if (receipt && amount > 0 && last9) {
+      // Unpaid orders, including ones whose M-Pesa prompt was cancelled before the customer paid the till.
       const pending = await db
         .select()
         .from(ordersTable)
-        .where(eq(ordersTable.paymentStatus, "pending"));
+        .where(inArray(ordersTable.paymentStatus, ["pending", "failed"]));
 
       const matches = pending.filter(
         (o) =>
+          o.status !== "cancelled" &&
           Math.ceil(Number(o.total)) === amount &&
           o.customerPhone.replace(/\D/g, "").slice(-9) === last9
       );
@@ -249,12 +252,22 @@ router.post("/payments/mpesa/c2b/confirmation", async (req, res): Promise<void> 
 
 // Admin-triggered one-time registration of the C2B URLs with Safaricom.
 router.post("/payments/mpesa/c2b/register", requireAdmin, async (_req, res): Promise<void> => {
+  if (!darajaKeysConfigured()) {
+    res.status(400).json({ ok: false, error: "The M-Pesa (Daraja) keys aren't set up on the server yet. Until then, check customers' M-Pesa codes and press Mark paid." });
+    return;
+  }
   if (!/^https:\/\//.test(process.env.PUBLIC_APP_URL?.trim() ?? "")) {
     res.status(400).json({ ok: false, error: "Set PUBLIC_APP_URL in Railway to your shop's address (e.g. https://channahcakes.co.ke) first." });
     return;
   }
+  // The paybill number, or the till's store / head office number.
+  const shortcode = shopNumber((await readPaymentSettings()).businessShortCode);
+  if (!shortcode && !process.env.MPESA_SHORTCODE && process.env.MPESA_ENV === "production") {
+    res.status(400).json({ ok: false, error: "Enter your paybill number (or your till's store number) under How customers pay first." });
+    return;
+  }
   try {
-    const data = await registerC2bUrls();
+    const data = await registerC2bUrls(shortcode);
     res.json({ ok: true, data });
   } catch (err) {
     logger.error({ err }, "C2B URL registration failed");

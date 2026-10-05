@@ -54,7 +54,8 @@ export interface Cake {
 }
 
 export interface CakeMediaItem {
-  type: "image" | "video";
+  /** "youtube": a YouTube video (url is its watch link); "video": an uploaded video file. */
+  type: "image" | "video" | "youtube";
   url: string;
   /** A still frame shown before a video plays. */
   posterUrl?: string | null;
@@ -150,13 +151,23 @@ export interface Order {
   creditUsed?: number;
   /** The customer's own referral code and reward balance, when the shop runs referrals. */
   referral?: OrderReferral | null;
-  /** Owner's list only: a paybill payment M-Pesa reported for this unpaid order, to check and confirm. */
+  /** Owner's list only: a payment to check before confirming (a code the customer sent, or one M-Pesa reported). */
   reportedPayment?: OrderReportedPayment | null;
+  /** The customer's view: the M-Pesa code they sent, while the shop checks it (or couldn't find it). */
+  paymentCheck?: OrderPaymentCheck | null;
 }
 
 export interface OrderReportedPayment {
   receipt: string | null;
   amount: number;
+  at: string;
+  /** "customer": a code the customer sent after paying the till; "mpesa": reported by M-Pesa without the key. */
+  source?: "customer" | "mpesa";
+}
+
+export interface OrderPaymentCheck {
+  code: string;
+  state: "checking" | "not-found";
   at: string;
 }
 

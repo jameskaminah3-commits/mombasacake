@@ -71,3 +71,30 @@ export async function emailCustomerAboutOrder(order: Order, items: OrderItem[], 
     logger.error({ err, orderId: order.id, kind }, "Customer order email failed");
   }
 }
+
+// The owner couldn't find the M-Pesa payment for the code the customer sent.
+export async function emailCustomerPaymentCodeNotFound(order: Order, code: string, baseUrl: string) {
+  const to = order.customerEmail?.trim();
+  if (!to || !process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) return;
+  const name = order.customerName.trim().split(/\s+/)[0] || order.customerName;
+  const link = orderLink(baseUrl, order);
+  const lines = [
+    `We looked for your M-Pesa payment with code ${code} for order #${order.id}, but couldn't find it.`,
+    "Please check the code in your M-Pesa SMS and send it again from your order page, or WhatsApp us and we'll sort it out.",
+  ];
+  try {
+    await sendResendEmail({
+      to,
+      subject: `We couldn't find your M-Pesa payment for order #${order.id}`,
+      html: `
+        <p>Hi ${escapeHtml(name)},</p>
+        ${lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+        <p><a href="${escapeHtml(link)}">Open your order</a></p>
+        <p>WhatsApp: +254 721 868 212<br>Channah Cake House, Mombasa</p>
+      `,
+      text: [`Hi ${name},`, ...lines, `Your order: ${link}`, "WhatsApp +254 721 868 212", "Channah Cake House, Mombasa"].join("\n\n"),
+    });
+  } catch (err) {
+    logger.error({ err, orderId: order.id }, "Payment-not-found email failed");
+  }
+}

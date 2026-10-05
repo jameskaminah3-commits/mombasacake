@@ -1,7 +1,8 @@
 import { adminsTable, type Order, type OrderItem, db } from "@workspace/db";
 import { sendResendEmail } from "./resend-email";
 
-export async function sendNewOrderNotification(order: Order, items: OrderItem[]): Promise<void> {
+// The shop's staff (admin accounts), or ADMIN_EMAIL when there are none.
+async function ownerRecipients(): Promise<string[]> {
   const adminEmails = await db
     .select({ email: adminsTable.email })
     .from(adminsTable);
@@ -18,7 +19,30 @@ export async function sendNewOrderNotification(order: Order, items: OrderItem[])
     const fallback = (process.env.ADMIN_EMAIL || "").trim();
     if (fallback) recipients.push(fallback);
   }
+  return recipients;
+}
 
+// A customer paid the till or paybill themselves and sent their M-Pesa code: the owner checks it and confirms.
+export async function sendPaymentCodeNotification(order: Order, code: string, baseUrl: string): Promise<void> {
+  const recipients = await ownerRecipients();
+  if (recipients.length === 0) return;
+  const amount = `KES ${Math.round(parseFloat(order.total)).toLocaleString("en-KE")}`;
+  const ordersPage = `${baseUrl}/admin/orders`;
+  await sendResendEmail({
+    to: recipients,
+    subject: `Check payment: order #${order.id}, M-Pesa code ${code}`,
+    html: `
+      <h2>A customer sent an M-Pesa code</h2>
+      <p><strong>${escapeHtml(order.customerName)}</strong> (${escapeHtml(order.customerPhone)}) says they paid <strong>${amount}</strong> for order <strong>#${order.id}</strong>.</p>
+      <p style="font-size:22px;font-weight:bold;letter-spacing:2px">${escapeHtml(code)}</p>
+      <p>Find this code in your M-Pesa messages or statement. If the payment is there, open <a href="${escapeHtml(ordersPage)}">Admin → Orders</a> and press <strong>Mark paid</strong>. If it isn't, press <strong>Code not found</strong> and the customer is asked to check it.</p>
+    `,
+    text: `${order.customerName} (${order.customerPhone}) says they paid ${amount} for order #${order.id} with M-Pesa code ${code}.\n\nFind this code in your M-Pesa messages. If the payment is there, press Mark paid in Admin → Orders (${ordersPage}); if not, press Code not found.`,
+  });
+}
+
+export async function sendNewOrderNotification(order: Order, items: OrderItem[]): Promise<void> {
+  const recipients = await ownerRecipients();
   if (recipients.length === 0) {
     return;
   }

@@ -1,11 +1,11 @@
 import { Router, type IRouter, type Response } from "express";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { eq, desc, and, gt, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { ensureOrdersSchema } from "../lib/ensure-orders-schema";
 import { db, ordersTable, orderItemsTable, cakesTable, promotionsTable, customersTable, paymentsTable, referralsTable } from "@workspace/db";
 import { requireAdmin } from "../lib/auth-middleware";
 import { logger } from "../lib/logger";
-import { sendNewOrderNotification } from "../lib/order-notifications";
+import { sendNewOrderNotification, sendPaymentCodeNotification } from "../lib/order-notifications";
 import { normalizeSupabaseMediaUrl } from "../lib/media-urls";
 import {
   CreateOrderBody,
@@ -17,7 +17,8 @@ import {
 import { ensurePromotionsSchema } from "../lib/ensure-promotions-schema";
 import { cakeSizes, readCakeOptions } from "../lib/cake-options";
 import { resolveCustomerFromRequest } from "../lib/customer-auth";
-import { emailCustomerAboutOrder } from "../lib/customer-notifications";
+import { emailCustomerAboutOrder, emailCustomerPaymentCodeNotFound } from "../lib/customer-notifications";
+import { CUSTOMER_CODE_METHOD, extractMpesaCode, paymentCheckFor } from "../lib/payment-codes";
 import { canAccessOrder, newOrderAccessToken } from "../lib/order-access";
 import {
   ReferralCodeError,
@@ -149,8 +150,9 @@ router.get("/orders", requireAdmin, async (req, res): Promise<void> => {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(ordersTable.createdAt));
 
-  // Paybill payments M-Pesa reported without the secret key, for the owner to check and confirm.
-  const reported = await db.select().from(paymentsTable).where(eq(paymentsTable.status, "reported"));
+  // Payments to check before confirming: M-Pesa codes customers sent after paying the till themselves, and
+  // paybill payments M-Pesa reported without the secret key. The newest one per order is shown.
+  const reported = await db.select().from(paymentsTable).where(eq(paymentsTable.status, "reported")).orderBy(desc(paymentsTable.createdAt));
   const result = await Promise.all(orders.map(async (order) => {
     const items = await db
       .select()
@@ -159,7 +161,14 @@ router.get("/orders", requireAdmin, async (req, res): Promise<void> => {
     const report = order.paymentStatus === "paid" ? undefined : reported.find((payment) => payment.orderId === order.id);
     return {
       ...formatOrder(order, items),
-      reportedPayment: report ? { receipt: report.mpesaReceiptNo, amount: parseFloat(report.amount), at: report.createdAt.toISOString() } : null,
+      reportedPayment: report
+        ? {
+            receipt: report.mpesaReceiptNo,
+            amount: parseFloat(report.amount),
+            at: report.createdAt.toISOString(),
+            source: report.method === CUSTOMER_CODE_METHOD ? "customer" : "mpesa",
+          }
+        : null,
     };
   }));
 
@@ -323,7 +332,106 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
     return;
   }
   const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
-  res.json({ ...formatOrder(order, items), referral: await referralInfoFor(order) });
+  res.json({ ...formatOrder(order, items), referral: await referralInfoFor(order), paymentCheck: await paymentCheckFor(order) });
+});
+
+// A customer paid the till or paybill themselves and sends the M-Pesa code from their SMS (or the whole SMS).
+// The owner is emailed to check it against their M-Pesa and confirm with "Mark paid".
+router.post("/orders/:id/payment-code", async (req, res): Promise<void> => {
+  const params = GetOrderParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  await ensureOrdersSchema();
+  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
+  if (!order) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  if (!(await canAccessOrder(req, order))) {
+    res.status(401).json({ error: "Open this order from your order link to send your M-Pesa code." });
+    return;
+  }
+  if (order.paymentStatus === "paid") {
+    res.status(409).json({ error: "This order is already paid. Thank you!" });
+    return;
+  }
+  if (order.status === "cancelled") {
+    res.status(409).json({ error: "This order was cancelled. Please WhatsApp us if that's unexpected." });
+    return;
+  }
+  const code = extractMpesaCode(String(req.body?.code ?? ""));
+  if (!code) {
+    res.status(400).json({ error: "M-Pesa codes have 10 letters and numbers, like TJK3AB12CD. It's at the start of your M-Pesa SMS." });
+    return;
+  }
+
+  const [usedElsewhere] = await db
+    .select({ orderId: paymentsTable.orderId })
+    .from(paymentsTable)
+    .where(and(eq(paymentsTable.mpesaReceiptNo, code), ne(paymentsTable.orderId, order.id), inArray(paymentsTable.status, ["reported", "completed"])))
+    .limit(1);
+  if (usedElsewhere) {
+    res.status(409).json({ error: "That M-Pesa code is already used for another order. Check the code, or WhatsApp us." });
+    return;
+  }
+
+  const current = await paymentCheckFor(order);
+  if (!(current?.state === "checking" && current.code === code)) {
+    const [{ recent }] = await db
+      .select({ recent: sql<number>`count(*)::int` })
+      .from(paymentsTable)
+      .where(and(eq(paymentsTable.orderId, order.id), eq(paymentsTable.method, CUSTOMER_CODE_METHOD), gt(paymentsTable.createdAt, new Date(Date.now() - 60 * 60_000))));
+    if (recent >= 6) {
+      res.status(429).json({ error: "You've sent several codes. Please WhatsApp us and we'll sort it out." });
+      return;
+    }
+    // A corrected code replaces the one still waiting to be checked (kept as "replaced", which also counts
+    // towards the limit above).
+    await db.transaction(async (tx) => {
+      await tx
+        .update(paymentsTable)
+        .set({ status: "replaced" })
+        .where(and(eq(paymentsTable.orderId, order.id), eq(paymentsTable.method, CUSTOMER_CODE_METHOD), eq(paymentsTable.status, "reported")));
+      await tx.insert(paymentsTable).values({ orderId: order.id, amount: order.total, method: CUSTOMER_CODE_METHOD, status: "reported", mpesaReceiptNo: code });
+    });
+    try {
+      await sendPaymentCodeNotification(order, code, siteUrl(req));
+    } catch (err) {
+      logger.error({ err, orderId: order.id }, "Payment code email to the owner failed");
+    }
+  }
+
+  const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
+  res.json({ ...formatOrder(order, items), referral: await referralInfoFor(order), paymentCheck: await paymentCheckFor(order) });
+});
+
+// The owner couldn't find the customer's code in their M-Pesa: the customer is asked to check it.
+router.post("/orders/:id/payment-code/not-found", requireAdmin, async (req, res): Promise<void> => {
+  const params = GetOrderParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  await ensureOrdersSchema();
+  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, params.data.id));
+  if (!order) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  const rejected = await db
+    .update(paymentsTable)
+    .set({ status: "rejected" })
+    .where(and(eq(paymentsTable.orderId, order.id), eq(paymentsTable.method, CUSTOMER_CODE_METHOD), eq(paymentsTable.status, "reported")))
+    .returning({ code: paymentsTable.mpesaReceiptNo });
+  if (rejected.length === 0) {
+    res.status(409).json({ error: "There's no M-Pesa code waiting to be checked for this order." });
+    return;
+  }
+  await emailCustomerPaymentCodeNotFound(order, rejected[0].code ?? "", siteUrl(req));
+  const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
+  res.json({ ...formatOrder(order, items), paymentCheck: await paymentCheckFor(order) });
 });
 
 router.patch("/orders/:id/status", requireAdmin, async (req, res): Promise<void> => {
@@ -366,41 +474,53 @@ router.patch("/orders/:id/mark-paid", requireAdmin, async (req, res): Promise<vo
     return;
   }
   const receipt =
-    typeof req.body?.mpesaReceiptNo === "string" ? req.body.mpesaReceiptNo.trim() : "";
-
-  const setValues: { paymentStatus: string; status: string; mpesaReceiptNo?: string } = {
-    paymentStatus: "paid",
-    status: "confirmed",
-  };
-  if (receipt) setValues.mpesaReceiptNo = receipt;
+    typeof req.body?.mpesaReceiptNo === "string" ? req.body.mpesaReceiptNo.trim().toUpperCase() : "";
 
   await ensureOrdersSchema();
-  const [before] = await db.select({ paymentStatus: ordersTable.paymentStatus }).from(ordersTable).where(eq(ordersTable.id, params.data.id));
-  const [order] = await db
-    .update(ordersTable)
-    .set(setValues)
-    .where(eq(ordersTable.id, params.data.id))
-    .returning();
-  if (!order) {
+  const [before] = await db
+    .select({ paymentStatus: ordersTable.paymentStatus, status: ordersTable.status })
+    .from(ordersTable)
+    .where(eq(ordersTable.id, params.data.id));
+  if (!before) {
     res.status(404).json({ error: "Order not found" });
     return;
   }
 
-  // A paybill payment M-Pesa reported for this order becomes the confirmed payment; otherwise record one.
-  const confirmed = await db
-    .update(paymentsTable)
-    .set({ status: "completed" })
-    .where(and(eq(paymentsTable.orderId, order.id), eq(paymentsTable.status, "reported"), receipt ? eq(paymentsTable.mpesaReceiptNo, receipt) : undefined))
-    .returning({ id: paymentsTable.id });
-  if (confirmed.length === 0) {
+  // The payment the owner confirmed: the reported one with this M-Pesa code (or, without a code, the latest one
+  // reported: the customer's code, or what M-Pesa reported) becomes the order's payment.
+  const reported = await db
+    .select()
+    .from(paymentsTable)
+    .where(and(eq(paymentsTable.orderId, params.data.id), eq(paymentsTable.status, "reported")))
+    .orderBy(desc(paymentsTable.createdAt), desc(paymentsTable.id));
+  const match = receipt ? reported.find((payment) => payment.mpesaReceiptNo?.toUpperCase() === receipt) : reported[0];
+  const confirmedReceipt = receipt || match?.mpesaReceiptNo || "";
+
+  const [order] = await db
+    .update(ordersTable)
+    .set({
+      paymentStatus: "paid",
+      // Confirmed, unless the order has already moved on (e.g. being made).
+      status: before.status === "pending" ? "confirmed" : before.status,
+      ...(confirmedReceipt ? { mpesaReceiptNo: confirmedReceipt } : {}),
+    })
+    .where(eq(ordersTable.id, params.data.id))
+    .returning();
+
+  if (match) {
+    await db.update(paymentsTable).set({ status: "completed" }).where(eq(paymentsTable.id, match.id));
+  } else if (before.paymentStatus !== "paid") {
     await db.insert(paymentsTable).values({
       orderId: order.id,
       amount: order.total,
       method: "mpesa",
       status: "completed",
-      mpesaReceiptNo: receipt || undefined,
+      mpesaReceiptNo: confirmedReceipt || undefined,
     });
   }
+  // A code the customer sent that the owner confirmed under another code was mistyped: it's closed.
+  const mistyped = reported.filter((payment) => payment.id !== match?.id && payment.method === CUSTOMER_CODE_METHOD).map((payment) => payment.id);
+  if (mistyped.length > 0) await db.update(paymentsTable).set({ status: "replaced" }).where(inArray(paymentsTable.id, mistyped));
   await rewardReferralForPaidOrder(order.id);
 
   const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));

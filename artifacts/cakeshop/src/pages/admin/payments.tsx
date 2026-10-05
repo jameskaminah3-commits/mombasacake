@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useListPayments } from "@workspace/api-client-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
@@ -19,39 +18,13 @@ import { Link } from "wouter";
 import { Loader2, Search } from "lucide-react";
 import { customFetch } from "@workspace/api-client-react";
 import { getApiBaseUrl } from "@/lib/api-base";
-import {
-  DEFAULT_PAYMENT_SETTINGS,
-  fetchPaymentSettings,
-  savePaymentSettings,
-  type PaymentSettings,
-} from "@/lib/payment-settings";
+import { AdminPaymentSettings } from "@/components/admin-payment-settings";
+import { fetchPaymentSettings } from "@/lib/payment-settings";
 
 export default function AdminPayments() {
   const { data: payments, isLoading } = useListPayments();
-  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
-
-  const { data: paymentSettings, isLoading: settingsLoading, isPlaceholderData } = useQuery({
-    queryKey: ["payment-settings"],
-    queryFn: fetchPaymentSettings,
-    placeholderData: DEFAULT_PAYMENT_SETTINGS,
-  });
-  const [draftSettings, setDraftSettings] = useState<PaymentSettings>(DEFAULT_PAYMENT_SETTINGS);
-
-  useEffect(() => {
-    if (paymentSettings && !isPlaceholderData) {
-      setDraftSettings(paymentSettings);
-    }
-  }, [paymentSettings, isPlaceholderData]);
-
-  const saveSettingsMutation = useMutation({
-    mutationFn: savePaymentSettings,
-    onSuccess: (saved) => {
-      setDraftSettings(saved);
-      queryClient.setQueryData(["payment-settings"], saved);
-    },
-  });
 
   const filteredPayments = payments?.filter((payment) => {
     const normalizedStatus = payment.status === "completed" ? "paid" : payment.status;
@@ -74,19 +47,6 @@ export default function AdminPayments() {
     pending: summaryPayments.filter((payment) => payment.status === "pending").length,
     failed: summaryPayments.filter((payment) => payment.status === "failed").length,
   };
-
-  const updateSetting = (key: keyof PaymentSettings, value: string) => {
-    setDraftSettings((current) => ({
-      ...current,
-      [key]: value,
-    }));
-  };
-
-  const handleSave = () => {
-    saveSettingsMutation.mutate(draftSettings);
-  };
-
-  const isBuyGoods = draftSettings.transactionType === "CustomerBuyGoodsOnline";
 
   return (
     <div className="space-y-6">
@@ -119,111 +79,7 @@ export default function AdminPayments() {
         </div>
       </div>
 
-      <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-5">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight">MPesa payment settings</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Shown to customers at checkout. Changes take effect immediately.
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Payment display name</label>
-            <Input
-              value={draftSettings.displayName}
-              onChange={(event) => updateSetting("displayName", event.target.value)}
-              placeholder="MPesa"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Payment type</label>
-            <Select
-              value={draftSettings.transactionType}
-              onValueChange={(value) => updateSetting("transactionType", value)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select payment type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="CustomerPayBillOnline">Paybill</SelectItem>
-                <SelectItem value="CustomerBuyGoodsOnline">Buy Goods (Till)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              {isBuyGoods ? "Store / Head office number" : "Paybill number"}
-            </label>
-            <Input
-              value={draftSettings.businessShortCode}
-              onChange={(event) => updateSetting("businessShortCode", event.target.value)}
-              placeholder="174379"
-            />
-            <p className="text-xs text-muted-foreground">
-              {isBuyGoods
-                ? "The store / head office number that signs API requests. Must match your Daraja credentials."
-                : "The Paybill number customers pay to."}
-            </p>
-          </div>
-          {isBuyGoods && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Till number</label>
-              <Input
-                value={draftSettings.tillNumber}
-                onChange={(event) => updateSetting("tillNumber", event.target.value)}
-                placeholder="4756527"
-              />
-              <p className="text-xs text-muted-foreground">The customer-facing Buy Goods till number.</p>
-            </div>
-          )}
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-sm font-medium">Order reference prefix</label>
-            <Input
-              value={draftSettings.accountReferencePrefix}
-              onChange={(event) => updateSetting("accountReferencePrefix", event.target.value)}
-              placeholder="Order"
-            />
-            <p className="text-xs text-muted-foreground">Customers will see this as the account reference on the MPesa prompt, e.g. "Order #42".</p>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Checkout instructions</label>
-          <Textarea
-            value={draftSettings.instructions}
-            onChange={(event) => updateSetting("instructions", event.target.value)}
-            rows={4}
-            placeholder="Explain the payment steps customers should follow."
-          />
-        </div>
-
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            className="h-11 rounded-full bg-[#52B44B] px-6 text-white hover:bg-[#52B44B]/90"
-            onClick={handleSave}
-            disabled={settingsLoading || isPlaceholderData || saveSettingsMutation.isPending}
-          >
-            {saveSettingsMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save settings"
-            )}
-          </Button>
-        </div>
-
-        {saveSettingsMutation.isSuccess && (
-          <p className="text-sm font-medium text-[#52B44B]">Payment details updated successfully.</p>
-        )}
-
-        {saveSettingsMutation.isError && (
-          <p className="text-sm font-medium text-red-600">Unable to save the payment settings. Please try again.</p>
-        )}
-      </div>
+      <AdminPaymentSettings />
 
       <PaybillNotifications />
 
@@ -290,7 +146,7 @@ export default function AdminPayments() {
                     </Link>
                   </TableCell>
                   <TableCell className="font-bold">KES {payment.amount.toLocaleString()}</TableCell>
-                  <TableCell>{payment.method}</TableCell>
+                  <TableCell>{payment.method === "mpesa-code" ? "M-Pesa code from customer" : payment.method}</TableCell>
                   <TableCell className="font-mono text-xs">{payment.mpesaReceiptNo || "—"}</TableCell>
                   <TableCell>
                     <span
@@ -302,7 +158,13 @@ export default function AdminPayments() {
                             : "bg-yellow-100 text-yellow-700"
                       }`}
                     >
-                      {payment.status === "reported" ? "check M-Pesa" : payment.status}
+                      {payment.status === "reported"
+                        ? "check M-Pesa"
+                        : payment.status === "rejected"
+                          ? "code not found"
+                          : payment.status === "replaced"
+                            ? "code corrected"
+                            : payment.status}
                     </span>
                   </TableCell>
                 </TableRow>
@@ -315,11 +177,13 @@ export default function AdminPayments() {
   );
 }
 
-// Asks Safaricom to tell the shop about payments customers make themselves (Lipa na M-Pesa → Pay Bill or
-// Buy Goods), so those orders are marked paid automatically too.
+// Asks Safaricom to tell the shop about payments customers make from the M-Pesa menu (Pay Bill or Buy Goods), so
+// those orders are marked paid without checking codes. Needs the shop's M-Pesa (Daraja) keys on the server.
 function PaybillNotifications() {
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const { data: settings } = useQuery({ queryKey: ["payment-settings"], queryFn: fetchPaymentSettings, staleTime: 0 });
+  const ready = settings?.darajaKeys === true;
 
   const register = async () => {
     setState("sending");
@@ -336,13 +200,19 @@ function PaybillNotifications() {
 
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-3">
-      <h2 className="text-xl font-bold tracking-tight">Payments customers make themselves</h2>
+      <h2 className="text-xl font-bold tracking-tight">Automatic payment confirmation (optional)</h2>
       <p className="text-sm text-muted-foreground">
-        When a customer pays with Lipa na M-Pesa instead of the prompt, Safaricom can tell the shop so the order is marked paid automatically.
-        Press this once (and again if the shop's address changes). Until then, or if Safaricom says an address is already registered, those
-        payments show on the order as &ldquo;M-Pesa reported&rdquo; for you to check and mark paid.
+        Safaricom can tell the shop about payments to your till or paybill, so orders are marked paid without checking codes. Press this once
+        (and again if the shop's address changes). Payments Safaricom reports that can't be matched to an order show on the order as
+        &ldquo;M-Pesa reported&rdquo; for you to check and mark paid.
       </p>
-      <Button type="button" variant="outline" className="rounded-full" onClick={register} disabled={state === "sending"}>
+      {settings && !ready && (
+        <p className="text-sm text-muted-foreground">
+          <strong className="text-foreground">Needs the M-Pesa (Daraja) keys on the server first.</strong> Until then, customers send you their
+          M-Pesa codes and you mark orders paid.
+        </p>
+      )}
+      <Button type="button" variant="outline" className="rounded-full" onClick={register} disabled={state === "sending" || !ready}>
         {state === "sending" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
         Register with Safaricom
       </Button>
