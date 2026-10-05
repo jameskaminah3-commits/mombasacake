@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CakeMediaItem } from "@workspace/api-client-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ChevronLeft, ChevronRight, Film, Play, X, ZoomIn } from "lucide-react";
+import { SiYoutube } from "react-icons/si";
 import { RevealImage } from "@/components/reveal-image";
 import { DEFAULT_CAKE_IMAGE_URL } from "@/lib/site-images";
 import { normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
 import { cn } from "@/lib/utils";
+import { youTubeEmbedUrl, youTubeVideoId } from "@/lib/youtube";
 
 const smooth = () => (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
 const src = (url: string) => normalizeSupabaseMediaUrl(url) || url;
@@ -13,7 +15,8 @@ const arrowClass =
   "absolute top-1/2 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-foreground shadow-md transition-opacity hover:bg-white disabled:opacity-0 pointer-fine:flex";
 
 // The cake page's photos and videos: swipe (or use the arrows and thumbnails) to move between them, and tap a
-// photo to see it full size. A video only downloads when it's tapped, which spares customers' data.
+// photo to see it full size. A video (from YouTube, or a video file) only loads when it's tapped, which spares
+// customers' data.
 export function CakeGallery({ name, imageUrl, media }: { name: string; imageUrl: string; media: CakeMediaItem[] }) {
   const items = useMemo<CakeMediaItem[]>(() => [{ type: "image", url: imageUrl }, ...media], [imageUrl, media]);
   const photoIndexes = useMemo(() => items.flatMap((item, index) => (item.type === "image" ? [index] : [])), [items]);
@@ -62,10 +65,12 @@ export function CakeGallery({ name, imageUrl, media }: { name: string; imageUrl:
     setLightbox(null);
   };
   const lightboxPosition = lightbox === null ? -1 : photoIndexes.indexOf(lightbox);
-  const hasVideo = media.some((item) => item.type === "video");
+  const videoCount = media.filter((item) => item.type !== "image").length;
+  const hasVideo = videoCount > 0;
 
+  // min-w-0: in the cake page's grid, the row of thumbnails scrolls inside the gallery instead of widening the page.
   return (
-    <div>
+    <div className="min-w-0">
       <div className="group relative">
         <div
           ref={trackRef}
@@ -102,6 +107,14 @@ export function CakeGallery({ name, imageUrl, media }: { name: string; imageUrl:
                     <span>Tap to zoom</span>
                   </span>
                 </button>
+              ) : item.type === "youtube" && playing === index ? (
+                <iframe
+                  src={youTubeEmbedUrl(youTubeVideoId(item.url) ?? "")}
+                  title={`Video of ${name}`}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  className="h-full w-full bg-black"
+                />
               ) : playing === index ? (
                 <video
                   src={item.url}
@@ -114,7 +127,12 @@ export function CakeGallery({ name, imageUrl, media }: { name: string; imageUrl:
                   This video can't play in your browser.
                 </video>
               ) : (
-                <button type="button" onClick={() => setPlaying(index)} aria-label={`Play the video of ${name}`} className="relative block h-full w-full bg-neutral-900">
+                <button
+                  type="button"
+                  onClick={() => setPlaying(index)}
+                  aria-label={videoCount > 1 ? `Play video ${index + 1} of ${name}` : `Play the video of ${name}`}
+                  className="relative block h-full w-full bg-neutral-900"
+                >
                   {item.posterUrl ? (
                     <img src={src(item.posterUrl)} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   ) : (
@@ -125,6 +143,11 @@ export function CakeGallery({ name, imageUrl, media }: { name: string; imageUrl:
                       <Play className="ml-1 h-7 w-7 fill-current" />
                     </span>
                   </span>
+                  {item.type === "youtube" && (
+                    <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                      <SiYoutube className="h-3.5 w-3.5 text-[#ff0000]" /> YouTube
+                    </span>
+                  )}
                 </button>
               )}
             </div>
@@ -150,7 +173,7 @@ export function CakeGallery({ name, imageUrl, media }: { name: string; imageUrl:
               key={`thumb-${item.url}-${index}`}
               type="button"
               onClick={() => goTo(index)}
-              aria-label={`Show ${item.type === "video" ? "video" : "photo"} ${index + 1}`}
+              aria-label={`Show ${item.type === "image" ? "photo" : "video"} ${index + 1}`}
               aria-current={active === index ? "true" : undefined}
               className={cn(
                 "relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 bg-muted transition-colors",
@@ -162,7 +185,7 @@ export function CakeGallery({ name, imageUrl, media }: { name: string; imageUrl:
               ) : (
                 <span className="flex h-full w-full bg-neutral-900" />
               )}
-              {item.type === "video" && (
+              {item.type !== "image" && (
                 <span className="absolute inset-0 flex items-center justify-center bg-black/25 text-white">
                   <Play className="h-5 w-5 fill-current" />
                 </span>

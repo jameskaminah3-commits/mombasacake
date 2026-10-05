@@ -29,7 +29,7 @@ export function ProductCard({ cake, className }: { cake: Cake; className?: strin
             Sold out
           </span>
         )}
-        {cake.media?.some((item) => item.type === "video") && (
+        {cake.media?.some((item) => item.type !== "image") && (
           <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
             <Play className="h-3 w-3 fill-current" aria-hidden="true" /> Video
           </span>

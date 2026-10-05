@@ -391,7 +391,7 @@ export default function CakeDetail() {
         <CakeGallery key={cake.id} name={cake.name} imageUrl={imageUrl} media={cake.media ?? []} />
 
         {/* Details and choices */}
-        <div className="flex flex-col">
+        <div className="flex min-w-0 flex-col">
           <div className="flex items-start justify-between gap-3">
             <h1 className="text-lg font-bold tracking-tight md:text-xl">{cake.name}</h1>
             <button

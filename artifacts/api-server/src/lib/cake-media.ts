@@ -3,6 +3,7 @@ import { z } from "zod";
 import { cakeMediaTable, db, type CakeMedia } from "@workspace/db";
 import { logger } from "./logger";
 import { normalizeSupabaseMediaUrl } from "./media-urls";
+import { youTubeThumbnail, youTubeVideoId, youTubeWatchUrl } from "./youtube";
 
 export const MAX_CAKE_MEDIA = 12;
 export const MAX_CAKE_VIDEOS = 4;
@@ -41,27 +42,46 @@ const mediaUrl = z
   .max(1000)
   .refine((value) => /^https?:\/\//i.test(value) || (value.startsWith("/") && !value.startsWith("//")), "Use an uploaded file's address");
 
-export const CakeMediaItemSchema = z.object({
-  type: z.enum(["image", "video"]),
-  url: mediaUrl,
-  posterUrl: mediaUrl.nullish(),
-});
+// "youtube": a video from YouTube, played in the gallery. "video": a video file (from earlier versions).
+export const CakeMediaItemSchema = z
+  .object({
+    type: z.enum(["image", "video", "youtube"]),
+    url: mediaUrl,
+    posterUrl: mediaUrl.nullish(),
+  })
+  .refine((item) => item.type !== "youtube" || youTubeVideoId(item.url) !== null, "That isn't a YouTube video link");
+
+const isVideo = (item: { type: string }) => item.type === "video" || item.type === "youtube";
 
 export const CakeMediaListSchema = z
   .array(CakeMediaItemSchema)
   .max(MAX_CAKE_MEDIA, `A cake can have up to ${MAX_CAKE_MEDIA} extra photos and videos`)
-  .refine((items) => items.filter((item) => item.type === "video").length <= MAX_CAKE_VIDEOS, `A cake can have up to ${MAX_CAKE_VIDEOS} videos`);
+  .refine((items) => items.filter(isVideo).length <= MAX_CAKE_VIDEOS, `A cake can have up to ${MAX_CAKE_VIDEOS} videos`);
 
-export type CakeMediaItem = { type: "image" | "video"; url: string; posterUrl: string | null };
+export type CakeMediaItem = { type: "image" | "video" | "youtube"; url: string; posterUrl: string | null };
 
-// Photos are served through /api/media like the main image; videos keep their direct storage address,
+// Photos are served through /api/media like the main image; video files keep their direct storage address,
 // which streams them in pieces (what phones need to play video).
 function formatMediaItem(row: Pick<CakeMedia, "kind" | "url" | "posterUrl">): CakeMediaItem {
+  if (row.kind === "youtube") return { type: "youtube", url: row.url, posterUrl: row.posterUrl };
   const type = row.kind === "video" ? "video" : "image";
   return {
     type,
     url: type === "image" ? normalizeSupabaseMediaUrl(row.url) ?? row.url : row.url,
     posterUrl: normalizeSupabaseMediaUrl(row.posterUrl) ?? null,
+  };
+}
+
+// What's stored: photos as /api/media addresses, YouTube videos as their watch link and YouTube's own thumbnail.
+function storedMediaItem(item: z.infer<typeof CakeMediaItemSchema>) {
+  if (item.type === "youtube") {
+    const id = youTubeVideoId(item.url)!;
+    return { kind: "youtube", url: youTubeWatchUrl(id), posterUrl: youTubeThumbnail(id) };
+  }
+  return {
+    kind: item.type,
+    url: item.type === "image" ? normalizeSupabaseMediaUrl(item.url) ?? item.url : item.url,
+    posterUrl: normalizeSupabaseMediaUrl(item.posterUrl) ?? null,
   };
 }
 
@@ -91,15 +111,7 @@ export async function replaceCakeMedia(cakeId: number, items: z.infer<typeof Cak
   await db.transaction(async (tx) => {
     await tx.delete(cakeMediaTable).where(eq(cakeMediaTable.cakeId, cakeId));
     if (items.length === 0) return;
-    await tx.insert(cakeMediaTable).values(
-      items.map((item, position) => ({
-        cakeId,
-        position,
-        kind: item.type,
-        url: item.type === "image" ? normalizeSupabaseMediaUrl(item.url) ?? item.url : item.url,
-        posterUrl: normalizeSupabaseMediaUrl(item.posterUrl) ?? null,
-      })),
-    );
+    await tx.insert(cakeMediaTable).values(items.map((item, position) => ({ cakeId, position, ...storedMediaItem(item) })));
   });
 }
 

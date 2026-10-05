@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { Readable } from "node:stream";
 
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const SUPABASE_MEDIA_BUCKET = process.env.SUPABASE_MEDIA_BUCKET || "cake-media";
@@ -65,10 +64,6 @@ function extensionFromContentType(contentType: string) {
       return "png";
     case "image/webp":
       return "webp";
-    case "video/mp4":
-      return "mp4";
-    case "video/webm":
-      return "webm";
     case "image/jpeg":
     default:
       return "jpg";
@@ -182,53 +177,4 @@ export async function deleteSupabaseStorageObject(url: string) {
       },
     },
   );
-}
-
-// Sends a large file (a video) on to storage as it arrives, instead of holding it all in memory.
-// Returns the file's direct public address, which serves it in pieces the way phones play video.
-export async function streamSupabaseStorageObject(folder: string, contentType: string, body: Readable, contentLength: number) {
-  assertStorageConfig();
-
-  const SUPABASE_URL = getSupabaseProjectUrl();
-  const objectPath = buildObjectPath(folder, contentType);
-  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${SUPABASE_MEDIA_BUCKET}/${encodePath(objectPath)}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      apikey: `${SUPABASE_SERVICE_ROLE_KEY}`,
-      "Content-Type": contentType,
-      "Content-Length": String(contentLength),
-      // Every upload gets a new name, so browsers can keep it for a long time.
-      "Cache-Control": "max-age=31536000",
-      "x-upsert": "true",
-    },
-    body: Readable.toWeb(body) as ReadableStream<Uint8Array>,
-    duplex: "half",
-  } as RequestInit & { duplex: "half" });
-
-  if (!response.ok) {
-    const text = await response.text();
-    let message = text;
-    try {
-      const data = JSON.parse(text) as { message?: unknown; error?: unknown };
-      message = String(data.message ?? data.error ?? text);
-    } catch {
-      // Not JSON; use the text as it is.
-    }
-    throw new StorageRejectedError(response.status, message || `Storage refused the file (${response.status})`);
-  }
-
-  return {
-    path: objectPath,
-    url: `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_MEDIA_BUCKET}/${encodePath(objectPath)}`,
-  };
-}
-
-export class StorageRejectedError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-  }
 }

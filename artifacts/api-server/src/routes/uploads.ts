@@ -3,10 +3,8 @@ import { pool } from "@workspace/db";
 import { requireAdmin } from "../lib/auth-middleware";
 import { buildSupabaseMediaUrl, resolveSupabaseMediaPath } from "../lib/media-urls";
 import {
-  StorageRejectedError,
   deleteSupabaseStorageObject,
   getSupabaseProjectUrl,
-  streamSupabaseStorageObject,
   uploadSupabaseStorageObject,
 } from "../lib/supabase-storage";
 
@@ -145,44 +143,6 @@ router.post(
     }
   },
 );
-
-// Cake videos from the owner's phone. MP4 plays on every phone; iPhone videos (QuickTime .mov) hold the
-// same kind of video, so they're stored as MP4, which Android browsers also accept.
-const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
-const VIDEO_TYPES: Record<string, string> = { "video/mp4": "video/mp4", "video/quicktime": "video/mp4", "video/webm": "video/webm" };
-
-router.post("/uploads/video", requireAdmin, async (req: Request, res: Response): Promise<void> => {
-  const folder = typeof req.query.folder === "string" ? req.query.folder : "cake-videos";
-  const contentType = VIDEO_TYPES[(req.headers["content-type"] || "").split(";")[0].trim().toLowerCase()];
-  const size = Number(req.headers["content-length"]);
-
-  if (!contentType) {
-    res.status(415).json({ error: "Use an MP4, MOV or WebM video." });
-    return;
-  }
-  if (!Number.isFinite(size) || size <= 0) {
-    res.status(411).json({ error: "The video's size is missing. Please try again." });
-    return;
-  }
-  if (size > MAX_VIDEO_BYTES) {
-    res.status(413).json({ error: "Videos can be up to 50 MB. Try a shorter clip." });
-    return;
-  }
-
-  try {
-    const uploaded = await streamSupabaseStorageObject(folder, contentType, req, size);
-    res.json({ ...uploaded, type: contentType });
-  } catch (error) {
-    // The storage's own reason helps most, e.g. a bucket that only accepts images or a smaller size limit.
-    const message =
-      error instanceof StorageRejectedError
-        ? `Supabase storage didn't accept the video: ${error.message}`
-        : error instanceof Error
-          ? error.message
-          : "Upload failed";
-    res.status(error instanceof StorageRejectedError ? 502 : 500).json({ error: message });
-  }
-});
 
 router.delete(
   "/uploads/media",

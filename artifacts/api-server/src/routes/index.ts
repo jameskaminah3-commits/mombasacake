@@ -18,6 +18,7 @@ import uploadsRouter from "./uploads";
 import cakeOptionsRouter from "./cake-options";
 import referralsRouter from "./referrals";
 import customerAccountRouter from "./customer-account";
+import youtubeRouter from "./youtube";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(uploadsRouter);
 router.use(cakeOptionsRouter);
 router.use(referralsRouter);
 router.use(customerAccountRouter);
+router.use(youtubeRouter);
 
 export default router;

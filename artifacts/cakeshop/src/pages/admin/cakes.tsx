@@ -74,7 +74,7 @@ const cakeSchema = z.object({
   featured: z.boolean().default(false),
   variants: z.array(variantSchema).optional(),
   media: z
-    .array(z.object({ type: z.enum(["image", "video"]), url: z.string(), posterUrl: z.string().nullish() }))
+    .array(z.object({ type: z.enum(["image", "video", "youtube"]), url: z.string(), posterUrl: z.string().nullish() }))
     .default([]),
 });
 
