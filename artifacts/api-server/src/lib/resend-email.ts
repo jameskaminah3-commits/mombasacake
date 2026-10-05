@@ -17,6 +17,8 @@ export async function sendResendEmail(params: ResendEmailParams): Promise<void> 
 
   const response = await fetch(`${RESEND_API_URL}/emails`, {
     method: "POST",
+    // An email service that doesn't answer is given up on rather than waited for.
+    signal: AbortSignal.timeout(10_000),
     headers: {
       Authorization: `Bearer ${RESEND_API_KEY}`,
       "Content-Type": "application/json",

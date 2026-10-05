@@ -91,12 +91,13 @@ export default function Checkout() {
   const { data: paymentDetails } = usePaymentDetails();
   const sendsPrompt = paymentDetails?.stkEnabled === true;
 
-  // Polling logic when payment is prompted
+  // Watches the order while the customer pays: every few seconds after an M-Pesa prompt, and every 10 seconds
+  // while they pay from the M-Pesa menu, so the page moves on once the payment is confirmed.
   const { data: orderData } = useGetOrder(activeOrderId as number, {
     query: {
-      enabled: !!activeOrderId && paymentStatus === "prompted",
+      enabled: !!activeOrderId && (paymentStatus === "prompted" || paymentStatus === "manual"),
       queryKey: getGetOrderQueryKey(activeOrderId as number),
-      refetchInterval: 3000,
+      refetchInterval: paymentStatus === "prompted" ? 3000 : 10_000,
     },
     request: { headers: placedOrder?.accessToken ? { "X-Order-Token": placedOrder.accessToken } : {} },
   });
@@ -161,15 +162,15 @@ export default function Checkout() {
   }, [paymentStatus]);
 
   useEffect(() => {
-    if (orderData?.paymentStatus === "paid") {
+    if (orderData?.paymentStatus === "paid" && paymentStatus !== "success") {
       setPaymentStatus("success");
       setTimeout(() => {
         setLocation(orderPath({ id: orderData.id, accessToken: placedOrder?.accessToken }));
       }, 1500);
-    } else if (orderData?.paymentStatus === "failed") {
+    } else if (orderData?.paymentStatus === "failed" && paymentStatus === "prompted") {
       setPaymentStatus("failed");
     }
-  }, [orderData, setLocation, placedOrder]);
+  }, [orderData, setLocation, placedOrder, paymentStatus]);
 
   if (items.length === 0 && paymentStatus === "idle" && !placedOrder) {
     setLocation("/cart");
@@ -525,8 +526,8 @@ export default function Checkout() {
                   <path d="M20 6 9 17l-5-5" />
                 </svg>
               </div>
-              <h2 className="text-xl font-extrabold mb-4 text-[#52B44B]">Payment Successful</h2>
-              <p className="text-muted-foreground text-lg">Redirecting to your receipt...</p>
+              <h2 className="text-xl font-extrabold mb-4 text-[#52B44B]">Payment received</h2>
+              <p className="text-muted-foreground text-lg">Taking you to your order…</p>
             </div>
           )}
         </div>

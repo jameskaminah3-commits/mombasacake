@@ -174,7 +174,12 @@ function OrderHeader({ order }: { order: Order }) {
           : paid
             ? ["Thank you!", "We've received your payment and we'll get baking."]
             : order.paymentCheck?.state === "checking"
-              ? ["Checking your payment", `We've got your M-Pesa code ${order.paymentCheck.code} and are confirming it. We'll let you know.`]
+              ? [
+                  "Checking your payment",
+                  `We've got your M-Pesa code ${order.paymentCheck.code} and are checking it. ${
+                    order.customerEmail ? "We'll email you once it's confirmed." : "This page updates once it's confirmed."
+                  }`,
+                ]
               : order.paymentCheck?.state === "not-found"
                 ? ["Payment not found", "We couldn't find your M-Pesa payment. Check the code below and send it again, or WhatsApp us."]
                 : order.paymentStatus === "failed"

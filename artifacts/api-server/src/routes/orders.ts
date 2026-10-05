@@ -5,6 +5,7 @@ import { ensureOrdersSchema } from "../lib/ensure-orders-schema";
 import { db, ordersTable, orderItemsTable, cakesTable, promotionsTable, customersTable, paymentsTable, referralsTable } from "@workspace/db";
 import { requireAdmin } from "../lib/auth-middleware";
 import { logger } from "../lib/logger";
+import { inBackground } from "../lib/background";
 import { sendNewOrderNotification, sendPaymentCodeNotification } from "../lib/order-notifications";
 import { normalizeSupabaseMediaUrl } from "../lib/media-urls";
 import {
@@ -151,14 +152,21 @@ router.get("/orders", requireAdmin, async (req, res): Promise<void> => {
     .orderBy(desc(ordersTable.createdAt));
 
   // Payments to check before confirming: M-Pesa codes customers sent after paying the till themselves, and
-  // paybill payments M-Pesa reported without the secret key. The newest one per order is shown.
-  const reported = await db.select().from(paymentsTable).where(eq(paymentsTable.status, "reported")).orderBy(desc(paymentsTable.createdAt));
+  // paybill payments M-Pesa reported without the secret key. The newest one per order is shown. Codes the
+  // owner couldn't find ("rejected") say where the customer's payment stands for the WhatsApp update.
+  const toCheck = await db
+    .select()
+    .from(paymentsTable)
+    .where(inArray(paymentsTable.status, ["reported", "rejected"]))
+    .orderBy(desc(paymentsTable.createdAt), desc(paymentsTable.id));
   const result = await Promise.all(orders.map(async (order) => {
     const items = await db
       .select()
       .from(orderItemsTable)
       .where(eq(orderItemsTable.orderId, order.id));
-    const report = order.paymentStatus === "paid" ? undefined : reported.find((payment) => payment.orderId === order.id);
+    const unpaid = order.paymentStatus !== "paid";
+    const report = unpaid ? toCheck.find((payment) => payment.orderId === order.id && payment.status === "reported") : undefined;
+    const code = unpaid ? toCheck.find((payment) => payment.orderId === order.id && payment.method === CUSTOMER_CODE_METHOD) : undefined;
     return {
       ...formatOrder(order, items),
       reportedPayment: report
@@ -168,6 +176,9 @@ router.get("/orders", requireAdmin, async (req, res): Promise<void> => {
             at: report.createdAt.toISOString(),
             source: report.method === CUSTOMER_CODE_METHOD ? "customer" : "mpesa",
           }
+        : null,
+      paymentCheck: code?.mpesaReceiptNo
+        ? { code: code.mpesaReceiptNo, state: code.status === "reported" ? "checking" : "not-found", at: code.createdAt.toISOString() }
         : null,
     };
   }));
@@ -303,12 +314,11 @@ router.post("/orders", async (req, res): Promise<void> => {
     return { order, items };
   });
 
-  try {
-    await sendNewOrderNotification(order, items);
-  } catch (err) {
-    logger.error({ err, orderId: order.id }, "Failed to send new order email");
-  }
-  await emailCustomerAboutOrder(order, items, "received", siteUrl(req));
+  const baseUrl = siteUrl(req);
+  inBackground("New order emails", async () => {
+    await sendNewOrderNotification(order, items, baseUrl).catch((err) => logger.error({ err, orderId: order.id }, "Failed to send new order email"));
+    await emailCustomerAboutOrder(order, items, "received", baseUrl);
+  });
 
   res.status(201).json({ ...formatOrder(order, items), referral: await referralInfoFor(order) });
   } catch (err) {
@@ -396,11 +406,8 @@ router.post("/orders/:id/payment-code", async (req, res): Promise<void> => {
         .where(and(eq(paymentsTable.orderId, order.id), eq(paymentsTable.method, CUSTOMER_CODE_METHOD), eq(paymentsTable.status, "reported")));
       await tx.insert(paymentsTable).values({ orderId: order.id, amount: order.total, method: CUSTOMER_CODE_METHOD, status: "reported", mpesaReceiptNo: code });
     });
-    try {
-      await sendPaymentCodeNotification(order, code, siteUrl(req));
-    } catch (err) {
-      logger.error({ err, orderId: order.id }, "Payment code email to the owner failed");
-    }
+    const baseUrl = siteUrl(req);
+    inBackground("Payment code email to the owner", () => sendPaymentCodeNotification(order, code, baseUrl));
   }
 
   const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
@@ -429,7 +436,8 @@ router.post("/orders/:id/payment-code/not-found", requireAdmin, async (req, res)
     res.status(409).json({ error: "There's no M-Pesa code waiting to be checked for this order." });
     return;
   }
-  await emailCustomerPaymentCodeNotFound(order, rejected[0].code ?? "", siteUrl(req));
+  const baseUrl = siteUrl(req);
+  inBackground("Payment-not-found email", () => emailCustomerPaymentCodeNotFound(order, rejected[0].code ?? "", baseUrl));
   const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
   res.json({ ...formatOrder(order, items), paymentCheck: await paymentCheckFor(order) });
 });
@@ -461,7 +469,10 @@ router.patch("/orders/:id/status", requireAdmin, async (req, res): Promise<void>
     [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, order.id));
   }
   const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
-  if (order.status !== before.status) await emailCustomerAboutOrder(order, items, "status", siteUrl(req));
+  if (order.status !== before.status) {
+    const baseUrl = siteUrl(req);
+    inBackground("Order status email", () => emailCustomerAboutOrder(order, items, "status", baseUrl));
+  }
   res.json(formatOrder(order, items));
 });
 
@@ -524,7 +535,10 @@ router.patch("/orders/:id/mark-paid", requireAdmin, async (req, res): Promise<vo
   await rewardReferralForPaidOrder(order.id);
 
   const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
-  if (before?.paymentStatus !== "paid") await emailCustomerAboutOrder(order, items, "paid", siteUrl(req));
+  if (before.paymentStatus !== "paid") {
+    const baseUrl = siteUrl(req);
+    inBackground("Payment email", () => emailCustomerAboutOrder(order, items, "paid", baseUrl));
+  }
   res.json(formatOrder(order, items));
 });
 
@@ -585,7 +599,8 @@ router.post("/orders/manual", requireAdmin, async (req, res): Promise<void> => {
     });
 
     logger.info({ orderId: order.id }, "Manual order created");
-    await emailCustomerAboutOrder(order, items, "received", siteUrl(req));
+    const baseUrl = siteUrl(req);
+    inBackground("Order email", () => emailCustomerAboutOrder(order, items, "received", baseUrl));
     res.status(201).json(formatOrder(order, items));
   } catch (err) {
     sendOrderError(res, err, "Manual order creation failed");
@@ -656,7 +671,10 @@ router.put("/orders/:id", requireAdmin, async (req, res): Promise<void> => {
       [saved] = await db.select().from(ordersTable).where(eq(ordersTable.id, saved.id));
     }
     logger.info({ orderId: saved.id }, "Order edited in admin");
-    if (saved.status !== existing.status) await emailCustomerAboutOrder(saved, items, "status", siteUrl(req));
+    if (saved.status !== existing.status) {
+      const baseUrl = siteUrl(req);
+      inBackground("Order status email", () => emailCustomerAboutOrder(saved, items, "status", baseUrl));
+    }
     res.json(formatOrder(saved, items));
   } catch (err) {
     sendOrderError(res, err, "Order update failed");

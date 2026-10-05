@@ -41,7 +41,7 @@ export async function sendPaymentCodeNotification(order: Order, code: string, ba
   });
 }
 
-export async function sendNewOrderNotification(order: Order, items: OrderItem[]): Promise<void> {
+export async function sendNewOrderNotification(order: Order, items: OrderItem[], baseUrl: string): Promise<void> {
   const recipients = await ownerRecipients();
   if (recipients.length === 0) {
     return;
@@ -70,6 +70,12 @@ export async function sendNewOrderNotification(order: Order, items: OrderItem[])
     )
     .join("\n");
 
+  const ordersPage = `${baseUrl}/admin/orders`;
+  const payment =
+    order.paymentStatus === "paid"
+      ? "Paid"
+      : `Not paid yet. When the customer sends their M-Pesa code you'll get a "Check payment" email.`;
+
   // Delivery dates are stored as midnight UTC of the chosen day.
   const deliveryDate = order.deliveryDate
     ? order.deliveryDate.toLocaleDateString("en-KE", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
@@ -88,9 +94,10 @@ export async function sendNewOrderNotification(order: Order, items: OrderItem[])
       ${order.deliveryAddress ? `<p><strong>Delivery address:</strong> ${escapeHtml(order.deliveryAddress)}</p>` : ""}
       ${order.notes ? `<p><strong>Notes:</strong><br>${escapeHtml(order.notes).replace(/\n/g, "<br>")}</p>` : ""}
       <p><strong>Total:</strong> KES ${parseFloat(order.total).toLocaleString()}</p>
-      <p><strong>Payment status:</strong> ${escapeHtml(order.paymentStatus)}</p>
+      <p><strong>Payment:</strong> ${escapeHtml(payment)}</p>
       <p><strong>Items:</strong></p>
       <ul>${itemList}</ul>
+      <p><a href="${escapeHtml(ordersPage)}">Open Admin → Orders</a></p>
     `,
     text: [
       `New cake order received`,
@@ -102,8 +109,9 @@ export async function sendNewOrderNotification(order: Order, items: OrderItem[])
       order.deliveryAddress ? `Delivery address: ${order.deliveryAddress}` : null,
       order.notes ? `Notes:\n${order.notes}` : null,
       `Total: KES ${parseFloat(order.total).toLocaleString()}`,
-      `Payment status: ${order.paymentStatus}`,
+      `Payment: ${payment}`,
       `Items:\n${itemSummary}`,
+      `Admin → Orders: ${ordersPage}`,
     ].filter(Boolean).join("\n"),
   });
 }

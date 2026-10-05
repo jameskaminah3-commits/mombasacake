@@ -10,6 +10,7 @@ import { rewardReferralForPaidOrder } from "../lib/referrals";
 import { siteUrl } from "../lib/seo";
 import { customerPaymentDetails, darajaKeysConfigured, readPaymentSettings, shopNumber } from "../lib/payment-settings";
 import { logger } from "../lib/logger";
+import { inBackground } from "../lib/background";
 import { requireAdmin } from "../lib/auth-middleware";
 
 const router: IRouter = Router();
@@ -315,7 +316,8 @@ async function afterPayment(order: typeof ordersTable.$inferSelect, baseUrl: str
   try {
     await rewardReferralForPaidOrder(order.id);
     const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
-    await emailCustomerAboutOrder(order, items, "paid", baseUrl);
+    // Safaricom expects a quick answer, so the email goes out afterwards.
+    inBackground("Payment email", () => emailCustomerAboutOrder(order, items, "paid", baseUrl));
   } catch (err) {
     logger.error({ err, orderId: order.id }, "After-payment steps failed");
   }

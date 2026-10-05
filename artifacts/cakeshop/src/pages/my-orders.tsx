@@ -15,15 +15,19 @@ type OrderRow = {
   total: number;
   status: string;
   paymentStatus: string;
+  paymentCheck?: { state: string } | null;
   summary: string;
 };
 
-export function orderStatusLabel(order: { status: string; paymentStatus: string }) {
+export function orderStatusLabel(order: { status: string; paymentStatus: string; paymentCheck?: { state: string } | null }) {
   if (order.status === "cancelled") return "Cancelled";
   if (order.status === "delivered") return "Delivered";
   if (order.status === "ready") return "Ready";
   if (order.status === "preparing") return "Being made";
   if (order.paymentStatus === "paid") return "Paid";
+  // The M-Pesa code the customer sent: being checked, or not found in the shop's M-Pesa.
+  if (order.paymentCheck?.state === "checking") return "Checking payment";
+  if (order.paymentCheck?.state === "not-found") return "Payment not found";
   if (order.paymentStatus === "failed") return "Payment failed";
   return "Waiting for payment";
 }
@@ -51,7 +55,11 @@ export default function MyOrders() {
   }
   savedQueries.forEach((query) => {
     const order = query.data as Order | undefined;
-    if (order && !rows.has(order.id)) {
+    if (!order) return;
+    const known = rows.get(order.id);
+    if (known) {
+      known.paymentCheck = order.paymentCheck ?? null;
+    } else {
       rows.set(order.id, {
         id: order.id,
         accessToken: order.accessToken ?? null,
@@ -59,6 +67,7 @@ export default function MyOrders() {
         total: order.total,
         status: order.status,
         paymentStatus: order.paymentStatus,
+        paymentCheck: order.paymentCheck ?? null,
         summary: summarize(order.items),
       });
     }

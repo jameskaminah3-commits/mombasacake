@@ -8,6 +8,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { getApiBaseUrl } from "@/lib/api-base";
 import {
   Table,
@@ -28,29 +29,49 @@ import { Button } from "@/components/ui/button";
 import { AdminOrderForm, ORDER_STATUSES as STATUSES } from "@/components/admin-order-form";
 import { customerOrderLink, orderPath } from "@/lib/customer";
 import { orderItemChoices } from "@/lib/order-items";
+import { usePaymentDetails, type PaymentDetails } from "@/lib/payment-details";
 import { normalizeKenyanPhone } from "@/lib/phone";
 import { normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
 
-// A ready-to-send WhatsApp update for the customer, matching where their order is, with their private order link.
-function customerUpdateMessage(order: Order) {
+// How to pay an unpaid order: the till or paybill from Admin → Payments.
+function howToPay(order: Order, payment: PaymentDetails | undefined) {
+  const amount = `KES ${Math.round(order.total).toLocaleString()}`;
+  const number = payment?.manual?.number;
+  if (!number) return `You can pay ${amount} with M-Pesa on your order page.`;
+  const where =
+    payment.manual.method === "till"
+      ? `Lipa na M-Pesa → Buy Goods and Services → till number ${number}`
+      : `Lipa na M-Pesa → Pay Bill → business number ${number}, account number ${payment.manual.accountReferencePrefix}-${order.id}`;
+  return `To pay ${amount}: M-Pesa → ${where}, then send us the M-Pesa code on your order page.`;
+}
+
+// A ready-to-send WhatsApp update for the customer, matching where their order and payment are, with their
+// private order link.
+function customerUpdateMessage(order: Order, payment: PaymentDetails | undefined) {
   const name = order.customerName.trim().split(/\s+/)[0] || order.customerName;
+  const unpaid = order.paymentStatus !== "paid";
+  const code = order.paymentCheck?.code;
   const update =
     order.status === "cancelled"
       ? `your order #${order.id} has been cancelled.`
       : order.status === "delivered"
         ? `your order #${order.id} has been delivered. Enjoy! We'd love a quick review on your order page.`
         : order.status === "ready"
-          ? `your order #${order.id} is ready!`
+          ? `your order #${order.id} is ready!${unpaid ? ` ${howToPay(order, payment)}` : ""}`
           : order.status === "preparing"
-            ? `your cake for order #${order.id} is being made.`
-            : order.paymentStatus === "paid"
+            ? `your cake for order #${order.id} is being made.${unpaid ? ` ${howToPay(order, payment)}` : ""}`
+            : !unpaid
               ? `we've received your payment for order #${order.id}. Thank you!`
-              : `thank you for your order #${order.id} (KES ${Math.round(order.total).toLocaleString()}). You can pay with M-Pesa on your order page.`;
+              : order.paymentCheck?.state === "not-found"
+                ? `we couldn't find your M-Pesa payment with code ${code} for order #${order.id}. Please check the code in your M-Pesa SMS and send it again on your order page. ${howToPay(order, payment)}`
+                : order.paymentCheck?.state === "checking"
+                  ? `we've got your M-Pesa code ${code} for order #${order.id} and we're checking it now.`
+                  : `thank you for your order #${order.id}. ${howToPay(order, payment)}`;
   return `Hi ${name}, ${update}\n\nFollow your order here: ${customerOrderLink(order)}\n\nChannah Cake House`;
 }
 
-const customerWhatsAppUrl = (order: Order) =>
-  `https://wa.me/${normalizeKenyanPhone(order.customerPhone)}?text=${encodeURIComponent(customerUpdateMessage(order))}`;
+const customerWhatsAppUrl = (order: Order, payment: PaymentDetails | undefined) =>
+  `https://wa.me/${normalizeKenyanPhone(order.customerPhone)}?text=${encodeURIComponent(customerUpdateMessage(order, payment))}`;
 
 export default function AdminOrders() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -68,6 +89,27 @@ export default function AdminOrders() {
   const updateStatus = useUpdateOrderStatus();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: paymentDetails } = usePaymentDetails();
+
+  // After a change the customer should hear about: offers a ready-made WhatsApp message, which is the only way
+  // customers without an email hear about it.
+  const toastWithWhatsApp = (title: string, updated: Order) => {
+    const name = updated.customerName.trim().split(/\s+/)[0] || updated.customerName;
+    toast({
+      title,
+      description: updated.customerEmail
+        ? `We've emailed ${name}. You can also send a WhatsApp update.`
+        : `${name} has no email on this order, so send them a WhatsApp update.`,
+      duration: 15_000,
+      action: (
+        <ToastAction altText={`Send ${name} a WhatsApp update`} asChild>
+          <a href={customerWhatsAppUrl(updated, paymentDetails)} target="_blank" rel="noopener noreferrer">
+            <SiWhatsapp className="mr-1.5 h-3.5 w-3.5 text-[#25D366]" /> WhatsApp
+          </a>
+        </ToastAction>
+      ),
+    });
+  };
 
   const filteredOrders = orders?.filter((order) => {
     const matchesPayment =
@@ -93,14 +135,14 @@ export default function AdminOrders() {
     ),
   };
 
-  const handleStatusChange = async (orderId: number, status: string) => {
+  const handleStatusChange = async (order: Order, status: string) => {
     try {
-      await updateStatus.mutateAsync({
-        id: orderId,
+      const updated = await updateStatus.mutateAsync({
+        id: order.id,
         data: { status }
       });
       queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
-      toast({ title: "Order status updated" });
+      toastWithWhatsApp("Order status updated", { ...order, ...updated, paymentCheck: order.paymentCheck });
     } catch (error) {
       toast({ title: "Failed to update status", variant: "destructive" });
     }
@@ -114,13 +156,13 @@ export default function AdminOrders() {
     if (receipt === null) return; // cancelled
     const orderId = order.id;
     try {
-      await customFetch(`${getApiBaseUrl()}/api/orders/${orderId}/mark-paid`, {
+      const updated = await customFetch<Order>(`${getApiBaseUrl()}/api/orders/${orderId}/mark-paid`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mpesaReceiptNo: receipt.trim() || undefined }),
       });
       queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
-      toast({ title: "Payment marked as paid" });
+      toastWithWhatsApp("Payment marked as paid", { ...order, ...updated, paymentCheck: null });
     } catch (error) {
       toast({ title: "Failed to mark as paid", variant: "destructive" });
     }
@@ -130,9 +172,9 @@ export default function AdminOrders() {
   const handleCodeNotFound = async (order: Order) => {
     if (!window.confirm(`Tell ${order.customerName} that code ${order.reportedPayment?.receipt ?? ""} wasn't found in your M-Pesa?`)) return;
     try {
-      await customFetch(`${getApiBaseUrl()}/api/orders/${order.id}/payment-code/not-found`, { method: "POST" });
+      const updated = await customFetch<Order>(`${getApiBaseUrl()}/api/orders/${order.id}/payment-code/not-found`, { method: "POST" });
       queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
-      toast({ title: "Customer asked to check their code" });
+      toastWithWhatsApp("Customer asked to check their code", { ...order, ...updated });
     } catch {
       toast({ title: "Couldn't update the order", variant: "destructive" });
     }
@@ -290,7 +332,7 @@ export default function AdminOrders() {
                       </Button>
                       <Button asChild variant="outline" size="sm" className="h-7 px-2 text-xs">
                         <a
-                          href={customerWhatsAppUrl(order)}
+                          href={customerWhatsAppUrl(order, paymentDetails)}
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={`WhatsApp ${order.customerName} about order #${order.id}`}
@@ -418,7 +460,7 @@ export default function AdminOrders() {
                   <TableCell>
                     <Select 
                       value={order.status} 
-                      onValueChange={(val) => handleStatusChange(order.id, val)}
+                      onValueChange={(val) => handleStatusChange(order, val)}
                     >
                       <SelectTrigger className={`w-[140px] h-8 text-xs font-bold uppercase tracking-wider ${getStatusColor(order.status)} border-0 ring-0 focus:ring-0`}>
                         <SelectValue />
