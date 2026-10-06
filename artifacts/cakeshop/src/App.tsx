@@ -42,6 +42,7 @@ const AdminPayments = lazy(() => import("@/pages/admin/payments"));
 const AdminHomepage = lazy(() => import("@/pages/admin/homepage"));
 const AdminMediaLibrary = lazy(() => import("@/pages/admin/media-library"));
 const AdminMarketing = lazy(() => import("@/pages/admin/marketing"));
+const AdminAdmins = lazy(() => import("@/pages/admin/admins"));
 
 function PageLoading() {
   return (
@@ -110,6 +111,7 @@ function Router() {
                   <Route path="/homepage" component={AdminHomepage} />
                   <Route path="/media-library" component={AdminMediaLibrary} />
                   <Route path="/marketing" component={AdminMarketing} />
+                  <Route path="/admins" component={AdminAdmins} />
                   <Route component={NotFound} />
                 </Switch>
               </Suspense>

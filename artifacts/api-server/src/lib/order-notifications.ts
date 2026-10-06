@@ -1,8 +1,8 @@
 import { adminsTable, type Order, type OrderItem, db } from "@workspace/db";
 import { sendResendEmail } from "./resend-email";
 
-// The shop's staff (admin accounts), or ADMIN_EMAIL when there are none.
-async function ownerRecipients(): Promise<string[]> {
+// Who gets the shop's alerts: every admin (Admin → Admins), or ADMIN_EMAIL when there are none.
+export async function ownerRecipients(): Promise<string[]> {
   const adminEmails = await db
     .select({ email: adminsTable.email })
     .from(adminsTable);
@@ -19,6 +19,25 @@ async function ownerRecipients(): Promise<string[]> {
     const fallback = (process.env.ADMIN_EMAIL || "").trim();
     if (fallback) recipients.push(fallback);
   }
+  return recipients;
+}
+
+// From Admin → Admins: shows the alerts reach every admin (and that email is set up).
+export async function sendTestAlert(baseUrl: string, sentBy: string): Promise<string[]> {
+  const recipients = await ownerRecipients();
+  if (recipients.length === 0) throw new Error("There are no admin emails to send to.");
+  const ordersPage = `${baseUrl}/admin/orders`;
+  await sendResendEmail({
+    to: recipients,
+    subject: "Test: Channah Cake House order alerts",
+    html: `
+      <h2>Order alerts are working</h2>
+      <p>${escapeHtml(sentBy)} sent this test from Admin → Admins. New orders and M-Pesa codes to check are emailed to every admin:</p>
+      <ul>${recipients.map((email) => `<li>${escapeHtml(email)}</li>`).join("")}</ul>
+      <p><a href="${escapeHtml(ordersPage)}">Open Admin → Orders</a></p>
+    `,
+    text: `Order alerts are working. ${sentBy} sent this test from Admin → Admins. New orders and M-Pesa codes to check are emailed to every admin: ${recipients.join(", ")}.\n\nAdmin → Orders: ${ordersPage}`,
+  });
   return recipients;
 }
 

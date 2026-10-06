@@ -14,16 +14,19 @@ import { DEFAULT_LOGO_IMAGE_URL } from "@/lib/site-images";
 
 const RESET_EMAIL_KEY = "creme_admin_reset_email";
 
-function readRecoveryAccessToken() {
+// A password link from an email: "recovery" (Forgot password) or "invite" (a new admin setting their first password).
+function readPasswordLink() {
   if (typeof window === "undefined") return null;
 
   const hash = window.location.hash.replace(/^#/, "");
   if (!hash) return null;
 
   const params = new URLSearchParams(hash);
-  if (params.get("type") !== "recovery") return null;
+  const type = params.get("type");
+  const token = params.get("access_token");
+  if ((type !== "recovery" && type !== "invite") || !token) return null;
 
-  return params.get("access_token");
+  return { token, invite: type === "invite" };
 }
 
 export default function Login() {
@@ -36,6 +39,7 @@ export default function Login() {
   const [isResetFormOpen, setIsResetFormOpen] = useState(false);
   const [isSendingReset, setIsSendingReset] = useState(false);
   const [recoveryAccessToken, setRecoveryAccessToken] = useState<string | null>(null);
+  const [isInvite, setIsInvite] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
@@ -47,10 +51,11 @@ export default function Login() {
   }, [admin, token, isLoading, setLocation]);
 
   useEffect(() => {
-    const accessToken = readRecoveryAccessToken();
-    if (!accessToken) return;
+    const link = readPasswordLink();
+    if (!link) return;
 
-    setRecoveryAccessToken(accessToken);
+    setRecoveryAccessToken(link.token);
+    setIsInvite(link.invite);
     const savedEmail = window.sessionStorage.getItem(RESET_EMAIL_KEY);
     if (savedEmail) {
       setEmail(savedEmail);
@@ -146,23 +151,25 @@ export default function Login() {
         body: JSON.stringify({ accessToken: recoveryAccessToken, password: newPassword }),
       });
 
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
         throw new Error(data.error || "Failed to update password");
       }
 
-      const storedEmail = window.sessionStorage.getItem(RESET_EMAIL_KEY) || email.trim();
-      if (!storedEmail) {
-        throw new Error("We could not restore the email address for this reset.");
+      // The link may be opened on another phone or computer than the one that asked for it, so the account's
+      // email comes from the reply.
+      const accountEmail = data.admin?.email || window.sessionStorage.getItem(RESET_EMAIL_KEY) || email.trim();
+      if (!accountEmail) {
+        throw new Error("Your password is set. Sign in with your email and new password.");
       }
 
-      await login(storedEmail, newPassword);
+      await login(accountEmail, newPassword);
       window.sessionStorage.removeItem(RESET_EMAIL_KEY);
       setRecoveryAccessToken(null);
       setLocation("/admin");
       toast({
-        title: "Password updated",
-        description: "You are signed in again.",
+        title: isInvite ? "Welcome!" : "Password updated",
+        description: isInvite ? "Your password is set and you're signed in." : "You are signed in again.",
       });
     } catch (error) {
       toast({
@@ -195,10 +202,14 @@ export default function Login() {
         <Card className="border-none shadow-xl rounded-3xl bg-white">
           <CardHeader className="pb-2 pt-8 px-8">
             <h1 className="font-serif text-2xl font-bold text-foreground">
-              {recoveryAccessToken ? "Set a new password" : "Welcome back"}
+              {recoveryAccessToken ? (isInvite ? "Set your password" : "Set a new password") : "Welcome back"}
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              {recoveryAccessToken ? "Choose a fresh password for your admin account." : "Sign in to manage your shop"}
+              {recoveryAccessToken
+                ? isInvite
+                  ? "You've been added as an admin. Choose a password to sign in."
+                  : "Choose a fresh password for your admin account."
+                : "Sign in to manage your shop"}
             </p>
           </CardHeader>
           <CardContent className="px-8 pb-8">
@@ -244,6 +255,8 @@ export default function Login() {
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Updating...
                     </>
+                  ) : isInvite ? (
+                    "Set password"
                   ) : (
                     "Update password"
                   )}

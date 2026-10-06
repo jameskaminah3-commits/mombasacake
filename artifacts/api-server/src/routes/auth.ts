@@ -9,6 +9,7 @@ import {
   updateAdminPassword,
 } from "../lib/admin-auth";
 import { logger } from "../lib/logger";
+import { siteUrl } from "../lib/seo";
 
 const router: IRouter = Router();
 
@@ -79,7 +80,7 @@ router.post("/auth/password-reset", async (req: Request, res: Response): Promise
   }
 
   try {
-    await sendAdminPasswordResetEmail(parsed.data.email);
+    await sendAdminPasswordResetEmail(parsed.data.email, siteUrl(req));
     res.json({ ok: true });
   } catch (error) {
     res.status(400).json({

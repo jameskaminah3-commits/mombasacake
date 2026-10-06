@@ -11,6 +11,7 @@ import {
   FolderOpen,
   ShoppingBag,
   Tags,
+  UserCog,
   Users,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -34,6 +35,7 @@ const navItems = [
   { href: "/homepage", label: "Homepage", icon: ImageIcon },
   { href: "/media-library", label: "Media Library", icon: FolderOpen },
   { href: "/marketing", label: "Marketing", icon: Megaphone },
+  { href: "/admins", label: "Admins", icon: UserCog },
 ];
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
