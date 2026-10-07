@@ -10,6 +10,11 @@ export interface ResendEmailParams {
   text?: string;
 }
 
+// Whether the shop can send email (the Resend settings are in place).
+export function emailConfigured() {
+  return Boolean(RESEND_API_KEY && RESEND_FROM_EMAIL);
+}
+
 export async function sendResendEmail(params: ResendEmailParams): Promise<void> {
   if (!RESEND_API_KEY || !RESEND_FROM_EMAIL) {
     throw new Error("Resend is not configured.");

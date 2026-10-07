@@ -12,9 +12,8 @@ import { getApiBaseUrl } from "@/lib/api-base";
 import { normalizeSupabaseMediaUrl } from "@/lib/supabase-media";
 import { DEFAULT_LOGO_IMAGE_URL } from "@/lib/site-images";
 
-const RESET_EMAIL_KEY = "creme_admin_reset_email";
-
-// A password link from an email: "recovery" (Forgot password) or "invite" (a new admin setting their first password).
+// A password link from an email: "invite" (a new admin setting their first password), or "recovery" (reset links
+// sent before Forgot password used codes).
 function readPasswordLink() {
   if (typeof window === "undefined") return null;
 
@@ -36,7 +35,10 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isResetFormOpen, setIsResetFormOpen] = useState(false);
+  // Forgot password: ask for a code by email, then enter it with the new password.
+  const [mode, setMode] = useState<"signin" | "reset-email" | "reset-code">("signin");
+  const [resetCode, setResetCode] = useState("");
+  const [resetProblem, setResetProblem] = useState<string | null>(null);
   const [isSendingReset, setIsSendingReset] = useState(false);
   const [recoveryAccessToken, setRecoveryAccessToken] = useState<string | null>(null);
   const [isInvite, setIsInvite] = useState(false);
@@ -56,11 +58,6 @@ export default function Login() {
 
     setRecoveryAccessToken(link.token);
     setIsInvite(link.invite);
-    const savedEmail = window.sessionStorage.getItem(RESET_EMAIL_KEY);
-    if (savedEmail) {
-      setEmail(savedEmail);
-    }
-
     window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.search}`);
   }, []);
 
@@ -78,46 +75,73 @@ export default function Login() {
     }
   };
 
-  const sendResetEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const sendResetCode = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!email.trim()) {
-      toast({
-        title: "Email required",
-        description: "Enter the admin email address first.",
-        variant: "destructive",
-      });
+      setResetProblem("Enter your admin email address.");
       return;
     }
 
     setIsSendingReset(true);
+    setResetProblem(null);
     try {
       const response = await fetch(`${getApiBaseUrl()}/api/auth/password-reset`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
       });
-
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to send reset link");
+        throw new Error(data.error || "We couldn't send the code. Please try again.");
       }
-
-      window.sessionStorage.setItem(RESET_EMAIL_KEY, email.trim());
-      setIsResetFormOpen(false);
-      toast({
-        title: "Reset link sent",
-        description: "Check your inbox to continue.",
-      });
+      setResetCode("");
+      setMode("reset-code");
+      toast({ title: "Code sent", description: `If ${email.trim()} is an admin account, a 6-digit code is on its way.` });
     } catch (error) {
-      toast({
-        title: "Could not send reset link",
-        description: error instanceof Error ? error.message : "Please try again.",
-        variant: "destructive",
-      });
+      setResetProblem(error instanceof Error ? error.message : "We couldn't send the code. Please try again.");
     } finally {
       setIsSendingReset(false);
     }
+  };
+
+  const resetWithCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      setResetProblem("Use at least 8 characters for the password.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setResetProblem("The two passwords don't match.");
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    setResetProblem(null);
+    try {
+      const response = await fetch(`${getApiBaseUrl()}/api/auth/password-reset/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim(), code: resetCode, password: newPassword }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "We couldn't reset the password. Please try again.");
+      }
+      await login(data.admin?.email || email.trim(), newPassword);
+      setLocation("/admin");
+      toast({ title: "Password updated", description: "You're signed in." });
+    } catch (error) {
+      setResetProblem(error instanceof Error ? error.message : "We couldn't reset the password. Please try again.");
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  const backToSignIn = () => {
+    setMode("signin");
+    setResetProblem(null);
+    setNewPassword("");
+    setConfirmPassword("");
   };
 
   const updatePassword = async (e: React.FormEvent) => {
@@ -158,13 +182,12 @@ export default function Login() {
 
       // The link may be opened on another phone or computer than the one that asked for it, so the account's
       // email comes from the reply.
-      const accountEmail = data.admin?.email || window.sessionStorage.getItem(RESET_EMAIL_KEY) || email.trim();
+      const accountEmail = data.admin?.email || email.trim();
       if (!accountEmail) {
         throw new Error("Your password is set. Sign in with your email and new password.");
       }
 
       await login(accountEmail, newPassword);
-      window.sessionStorage.removeItem(RESET_EMAIL_KEY);
       setRecoveryAccessToken(null);
       setLocation("/admin");
       toast({
@@ -202,14 +225,26 @@ export default function Login() {
         <Card className="border-none shadow-xl rounded-3xl bg-white">
           <CardHeader className="pb-2 pt-8 px-8">
             <h1 className="font-serif text-2xl font-bold text-foreground">
-              {recoveryAccessToken ? (isInvite ? "Set your password" : "Set a new password") : "Welcome back"}
+              {recoveryAccessToken
+                ? isInvite
+                  ? "Set your password"
+                  : "Set a new password"
+                : mode === "reset-email"
+                  ? "Reset your password"
+                  : mode === "reset-code"
+                    ? "Enter your code"
+                    : "Welcome back"}
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
               {recoveryAccessToken
                 ? isInvite
                   ? "You've been added as an admin. Choose a password to sign in."
                   : "Choose a fresh password for your admin account."
-                : "Sign in to manage your shop"}
+                : mode === "reset-email"
+                  ? "We'll email you a 6-digit code to reset it."
+                  : mode === "reset-code"
+                    ? `We've emailed a 6-digit code to ${email.trim()}. It works for 15 minutes.`
+                    : "Sign in to manage your shop"}
             </p>
           </CardHeader>
           <CardContent className="px-8 pb-8">
@@ -262,6 +297,121 @@ export default function Login() {
                   )}
                 </Button>
               </form>
+            ) : mode === "reset-email" ? (
+              <form onSubmit={sendResetCode} className="space-y-5 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email" className="text-sm font-medium text-foreground">
+                    Email address
+                  </Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="admin@channahcakes.ke"
+                    required
+                    className="h-12 rounded-xl border-border"
+                  />
+                </div>
+                {resetProblem && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {resetProblem}
+                  </p>
+                )}
+                <Button
+                  type="submit"
+                  disabled={isSendingReset}
+                  className="w-full h-12 rounded-xl font-semibold text-base bg-primary hover:bg-primary/90 text-white"
+                >
+                  {isSendingReset ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    "Send code"
+                  )}
+                </Button>
+                <button type="button" onClick={backToSignIn} className="w-full text-sm font-medium text-muted-foreground hover:text-primary">
+                  Back to sign in
+                </button>
+              </form>
+            ) : mode === "reset-code" ? (
+              <form onSubmit={resetWithCode} className="space-y-5 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-code" className="text-sm font-medium text-foreground">
+                    6-digit code
+                  </Label>
+                  <Input
+                    id="reset-code"
+                    value={resetCode}
+                    onChange={(e) => setResetCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="Code from the email"
+                    required
+                    className="h-12 rounded-xl border-border text-center font-mono text-xl tracking-[0.4em] placeholder:font-sans placeholder:text-base placeholder:tracking-normal"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reset-password" className="text-sm font-medium text-foreground">
+                    New password
+                  </Label>
+                  <Input
+                    id="reset-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="At least 8 characters"
+                    required
+                    className="h-12 rounded-xl border-border"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reset-confirm" className="text-sm font-medium text-foreground">
+                    Confirm password
+                  </Label>
+                  <Input
+                    id="reset-confirm"
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repeat the new password"
+                    required
+                    className="h-12 rounded-xl border-border"
+                  />
+                </div>
+                {resetProblem && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {resetProblem}
+                  </p>
+                )}
+                <Button
+                  type="submit"
+                  disabled={isUpdatingPassword || resetCode.length !== 6}
+                  className="w-full h-12 rounded-xl font-semibold text-base bg-primary hover:bg-primary/90 text-white"
+                >
+                  {isUpdatingPassword ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Resetting...
+                    </>
+                  ) : (
+                    "Reset password"
+                  )}
+                </Button>
+                <div className="flex items-center justify-between text-sm">
+                  <button type="button" onClick={() => sendResetCode()} disabled={isSendingReset} className="font-medium text-primary hover:underline disabled:opacity-60">
+                    {isSendingReset ? "Sending..." : "Send a new code"}
+                  </button>
+                  <button type="button" onClick={backToSignIn} className="font-medium text-muted-foreground hover:text-primary">
+                    Back to sign in
+                  </button>
+                </div>
+              </form>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-5 mt-4">
                 <div className="space-y-2">
@@ -311,35 +461,14 @@ export default function Login() {
                   <button
                     type="button"
                     className="text-sm font-medium text-muted-foreground hover:text-primary"
-                    onClick={() => setIsResetFormOpen((value) => !value)}
+                    onClick={() => {
+                      setResetProblem(null);
+                      setMode("reset-email");
+                    }}
                   >
                     Forgot password?
                   </button>
                 </div>
-
-                {isResetFormOpen && (
-                  <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
-                    <p className="text-sm text-muted-foreground">
-                      Send a password reset link to your admin email.
-                    </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={sendResetEmail}
-                      disabled={isSendingReset}
-                    >
-                      {isSendingReset ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Sending...
-                        </>
-                      ) : (
-                        "Send reset link"
-                      )}
-                    </Button>
-                  </div>
-                )}
 
                 <Button
                   type="submit"
