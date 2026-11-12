@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import router from "./routes";
 import { logger } from "./lib/logger";
-import { renderRobotsTxt, renderSitemap, renderStorefrontPage, siteUrl } from "./lib/seo";
+import { canonicalRedirect, renderRobotsTxt, renderSitemap, renderStorefrontPage, siteUrl } from "./lib/seo";
 
 const app: Express = express();
 // Railway's proxy sits in front of the app: trust its one hop, so req.ip is each visitor's own address
@@ -49,6 +49,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+// One address per page for search engines: http:// and www. are sent to the live https address, and trailing
+// slashes are dropped (the shop's API and its health check are left alone).
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  const target = canonicalRedirect(req);
+  if (target) {
+    res.redirect(301, target);
+    return;
+  }
+  next();
+});
 
 // The old separate menu page is now the shop's home page.
 app.get("/menu", (req, res) => {
